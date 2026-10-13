@@ -101,7 +101,7 @@ cd frontend; npm test; npm run build               # 99 tests
 - Only pushed code is read.
 - The code scan finds changed names, not silent behavior changes, and cannot confirm a runtime failure.
 - Maven: `${property}` and `dependencyManagement` in the same `pom.xml` only; parent POMs and BOM imports are not followed.
-- API contract analysis compares OpenAPI / Swagger files only when they are verifiably two versions of the same API (matching `x-api-id` or title, and an orderable `info.version`). Findings are potentially breaking changes found in the files, never confirmed runtime failures. Details and limits: `docs/API_CONTRACT.md`, "Contract analysis".
+- API contract analysis compares OpenAPI / Swagger files only when they are verifiably two versions of the same API (matching `x-api-id` or title, and an orderable `info.version`). Findings are potentially breaking changes found in the files, never confirmed runtime failures. For each consumer repository, every change is given an evidence tier: the operation is called, the changed field itself is read or sent, no usage was found, or the code could not be followed. "No usage found" is not a statement of safety, and "unresolved" is the result whenever the call target, the client, the HTTP method or the URL cannot be established from the source. The evaluation measures detection of usage of a changed element; it does not measure breakage. Details and limits: `docs/API_CONTRACT.md`, "Contract analysis".
 - Risk is a signal, not a guarantee.
 
 ## Not built

@@ -98,3 +98,9 @@ pytest --cov=app --cov-report=term-missing tests/
 # Run API contract tests specifically
 pytest tests/test_api.py -v
 ```
+
+Contract impact evaluation (offline). It measures changed-element usage detection, not breakage. It prints usage-detection precision and recall on the controlled fixtures and exits non-zero when a case differs from its reviewed expected result; add `--strict` to also fail on a missed target:
+
+```bash
+python scripts/evaluate_contract_impact.py
+```

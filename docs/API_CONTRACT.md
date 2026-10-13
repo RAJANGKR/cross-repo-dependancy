@@ -174,12 +174,37 @@ Implemented in `backend/app/services/openapi_diff_engine.py`. Request option: `o
 | `ANALYZED` | empty | Two versions of the same API were compared. `provider_repo` holds the newer one; `baseline` and `candidate` name both files. `findings` lists every change. |
 | `ANALYZED` | set | That repository's source code calls endpoints of the changed API, and the calls are tied to this API by a server host or a naming signal (`relationship.consumer_evidence`). `findings` holds only the changes on endpoints it references, and may be empty. |
 | `RELATIONSHIP_UNVERIFIED` | empty | The specification is the same API as another one, or might be, but identity or version order could not be established. Nothing was compared. |
-| `RELATIONSHIP_UNVERIFIED` | set | No reference to the API was found in that repository, its source could not be scanned, or it only contains paths the API shares with other services and nothing ties them to this API (listed in `possible_references`). It is not known to be a consumer and not ruled out. |
+| `RELATIONSHIP_UNVERIFIED` | set | No reference to the API was found in that repository, its source could not be scanned, or it only contains paths the API shares with other services and nothing ties them to this API (listed in `possible_references`). When the provider's server host is written somewhere in the repository but not on those calls, it is reported in `relationship.candidate_evidence`. It is not known to be a consumer and not ruled out. |
+| `UNRESOLVED` | set | That repository builds request URLs at runtime from a base URL that carries a signal for this API (`f"{BILLING_URL}{path}"`, `BILLING_URL + path`, `urljoin(BILLING_URL, ...)`). No operation could be matched or excluded. The signal is listed in `relationship.candidate_evidence` and the call sites in `dynamic_urls`; it is a candidate, not an established relationship. |
 | `NOT_COMPARED` | empty | A valid specification with no other version of the same API in this scan. |
 | `SPEC_UNAVAILABLE` | empty | No specification was found, or it could not be downloaded. |
 | `MALFORMED_SPEC` | empty | A specification file was found and could not be parsed. |
 
-**Findings.** `change_type` is `REMOVED_PATH`, `REMOVED_OPERATION`, `NEW_REQUIRED_REQUEST_FIELD` or `CHANGED_RESPONSE_FIELD_TYPE`. `previous_value` and `new_value` are the before and after evidence. `spec_file` and `json_pointer` (RFC 6901) locate that evidence; for a removal they point into the baseline file, named by `spec_repository`. `severity` is `HIGH` or `MEDIUM`, a fixed value per change type. Additive fields: `classification` and, on consumer entries, `consumer_references` (`repository`, `file`, `line`, `snippet`, `match`), where `match` is `exact` or `concatenated`.
+**Findings.** Every finding also names the changed element in a structured form: `field` (`customer.legacy_id`, `[].amount`, a parameter name, or empty for a removed operation) and `field_in` (`response_body`, `request_body`, `query`, `header`). `change_type` is `REMOVED_PATH`, `REMOVED_OPERATION`, `NEW_REQUIRED_REQUEST_FIELD` or `CHANGED_RESPONSE_FIELD_TYPE`. `previous_value` and `new_value` are the before and after evidence. `spec_file` and `json_pointer` (RFC 6901) locate that evidence; for a removal they point into the baseline file, named by `spec_repository`. `severity` is `HIGH` or `MEDIUM`, a fixed value per change type. Additive fields: `classification` and, on consumer entries, `consumer_references` (`repository`, `file`, `line`, `snippet`, `match`), where `match` is `exact` or `concatenated`.
+
+**Evidence tiers.** Every finding has an `evidence_tier`. For an analyzed or unresolved consumer (`status` `ANALYZED` or `UNRESOLVED` with a `consumer_repo`) the entry also has `consumer_impact`: one row per change of the comparison, so that changes with no evidence are visible too.
+
+| `evidence_tier` | Meaning | What it does not mean |
+| --- | --- | --- |
+| `T0_DETECTED` | A difference between two specification files. Used on specification-level entries. | Nothing about any consumer. |
+| `T1_OPERATION_MATCH` | Consumer code calls the changed operation, with an HTTP method the call itself states. | That the consumer reads or sends the changed field. |
+| `T2_FIELD_MATCH` | Consumer code uses the changed field itself; `usage` says how. | That anything fails at runtime. |
+| `UNRESOLVED` | The code, the client configuration, the HTTP method or the URL could not be established; `explanation` says which and why. | That the consumer is unaffected, or that it is affected. |
+| `NO_USAGE_FOUND` | No call to the operation was found in the inspected files. | That the consumer is unaffected. |
+
+A repository whose relationship to the provider cannot be established keeps the entry status `RELATIONSHIP_UNVERIFIED` and gets no rows.
+
+`usage` values: `CALLS_OPERATION` (a removed operation is called), `READS_CHANGED_FIELD`, `FIELD_NOT_READ` (the operation is called and no read of the field was found in the code that was followed), `OMITS_REQUIRED_FIELD` (the request, including the client configuration that could be read, lacks the value), `SENDS_REQUIRED_FIELD` (the request is seen to include it on every path, so it is listed in `consumer_impact` but not in `findings`), `MAY_SEND_REQUIRED_FIELD` (the value is set only under a condition, so a request without it is possible), `NOT_DETERMINED`, `NO_USAGE_FOUND`.
+
+A `consumer_impact` row has `change_type`, `method`, `path`, `field`, `field_in`, `previous_value`, `new_value`, `evidence_tier`, `usage`, `repository`, `file`, `line`, `snippet` and `explanation`. `file` is empty and `line` is `null` when there is no source location. Findings of a consumer entry carry the same tier fields plus `source_file` and `source_line`.
+
+```json
+{ "change_type": "CHANGED_RESPONSE_FIELD_TYPE", "method": "GET", "path": "/orders/{orderId}", "field": "id", "field_in": "response_body",
+  "previous_value": "200 response field id: integer", "new_value": "200 response field id: string",
+  "evidence_tier": "T2_FIELD_MATCH", "usage": "READS_CHANGED_FIELD", "repository": "checkout",
+  "file": "src/checkout.js", "line": 7, "snippet": "return String(res.data.id).padStart(8, '0')",
+  "explanation": "The code reads response field 'id', whose type changed." }
+```
 
 **Four levels of claim, kept apart.**
 
@@ -201,6 +226,51 @@ Anything else is reported as `RELATIONSHIP_UNVERIFIED` or `NOT_COMPARED` with th
 2. *Which HTTP method does the call send?* Only the invocation that receives the literal is read: its name (`axios.post(...)`, `requests.delete(...)`, `postForObject(...)`) or a method named inside its own parentheses (`fetch(url, { method: 'POST' })`, `requests.request("PUT", url)`). `fetch(url)` with no options is a GET. Neighbouring statements, comments and log messages are never read. When the method cannot be determined, the reference counts for every method of that path.
 3. *Is the call addressed to this provider?* A path match alone never is. A reference is attributed only with a signal: a server host from the specification (`servers[].url`, Swagger `host`) in the URL, or a name containing a distinctive word of the API's title, id or repository (`ORDERS_API_URL`, `ordersClient.get(...)`). Names are followed one assignment back in the same file. The signals found are returned in `relationship.consumer_evidence`. References without a signal produce no finding and are listed in `possible_references`; if a repository has only those, the entry is `RELATIONSHIP_UNVERIFIED`.
 
+**Field-level usage.** Implemented in `backend/app/services/consumer_usage.py`. Source is parsed, never executed: Python with the standard `ast` module, JavaScript, JSX, TypeScript and TSX with tree-sitter. Starting from a call that was already attributed to the provider, it extracts:
+
+| | Python | JavaScript / TypeScript |
+| --- | --- | --- |
+| Response reads | `response.json()["customer"]["legacy_id"]`, `.get("status")`, `json.loads(response.text)`, variables assigned from these, `with ... as response`, `for item in data`, comprehensions | `res.data.customer.legacy_id` (axios), `(await res.json()).customer`, `res["data"]["customer"]`, optional chaining, object and array destructuring with renames and defaults, `.then(...)` chains, `for...of`, `map` / `filter` / `find` / `forEach` callbacks, `JSON.parse(await res.text())` |
+| Request body | `json=` / `data=` dict literals, `dict(...)`, `json.dumps(...)`, a variable built in the same function (including `payload["k"] = v` and `.update({...})`), a local function that returns a literal | `axios.post(url, {...})`, `fetch(url, { body: JSON.stringify({...}) })`, `axios({ data })`, shorthand properties, a variable built in the same function, a local function that returns a literal |
+| Query | `params={...}`, keys in the URL string | `{ params: {...} }`, keys in the URL string |
+| Headers | `headers={...}` | `{ headers: {...} }` |
+
+**Which function a call reaches.** A response returned from a function is followed to its callers, and a response passed as an argument is followed into the function that receives it, at most two functions deep. A call is followed only when the source establishes where it goes. A matching name is never enough.
+
+| Followed | Not followed (reported as `UNRESOLVED` with the reason) |
+| --- | --- |
+| A function defined in the same file or an enclosing function | A name that is neither defined in the file nor imported from an inspected file |
+| A function imported from an inspected file: `from store import keep`, `import { keep } from './store'`, a default import, `import * as store from './store'`, `require('./store')` | A function imported from a package or through a path alias (`'some-library'`, `'@/lib/store'`) |
+| `self.method()` / `this.method()` inside the same class | A method on any other object: `this.cache.store(x)`, `crm.fetch_customer()` |
+| A method on an object constructed in the same file or function: `billing = Billing()`, `const store = new Store()` | A method on a parameter, an attribute, or an injected object |
+| A React `useState` setter, inside the component that declares it | The same setter name in another component |
+
+**What a request sends.** A value missing from the immediate call arguments is not proof that the request lacks it, so `OMITS_REQUIRED_FIELD` is reported only when the client is fully visible:
+
+- `requests.get(...)`, `httpx.post(...)` and `fetch(...)` have no shared configuration.
+- A `requests.Session()` / `httpx.Client(...)` created in the same file is read: constructor `params` and `headers`, `session.params = {...}`, `session.params.update({...})`, `session.params["k"] = v`. Hooks, auth and transports make the result `UNRESOLVED`.
+- The axios library object and an instance made with `axios.create({...})` are read: literal `params`, `headers` and `data`, `X.defaults.params = {...}`, and request interceptors registered anywhere in the repository. A value an interceptor adds is counted. A value that is absent while an interceptor exists is `UNRESOLVED`, because the interceptor may add or change it.
+- Any other object (`self._client`, `this.http`, a parameter, an imported SDK) is `UNRESOLVED`: its defaults are not visible. A value the call itself sends is still reported as sent.
+- A value set under a condition before the request (`if c: payload["currency"] = c`) is `MAY_SEND_REQUIRED_FIELD`. A value set in the other branch, or after the request, does not count.
+
+**Which HTTP method a call uses.** Only what the call states: its name (`axios.delete`, `requests.post`), a literal `method` in its own options, `requests.request("PUT", ...)`, or `fetch(url)` with no options, which is a GET. A URL assigned to a variable is followed to the call that receives it in the same function. When the method cannot be told (`client.send(url)`, `fetch(url, options)`), a change that applies to one method is `UNRESOLVED`; it is not a call to that operation and not an absence of usage. A removed path, where every method is gone, does not need the method.
+
+The result is also `UNRESOLVED`, with the reason, whenever a value leaves what was followed: a key computed at runtime, `**mapping` or `...spread`, a payload or options object that comes from a parameter, a value stored on an object, a variable assigned more than once, a URL passed through a helper that may add query parameters, a file that does not parse, or a language other than the ones above. A newly required header is resolved only when the call or a readable client sets it.
+
+**Evaluation: changed-element usage detection.** `backend/tests/fixtures/contract_eval` holds a provider in two versions, 29 small consumer repositories and `expected.json`, a reviewed expected result for each of the 174 (consumer, change) cases. Run it with:
+
+```bash
+cd backend && python scripts/evaluate_contract_impact.py
+```
+
+What is measured is whether the tool detects that a consumer's own code *uses* a changed element: it reads the changed response field, calls the removed operation, or makes a request that lacks the newly required value on some path. That is the meaning of `uses_changed_element` in `expected.json`.
+
+It is not a breakage metric. A consumer that reads a field whose type changed and copes with both types counts as usage. The reported precision is therefore not "breaking-impact precision" or "compatibility precision", and it is no evidence that runtime breakage is predicted correctly. A breakage metric would need separate ground truth about actual breakage, which does not exist in this repository.
+
+A case counts as detected only when the tool asserts it (`T2_FIELD_MATCH` with a read or an omission, or a known-method call to a removed operation). Real usage that ends as `UNRESOLVED` or `MAY_SEND_REQUIRED_FIELD` counts against recall.
+
+Current result on these fixtures: usage asserted and real 12, asserted but not real 0, real but not asserted 5. Usage-detection precision is 1.000 (target 0.90, met) and usage-detection recall is 0.706 (target 0.80, not met). The five misses are a field read through a computed key, three request URLs built at runtime, and a field set only under a condition. The script exits non-zero when a case differs from its reviewed expected result; `--strict` also fails on a missed target. The fixtures are small, hand-written and written by the authors of the tool, so the numbers describe them and not arbitrary repositories.
+
 **Known limitations.**
 
 - Identity by title is a heuristic. Two different APIs with the same specific title would be compared; add `x-api-id` to be exact. Two versions of one API with different titles and no id are not compared.
@@ -209,4 +279,40 @@ Anything else is reported as `RELATIONSHIP_UNVERIFIED` or `NOT_COMPARED` with th
 - Not reported: removed response fields, enum changes, format changes, status code changes, security scheme changes, media type changes.
 - Consumer matching is textual and conservative. A genuine consumer whose base URL comes from an unnamed variable (`${API}/orders`), from another file, or from more than one assignment away is reported as unverified, not as a consumer. A naming signal is a heuristic: a variable named after a different service with the same word would be accepted. URLs built in ways other than a literal or a `+` concatenation on one line, calls under an undeclared base path, and languages outside `.py`, `.js`, `.ts`, `.jsx`, `.tsx`, `.mjs`, `.cjs`, `.java` are missed. `/health`, `/status` and similar universal paths are never counted.
 - A repository that holds a specification of the API is not checked as its consumer.
+- Field-level usage is followed within one function and two functions around it, along call edges the source establishes. Values that travel through injected objects, class attributes, stores, queues, package imports, path aliases, dependency injection or framework state other than React `useState` end as `UNRESOLVED`. Most real API clients are written this way, so `UNRESOLVED` is the common result on real repositories.
+- A request URL that is a base URL plus a runtime path (`BILLING_URL + path`, a `get_json(path)` helper, a client with a configured `base_url`) is `UNRESOLVED` or unverified even when the path is a literal at the call site, because the path is not followed into the helper.
+- The provider relationship still rests on a server host or a naming signal on the call. A base URL configured in a settings file, an environment file or a framework configuration is two steps away from the call and is reported only as a candidate. A variable that merely contains a word of the API's name (`billingAddress`) is accepted as a naming signal.
+- Client configuration is read only for `requests`, `httpx`, `fetch` and axios. Interceptors and defaults are read where they are literal; middleware, proxies, gateways and server-side defaults are never visible, so `OMITS_REQUIRED_FIELD` describes the request as written, not as received.
+- `MAY_SEND_REQUIRED_FIELD` and conditions are judged structurally (same block, same branch, before the request). Loops, early returns and exceptions are not modelled.
+- A read is matched by field path, ignoring array positions. A consumer that reads the field and handles both types correctly is still reported as reading it.
+- When a call's HTTP method is unknown, changes that apply to one method are `UNRESOLVED` for that call.
+- Java consumers are matched at operation level only; field usage is `UNRESOLVED` for them.
 - A consumer with no finding is not proven unaffected, and a consumer with a finding is not proven broken.
+
+## Rollout planner
+
+`POST /api/v1/rollout` compares deployment order for one provider and one consumer. It is synchronous: one request, one answer. Implemented in `backend/app/services/rollout_planner.py`; the frontend page is at `/rollout`.
+
+```json
+{
+  "provider": { "url": "https://github.com/owner/provider", "current_ref": "v1.4.0", "proposed_ref": "v2.0.0" },
+  "consumer": { "url": "https://github.com/owner/consumer", "current_ref": "main", "proposed_ref": "feature/use-v2" }
+}
+```
+
+`current_ref` is what is deployed (P0, C0) and `proposed_ref` what is about to be released (P1, C1). Each is a branch, tag or commit. URLs are plain repository URLs, without `/tree/`. Every ref is resolved to a commit and everything is read at that commit.
+
+The response has `recommendation` (`PROVIDER_FIRST`, `CONSUMER_FIRST`, `EITHER`, `NEITHER`, `UNRESOLVED`), `summary`, `refs` (the four refs with repository, ref, commit, specification file or number of source files, and `problem` when a ref could not be read), three states (`provider_first`: P1 with C0; `consumer_first`: P0 with C1; `final`: P1 with C1, informational), `contract_changes`, `unresolved` and `limitations`. Each state has `status` (`COMPATIBLE`, `INCOMPATIBLE`, `UNKNOWN`), `reason`, `evidence` and `unresolved`.
+
+`contract_changes[].direction` is `P0_TO_P1` (what P1 no longer accepts or returns; it matters while the consumer is still C0) or `P1_TO_P0` (what P1 offers that P0 does not; it matters while the provider is still P0).
+
+Rules:
+
+- A state is `INCOMPATIBLE` only on a demonstrated problem: the consumer code calls an operation the provider in that state does not define, or sends a request without a value that provider requires.
+- A state is `COMPATIBLE` only on positive evidence: no contract change that could affect it was detected, or every detected change is seen to be satisfied at every call site.
+- Everything else is `UNKNOWN`: no call found, a call that could not be followed, a field that is read after its type changed, a value sent to a provider version that does not define it, a ref that could not be fetched, a specification that could not be parsed.
+- An order is recommended only when its own intermediate state is `COMPATIBLE`. `NEITHER` needs two demonstrated incompatibilities. Every other combination is `UNRESOLVED`.
+
+Errors: `400 INVALID_TARGETS` for a URL that is not a GitHub repository URL, `400 INVALID_REQUEST` for a missing field or an empty ref, `401 SIGN_IN_REQUIRED` when the backend requires sign-in. A ref that cannot be fetched is not an error: the answer is `200` with the affected states `UNKNOWN`.
+
+Limits: "compatible" covers only the three kinds of contract change that are detected. The consumer is taken to call this provider because the request says so, and calls are matched by path. Nothing is executed.
