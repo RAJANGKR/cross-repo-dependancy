@@ -104,7 +104,7 @@ function Results({ record, submitted = SUBMITTED }: { record: ScanRecord; submit
 }
 
 function Form({ onSubmit }: { onSubmit: (targets: ScanTarget[]) => void }) {
-  const [form, setForm] = useState<FormState>({ tab: 'github', rows: [0, 1, 2].map(newRow), projects: [] })
+  const [form, setForm] = useState<FormState>({ tab: 'github', rows: [0, 1, 2].map(() => newRow()), projects: [] })
   return (
     <AnnouncerProvider>
       <ToastProvider>
@@ -183,13 +183,16 @@ describe('repository form', () => {
   it('submits two repositories with labels and a branch from the branch field', () => {
     const onSubmit = vi.fn()
     render(<Form onSubmit={onSubmit} />)
+    // Labels start empty. One is typed here; the other falls back to the repository name.
+    expect(screen.getAllByLabelText(/^Label [0-9]+, optional$/).map((field) => (field as HTMLInputElement).value)).toEqual(['', '', ''])
+    fireEvent.change(screen.getByLabelText('Label 1, optional'), { target: { value: 'Billing API' } })
     type(1, 'https://github.com/example-org/payment-service')
     type(3, 'https://github.com/example-org/customer-service.git')
     fireEvent.change(screen.getByLabelText('Branch or tag 3'), { target: { value: 'release/2.x' } })
     analyze()
     expect(onSubmit.mock.calls[0]?.[0]).toEqual([
-      { kind: 'github', label: 'Payment Service', name: 'payment-service', url: 'https://github.com/example-org/payment-service', ref: null, files: [] },
-      { kind: 'github', label: 'Customer Service', name: 'customer-service', url: 'https://github.com/example-org/customer-service', ref: 'release/2.x', files: [] },
+      { kind: 'github', label: 'Billing API', name: 'payment-service', url: 'https://github.com/example-org/payment-service', ref: null, files: [] },
+      { kind: 'github', label: 'customer-service', name: 'customer-service', url: 'https://github.com/example-org/customer-service', ref: 'release/2.x', files: [] },
     ])
   })
 

@@ -102,7 +102,7 @@ export function RepoForm({ form, onChange, onSubmit, onLoadDemo, busy, error, on
     onChange({
       tab: 'github',
       projects: [],
-      rows: github.map((target, index) => ({ ...newRow(index), label: target.label, url: target.url ?? '', ref: target.ref ?? '' })),
+      rows: github.map((target) => ({ ...newRow(), label: target.label, url: target.url ?? '', ref: target.ref ?? '' })),
     })
     toast(
       github.length < entry.targets.length
@@ -169,9 +169,9 @@ export function RepoForm({ form, onChange, onSubmit, onLoadDemo, busy, error, on
                   <li key={row.id} className="grid gap-2 md:grid-cols-[minmax(0,11rem)_minmax(0,1fr)_minmax(0,9rem)_auto] md:items-start">
                     <div>
                       <label htmlFor={`${row.id}-label`} className="block text-xs text-muted-foreground">
-                        Label for repository {n}
+                        Label {n}, optional
                       </label>
-                      <input id={`${row.id}-label`} type="text" value={row.label} onChange={(event) => patchRow(row.id, { label: event.target.value })} placeholder={`Service ${n}`} autoComplete="off" className={cx(FIELD, 'mt-1')} />
+                      <input id={`${row.id}-label`} type="text" value={row.label} onChange={(event) => patchRow(row.id, { label: event.target.value })} placeholder="Your name for it" autoComplete="off" className={cx(FIELD, 'mt-1')} />
                     </div>
                     <div>
                       <label htmlFor={`${row.id}-url`} className="block text-xs text-muted-foreground">
@@ -257,7 +257,7 @@ export function RepoForm({ form, onChange, onSubmit, onLoadDemo, busy, error, on
               })}
             </ol>
             <div className="mt-4 flex flex-wrap items-center gap-2">
-              <Button size="sm" disabled={!canAdd} title={canAdd ? undefined : `A scan takes at most ${MAX_REPOS} targets`} onClick={() => setRows([...rows, newRow(rows.length)])}>
+              <Button size="sm" disabled={!canAdd} title={canAdd ? undefined : `A scan takes at most ${MAX_REPOS} targets`} onClick={() => setRows([...rows, newRow()])}>
                 <Plus aria-hidden="true" />
                 Add repository
               </Button>
@@ -265,7 +265,7 @@ export function RepoForm({ form, onChange, onSubmit, onLoadDemo, busy, error, on
                 size="sm"
                 variant="ghost"
                 onClick={() => {
-                  const base = rows.length >= EXAMPLE_URLS.length ? rows : [...rows, ...EXAMPLE_URLS.slice(rows.length).map((_url, i) => newRow(rows.length + i))]
+                  const base = rows.length >= EXAMPLE_URLS.length ? rows : [...rows, ...EXAMPLE_URLS.slice(rows.length).map(() => newRow())]
                   setRows(base.map((row, index) => (EXAMPLE_URLS[index] ? { ...row, url: EXAMPLE_URLS[index], ref: '' } : row)))
                   setSubmitted(false)
                 }}
@@ -278,7 +278,7 @@ export function RepoForm({ form, onChange, onSubmit, onLoadDemo, busy, error, on
                 disabled={rows.every((row) => row.url === '') && projects.length === 0}
                 confirmLabel={`Clear ${rows.filter((row) => row.url !== '').length} links and ${projects.length} pasted projects`}
                 onConfirm={() => {
-                  onChange({ ...form, rows: [0, 1, 2].map(newRow), projects: [] })
+                  onChange({ ...form, rows: [0, 1, 2].map(() => newRow()), projects: [] })
                   setSubmitted(false)
                   setTouched({})
                 }}

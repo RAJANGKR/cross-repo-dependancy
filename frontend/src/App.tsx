@@ -17,7 +17,7 @@ import { newRow, type ScanTarget } from './lib/targets'
 
 const emptyForm = (): FormState => ({
   tab: 'github',
-  rows: Array.from({ length: INITIAL_REPO_ROWS }, (_, index) => newRow(index)),
+  rows: Array.from({ length: INITIAL_REPO_ROWS }, () => newRow()),
   projects: [],
 })
 
@@ -55,7 +55,7 @@ function AppShell() {
       setForm({
         tab: 'github',
         projects: [],
-        rows: github.map((target, index) => ({ ...newRow(index), label: target.label, url: target.url ?? '', ref: target.ref ?? '' })),
+        rows: github.map((target) => ({ ...newRow(), label: target.label, url: target.url ?? '', ref: target.ref ?? '' })),
       })
       goTo('input')
     },

@@ -24,7 +24,6 @@ export const MAX_REPOS = 10
 /** Rows shown on a fresh form. */
 export const INITIAL_REPO_ROWS = 3
 export const MAX_PASTED_FILE_BYTES = 200 * 1024
-export const DEFAULT_REPO_LABELS = ['Payment Service', 'Core Service', 'Customer Service'] as const
 
 export const REQUEST_TIMEOUT_MS = 20_000
 export const POLL_INTERVAL_MS = 1_500

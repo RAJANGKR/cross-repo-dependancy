@@ -1,5 +1,5 @@
 import { MANIFEST_FILENAMES, type ManifestFilename, type PastedFile, type ScanCreateRequest } from '../api/scanTypes'
-import { DEFAULT_REPO_LABELS, MAX_PASTED_FILE_BYTES, MAX_REPOS, MIN_REPOS } from '../config'
+import { MAX_PASTED_FILE_BYTES, MAX_REPOS, MIN_REPOS } from '../config'
 import { parseRepoUrl, type ParsedRepo } from './validateRepoUrl'
 
 /** One GitHub row of the form. */
@@ -44,7 +44,8 @@ export const ROW_ERRORS = {
 
 let nextId = 0
 export const newId = (prefix: string) => `${prefix}-${(nextId += 1)}`
-export const newRow = (index: number): RepoRow => ({ id: newId('row'), label: DEFAULT_REPO_LABELS[index] ?? '', url: '', ref: '' })
+/** A blank row. The label is the user's to fill in; it starts empty. */
+export const newRow = (): RepoRow => ({ id: newId('row'), label: '', url: '', ref: '' })
 export const newFile = (): FileDraft => ({ id: newId('file'), filename: null, manual: false, content: '' })
 export const newProject = (): PastedProject => ({ id: newId('project'), name: '', files: [newFile()] })
 
@@ -114,7 +115,8 @@ export function checkForm(rows: readonly RepoRow[], projects: readonly PastedPro
     seen.add(key)
     targets.push({
       kind: 'github',
-      label: row.label.trim() || DEFAULT_REPO_LABELS[index] || repo.repo,
+      // An empty label falls back to the repository's own name.
+      label: row.label.trim() || repo.repo,
       name: repo.repo,
       url: repo.url,
       ref,

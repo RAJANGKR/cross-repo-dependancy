@@ -6,7 +6,6 @@ import { createScanClient, type ScanClient } from '../api/scanClient'
 import type { ScanProgress, ScanRecord } from '../api/scanTypes'
 import {
   API_BASE_URL,
-  DEFAULT_REPO_LABELS,
   DEMO_POLL_INTERVAL_MS,
   MAX_POLL_FAILURES,
   POLL_INTERVAL_MS,
@@ -84,9 +83,9 @@ export interface ScanApi {
 
 const ScanContext = createContext<ScanApi | null>(null)
 
-const DEMO_REPOS: SubmittedRepo[] = ['payment-service', 'core-service', 'customer-service'].map((name, index) => ({
+const DEMO_REPOS: SubmittedRepo[] = ['payment-service', 'core-service', 'customer-service'].map((name) => ({
   kind: 'github' as const,
-  label: DEFAULT_REPO_LABELS[index] ?? name,
+  label: name,
   url: `https://github.com/example-org/${name}`,
   name,
   ref: null,

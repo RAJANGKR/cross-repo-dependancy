@@ -10,7 +10,7 @@ import { checkForm, detectManifest, newFile, newProject, newRow, ROW_ERRORS, toS
 const result = demoRecord().result as ScanResult
 const rows = result.drift_matrix
 const find = (name: string) => rows.find((row) => row.dependency_name === name) as DependencyDrift
-const row = (url: string, ref = '', label = ''): RepoRow => ({ ...newRow(0), url, ref, label })
+const row = (url: string, ref = '', label = ''): RepoRow => ({ ...newRow(), url, ref, label })
 const project = (name: string, content: string): PastedProject => ({ ...newProject(), name, files: [{ ...newFile(), content, filename: detectManifest(content) }] })
 const review = (status: Review['status'], until: string | null = null): Review => ({ status, reason: '', note: '', assignee: '', until, updatedAt: '' })
 
