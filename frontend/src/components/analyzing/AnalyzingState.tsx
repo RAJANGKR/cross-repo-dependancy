@@ -138,8 +138,9 @@ export function AnalyzingState({ source, startedAt, scanId, status, progress, re
 
             {repos.length > 0 && (
               <ul aria-label="Repositories in this scan" className="mt-6 space-y-1 text-sm">
-                {repos.map((repo) => (
-                  <li key={repo.url} className="flex flex-wrap gap-x-2">
+                {repos.map((repo, index) => (
+                  // The same repository can be scanned at two refs, so its URL alone is not a unique key.
+                  <li key={`${repo.url}:${index}`} className="flex flex-wrap gap-x-2">
                     <span className="font-medium">{repo.label}</span>
                     <span className="font-mono text-xs leading-5 text-muted-foreground">{repo.name}</span>
                   </li>

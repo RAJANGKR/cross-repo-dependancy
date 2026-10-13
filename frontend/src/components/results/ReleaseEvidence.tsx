@@ -1,10 +1,11 @@
-import { ArrowRight } from 'lucide-react'
+import { ArrowRight, CircleHelp } from 'lucide-react'
 import type { DependencyDrift } from '../../api/scanTypes'
 import { isDrifted, riskMeta } from '../../lib/classify'
-import { nextStepFor } from '../../lib/nextStep'
+import { conciseStepFor, EVIDENCE_UNAVAILABLE, nextStepFor } from '../../lib/nextStep'
 import { Banner } from '../common/Banner'
 import { DriftBadge, RiskBadge } from '../common/Badges'
 import { Button } from '../common/Button'
+import { Disclosure } from '../common/Disclosure'
 import { ReleaseEvidenceBody } from '../common/Evidence'
 import { EcosystemTag } from '../common/Tags'
 
@@ -21,7 +22,11 @@ interface ReleaseEvidenceProps {
   onOpen: (id: string) => void
 }
 
-/** Release notes and recommendations for every drifted package, highest risk first. */
+/**
+ * One card per drifted package, highest risk first: what to do next, why, and
+ * the recommended version. Release notes, versions per repository and the
+ * longer explanation are one click away in "View release evidence".
+ */
 export function ReleaseEvidence({ rows, warnings, repoLabel, onOpen }: ReleaseEvidenceProps) {
   const drifted = rows
     .filter((row) => isDrifted(row.drift_disparity))
@@ -45,37 +50,63 @@ export function ReleaseEvidence({ rows, warnings, repoLabel, onOpen }: ReleaseEv
       )}
       <ul className="space-y-4">
         {drifted.map((row) => {
-          const step = nextStepFor(row)
+          const step = conciseStepFor(row)
+          const fullStep = nextStepFor(row)
           return (
             <li key={row.id} className="rounded-lg border border-border bg-card p-5">
               <div className="flex flex-wrap items-center gap-x-3 gap-y-2">
                 <h3 className="break-all font-display text-xl tracking-tight">{row.dependency_name}</h3>
                 <EcosystemTag ecosystem={row.ecosystem} />
-                <DriftBadge value={row.drift_disparity} />
                 <RiskBadge value={row.compatibility_risk} />
+                <DriftBadge value={row.drift_disparity} />
+                <Button size="sm" className="ml-auto" onClick={() => onOpen(row.id)}>
+                  Open details
+                  <ArrowRight aria-hidden="true" />
+                </Button>
               </div>
-              <p className="mt-2 font-mono text-xs text-muted-foreground">{versionsLine(row, repoLabel)}</p>
 
-              <div className="mt-4 grid gap-6 lg:grid-cols-2">
-                <ReleaseEvidenceBody evidence={row.evidence} />
+              <dl className="mt-4 grid gap-x-6 gap-y-2 text-sm sm:grid-cols-[9.5rem_1fr]">
+                {step && (
+                  <>
+                    <dt className="font-mono text-xs uppercase text-muted-foreground sm:pt-0.5">Next action</dt>
+                    <dd className="font-medium">{step.action}</dd>
+                    <dt className="font-mono text-xs uppercase text-muted-foreground sm:pt-0.5">Why</dt>
+                    <dd>
+                      {step.reason}
+                      {step.evidenceUnavailable && (
+                        // Neutral on purpose: missing evidence is neither a finding nor an all-clear.
+                        <span className={step.reason ? 'mt-1 flex items-center gap-1.5 text-muted-foreground' : 'flex items-center gap-1.5 text-muted-foreground'}>
+                          <CircleHelp aria-hidden="true" className="size-3.5 shrink-0" />
+                          {EVIDENCE_UNAVAILABLE}
+                        </span>
+                      )}
+                    </dd>
+                  </>
+                )}
+                {row.recommended_version && (
+                  <>
+                    <dt className="font-mono text-xs uppercase text-muted-foreground sm:pt-0.5">Recommended version</dt>
+                    <dd className="break-all font-mono">{row.recommended_version}</dd>
+                  </>
+                )}
+              </dl>
+
+              <Disclosure label="View release evidence" className="mt-3">
                 <div className="space-y-4">
                   <div>
-                    <p className="font-mono text-xs uppercase text-muted-foreground">Recommended version</p>
-                    <p className="mt-1 font-mono text-sm">{row.recommended_version ?? 'Not provided by the backend'}</p>
+                    <p className="font-mono text-xs uppercase text-muted-foreground">Versions in use</p>
+                    <p className="mt-1 break-all font-mono text-xs">{versionsLine(row, repoLabel)}</p>
                   </div>
-                  {step && (
+                  <ReleaseEvidenceBody evidence={row.evidence} concise />
+                  {fullStep && (
                     <div>
-                      <p className="font-mono text-xs uppercase text-muted-foreground">Suggested next step</p>
-                      <p className="mt-1 text-sm leading-relaxed">{step}</p>
+                      <p className="font-mono text-xs uppercase text-muted-foreground">Suggested next step in full</p>
+                      <p className="mt-1 text-sm leading-relaxed">{fullStep}</p>
                       <p className="mt-1 text-xs text-muted-foreground">Generated from rules, based on the classification above.</p>
                     </div>
                   )}
-                  <Button size="sm" onClick={() => onOpen(row.id)}>
-                    Open details
-                    <ArrowRight aria-hidden="true" />
-                  </Button>
                 </div>
-              </div>
+              </Disclosure>
             </li>
           )
         })}

@@ -19,12 +19,16 @@ export function CodeBlock({ code, label }: { code: string; label: string }) {
  * Release-note evidence for one package. The cited excerpt (from the release
  * notes) and the interpretation (written by an AI model) are kept visibly
  * apart, and the absence of evidence is stated instead of being left blank.
+ *
+ * `concise` is for lists of many packages, where the card already states that
+ * compatibility was not verified: missing text is then one short fact instead
+ * of a paragraph repeated on every card.
  */
-export function ReleaseEvidenceBody({ evidence }: { evidence: ChangelogEvidence | null }) {
+export function ReleaseEvidenceBody({ evidence, concise = false }: { evidence: ChangelogEvidence | null; concise?: boolean }) {
   if (!evidence) {
     return (
       <p className="text-sm text-muted-foreground">
-        No release evidence was returned for this package. That means it was not assessed, not that it is safe.
+        {concise ? 'No release-note text was returned for this package.' : 'No release evidence was returned for this package. That means it was not assessed, not that it is safe.'}
       </p>
     )
   }
@@ -43,7 +47,7 @@ export function ReleaseEvidenceBody({ evidence }: { evidence: ChangelogEvidence 
         </figure>
       ) : (
         <p className="text-sm text-muted-foreground">
-          No release-note text was retrieved for these versions, so nothing confirms or rules out a break.
+          {concise ? 'No release-note text was retrieved for these versions.' : 'No release-note text was retrieved for these versions, so nothing confirms or rules out a break.'}
         </p>
       )}
 

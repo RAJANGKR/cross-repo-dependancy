@@ -393,8 +393,8 @@ export function ResultsScreen({ record, result, source, submitted, search, onNew
       {view === 'risk' && (
         <div className="space-y-16">
           <section aria-labelledby="evidence-title">
-            <SectionHeading id="evidence-title" eyebrow="Risk intelligence" title="What the release notes say">
-              Quoted release notes are evidence. AI interpretation is labeled and kept separate. Missing evidence is stated: it is not proof of safety.
+            <SectionHeading id="evidence-title" eyebrow="Risk intelligence" title="What to do about each drifted package">
+              One next action and one reason per package. Missing evidence is stated and is never read as proof of safety.
             </SectionHeading>
             <ReleaseEvidence rows={rows} warnings={result.warnings} repoLabel={repoLabel} onOpen={select} />
           </section>
