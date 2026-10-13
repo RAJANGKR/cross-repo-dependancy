@@ -73,6 +73,10 @@ All classification and scoring is deterministic Python (`backend/app/services/cl
 - Score weights are untuned estimates: major gap +50, minor +20, patch +5, breaking marker +25, known vulnerability +20, used by 3 or more repositories +10, Tier 2 code hits +15, overlapping ranges -30.
 - Confidence is a heuristic about how much evidence was available. It is not accuracy.
 
+## From drift to pull request
+
+Every drifted package has a fix line per repository. **Open pull request on GitHub** copies that line and opens GitHub's own editor for the manifest on the scanned branch. Paste it over the old line and choose Propose changes: GitHub creates the branch and the pull request. DriftLock never writes to a repository, so it needs no write permission. The button is available for GitHub targets of a live scan.
+
 ## CI check
 
 DriftLock can run on every pull request and block one that introduces risky drift. Copy `docs/ci-example.yml` to `.github/workflows/driftlock.yml` in a service's repository and list the other repositories it must stay compatible with:

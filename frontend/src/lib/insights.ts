@@ -3,6 +3,7 @@ import { driftMeta, isCompatibilityFinding, isDrifted, riskMeta } from './classi
 import { ecosystemLabel } from './formatters'
 import { activeReview, type HistoryEntry, type Review } from './localStore'
 import type { ScanTarget } from './targets'
+import { parseRepoUrl } from './validateRepoUrl'
 
 // ---- Fix lines ---------------------------------------------------------------
 
@@ -52,6 +53,22 @@ export function fixesFor(row: DependencyDrift): RepoFix[] {
 }
 
 export const fixKey = (row: DependencyDrift, repo: string) => `${row.id}@${repo}`
+
+/**
+ * GitHub's edit page for one manifest: https://github.com/{owner}/{repo}/edit/{branch}/{path}.
+ * Saving there lets the user propose the change as a pull request. Returns null
+ * unless the repository is on GitHub and the scan reported which branch it read,
+ * because an edit link without a real branch would open the wrong file or a 404.
+ */
+export function githubEditUrl(result: ScanResult, repo: string, sourceFile: string): string | null {
+  const scanned = result.scanned_repositories.find((item) => item.name === repo)
+  const parsed = scanned?.url ? parseRepoUrl(scanned.url) : null
+  const detail = result.repository_details.find((item) => item.name === repo)
+  const branch = detail?.ref
+  if (!parsed || !branch || detail?.kind === 'pasted' || !sourceFile || sourceFile.split('/').includes('..')) return null
+  const encode = (path: string) => path.split('/').map(encodeURIComponent).join('/')
+  return `${parsed.url}/edit/${encode(branch)}/${encode(sourceFile)}`
+}
 
 export function prDescription(row: DependencyDrift, repoLabel: (name: string) => string): string {
   const lines = [
