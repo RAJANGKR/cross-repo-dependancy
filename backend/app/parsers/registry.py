@@ -3,6 +3,7 @@ from app.parsers.base import BaseDependencyParser
 from app.parsers.package_json import PackageJsonParser
 from app.parsers.requirements_txt import RequirementsTxtParser
 from app.parsers.pyproject_toml import PyprojectTomlParser
+from app.parsers.pom_xml import PomXmlParser
 from app.schemas.dependency import DependencyItem
 
 
@@ -12,6 +13,7 @@ class ParserRegistry:
             PackageJsonParser(),
             RequirementsTxtParser(),
             PyprojectTomlParser(),
+            PomXmlParser(),
         ]
 
     def register(self, parser: BaseDependencyParser) -> None:

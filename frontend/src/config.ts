@@ -18,8 +18,12 @@ export const API_BASE_URL: string = (
  */
 export const USE_MOCK: boolean = env.VITE_USE_MOCK === 'true'
 
-/** Exactly this many repositories are compared in one scan. */
-export const REPO_COUNT = 3
+/** A scan compares between this many targets (GitHub repositories plus pasted projects). */
+export const MIN_REPOS = 2
+export const MAX_REPOS = 10
+/** Rows shown on a fresh form. */
+export const INITIAL_REPO_ROWS = 3
+export const MAX_PASTED_FILE_BYTES = 200 * 1024
 export const DEFAULT_REPO_LABELS = ['Payment Service', 'Core Service', 'Customer Service'] as const
 
 export const REQUEST_TIMEOUT_MS = 20_000

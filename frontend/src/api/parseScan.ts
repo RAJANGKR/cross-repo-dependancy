@@ -3,9 +3,12 @@ import type {
   CodeImpactItem,
   ContractAnalysisEntry,
   ContractFinding,
+  DataSource,
   DependencyDrift,
+  Explanation,
   GraphSummary,
   RepoDeclaration,
+  RepositoryDetail,
   RepositorySummary,
   ScanAccepted,
   ScanMetrics,
@@ -139,7 +142,47 @@ function parseDrift(raw: Rec, index: number): DependencyDrift {
     missing_in_repos: strings(raw.missing_in_repos),
     recommended_version: strOrNull(raw.recommended_version),
     evidence: parseEvidence(raw.evidence),
+    score: num(raw.score),
+    risk_level: strOrNull(raw.risk_level),
+    breakdown: records(raw.breakdown).map((item) => ({ signal: str(item.signal), points: num(item.points) ?? 0 })),
+    confidence: num(raw.confidence),
+    signals_missing: strings(raw.signals_missing),
+    vulnerabilities: records(raw.vulnerabilities)
+      .map((item) => ({
+        id: str(item.id),
+        summary: str(item.summary),
+        affects_repo: str(item.affects_repo),
+        fixed_in: strOrNull(item.fixed_in),
+      }))
+      .filter((item) => item.id !== ''),
+    explanation: parseExplanation(raw.explanation),
   }
+}
+
+function parseExplanation(raw: unknown): Explanation | null {
+  if (!isRecord(raw)) return null
+  const explanation = str(raw.text).trim()
+  return explanation ? { text: explanation, source: raw.source === 'ai' ? 'ai' : 'template' } : null
+}
+
+function parseDataSources(raw: unknown): DataSource[] {
+  return records(raw)
+    .map((item) => ({ name: str(item.name), status: str(item.status) }))
+    .filter((item) => item.name !== '')
+}
+
+function parseRepositoryDetails(raw: unknown): RepositoryDetail[] {
+  return records(raw)
+    .map((item) => ({
+      name: str(item.name),
+      kind: str(item.kind),
+      ref: strOrNull(item.ref),
+      commit: strOrNull(item.commit),
+      manifests: strings(item.manifests),
+      code_scanned: item.code_scanned === true,
+      error: strOrNull(item.error),
+    }))
+    .filter((item) => item.name !== '')
 }
 
 function parseGraphSummary(raw: unknown): GraphSummary | null {
@@ -225,6 +268,8 @@ function parseResult(raw: unknown): ScanResult | null {
     skipped_items: parseSkipped(raw.skipped_items),
     contract_analysis: parseContractAnalysis(raw.contract_analysis),
     code_impact: parseCodeImpact(raw.code_impact),
+    data_sources: parseDataSources(raw.data_sources),
+    repository_details: parseRepositoryDetails(raw.repository_details),
   }
 }
 

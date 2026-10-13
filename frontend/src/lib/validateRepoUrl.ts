@@ -49,35 +49,3 @@ export function parseRepoUrl(input: string): ParsedRepo | null {
   }
 }
 
-export interface RepoInput {
-  label: string
-  url: string
-}
-
-export interface RepoInputValidation {
-  /** One entry per input: an error sentence, or null when the field is fine. */
-  errors: Array<string | null>
-  parsed: Array<ParsedRepo | null>
-  valid: boolean
-}
-
-export const REPO_ERRORS = {
-  missing: 'Enter a GitHub repository URL',
-  malformed: 'Use a public repository URL such as https://github.com/owner/repo',
-  duplicate: 'This repository is already listed above',
-} as const
-
-/** Validates the repository fields together: missing, malformed and duplicate. */
-export function validateRepoInputs(inputs: readonly RepoInput[]): RepoInputValidation {
-  const parsed = inputs.map((input) => (input.url.trim() === '' ? null : parseRepoUrl(input.url)))
-  const seen = new Set<string>()
-  const errors = inputs.map((input, index) => {
-    if (input.url.trim() === '') return REPO_ERRORS.missing
-    const repo = parsed[index]
-    if (!repo) return REPO_ERRORS.malformed
-    if (seen.has(repo.key)) return REPO_ERRORS.duplicate
-    seen.add(repo.key)
-    return null
-  })
-  return { errors, parsed, valid: errors.every((error) => error === null) }
-}

@@ -41,7 +41,7 @@ function buildCards(scanned: RepositorySummary[], submitted: SubmittedRepo[]): R
       (repo) => repo.name.toLowerCase() === item.name.toLowerCase() || (repo.url !== null && repo.url === item.url),
     )
     if (!present) {
-      cards.push({ key: `missing:${item.url}`, name: item.name, label: item.label, url: item.url, ref: item.ref, state: 'missing', summary: null })
+      cards.push({ key: `missing:${item.name}`, name: item.name, label: item.label, url: item.url, ref: item.ref, state: 'missing', summary: null })
     }
   }
   return cards

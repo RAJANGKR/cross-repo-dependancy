@@ -49,3 +49,8 @@ htmlcov/
 # OS
 .DS_Store
 Thumbs.db
+
+# Local cache and secrets
+*.db
+.env
+.venv/

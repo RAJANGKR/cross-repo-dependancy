@@ -63,8 +63,9 @@ const DRIFT: Record<string, Omit<ClassMeta, 'value' | 'known'>> = {
     rank: 2,
   },
   INFO: {
-    label: 'One repository only',
-    description: 'Declared in a single repository, so there is nothing to compare it with.',
+    label: 'Not compared',
+    description:
+      'Declared in a single repository, or the versions could not be resolved, so there is no comparison to make.',
     tone: 'neutral',
     rank: 1,
   },

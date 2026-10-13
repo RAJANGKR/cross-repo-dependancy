@@ -7,7 +7,7 @@ import { buildMarkdown, exportFileName } from './exportMarkdown'
 import { DEFAULT_FILTERS, filterDrifts, viewStateFromSearch, viewStateToSearch } from './filterSort'
 import { nextStepFor, registryUrl } from './nextStep'
 import { computeOverview, repoNamesOf } from './overview'
-import { parseRepoUrl, REPO_ERRORS, validateRepoInputs } from './validateRepoUrl'
+import { parseRepoUrl } from './validateRepoUrl'
 
 function demoResult(): ScanResult {
   const result = demoRecord().result
@@ -53,37 +53,6 @@ describe('parseRepoUrl', () => {
     ]) {
       expect(parseRepoUrl(bad), bad).toBeNull()
     }
-  })
-})
-
-describe('validateRepoInputs', () => {
-  const input = (url: string) => ({ label: '', url })
-
-  it('passes three distinct repositories', () => {
-    const result = validateRepoInputs([
-      input('https://github.com/a/one'),
-      input('https://github.com/a/two'),
-      input('https://github.com/a/three/tree/dev'),
-    ])
-    expect(result.valid).toBe(true)
-    expect(result.errors).toEqual([null, null, null])
-  })
-
-  it('flags missing, malformed and duplicate inputs separately', () => {
-    const result = validateRepoInputs([
-      input('https://github.com/a/one'),
-      input('not a url'),
-      input(''),
-    ])
-    expect(result.valid).toBe(false)
-    expect(result.errors).toEqual([null, REPO_ERRORS.malformed, REPO_ERRORS.missing])
-
-    const duplicate = validateRepoInputs([
-      input('https://github.com/A/One'),
-      input('https://github.com/a/one/tree/dev'),
-      input('https://github.com/a/two'),
-    ])
-    expect(duplicate.errors).toEqual([null, REPO_ERRORS.duplicate, null])
   })
 })
 

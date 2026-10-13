@@ -23,11 +23,26 @@ function decl(
   return { declared_range, resolved_version, dep_type, source_file }
 }
 
+type DriftExtras = Pick<
+  DependencyDrift,
+  'score' | 'risk_level' | 'breakdown' | 'confidence' | 'signals_missing' | 'vulnerabilities' | 'explanation'
+>
+const NO_EXTRAS: DriftExtras = {
+  score: null,
+  risk_level: null,
+  breakdown: [],
+  confidence: null,
+  signals_missing: [],
+  vulnerabilities: [],
+  explanation: null,
+}
+
 function drift(
-  record: Omit<DependencyDrift, 'id' | 'present_in_repos' | 'missing_in_repos'>,
+  record: Omit<DependencyDrift, 'id' | 'present_in_repos' | 'missing_in_repos' | keyof DriftExtras> & Partial<DriftExtras>,
 ): DependencyDrift {
   const present = Object.keys(record.declarations_by_repo)
   return {
+    ...NO_EXTRAS,
     ...record,
     id: `${record.ecosystem}:${record.dependency_name}`,
     present_in_repos: present,
@@ -54,6 +69,18 @@ const driftMatrix: DependencyDrift[] = [
         'Automatic batching is enabled by default. ReactDOM.render has been replaced by createRoot.',
       verified_breaking: true,
       notes: 'The excerpt states that ReactDOM.render was replaced, so code written for 17 that calls it needs changes on 18.',
+    },
+    score: 75,
+    risk_level: 'Critical',
+    breakdown: [
+      { signal: 'Major version gap', points: 50 },
+      { signal: 'Breaking marker in changelog', points: 25 },
+    ],
+    confidence: 0.8,
+    signals_missing: ['lockfile', 'code_scan'],
+    explanation: {
+      text: 'react is used at 17.0.2 to 18.2.0 across the scanned repositories, a major version gap. Release notes state a breaking change between these versions.',
+      source: 'template',
     },
   }),
   drift({
@@ -84,6 +111,26 @@ const driftMatrix: DependencyDrift[] = [
     },
     recommended_version: '^1.6.2',
     evidence: null,
+    score: 70,
+    risk_level: 'High',
+    breakdown: [
+      { signal: 'Major version gap', points: 50 },
+      { signal: 'Known vulnerability', points: 20 },
+    ],
+    confidence: 0.55,
+    signals_missing: ['lockfile', 'changelog', 'code_scan'],
+    vulnerabilities: [
+      {
+        id: 'GHSA-wf5p-g6vw-rhxx',
+        summary: 'The XSRF token can be sent to third-party hosts in some configurations.',
+        affects_repo: 'payment-service',
+        fixed_in: '0.28.0',
+      },
+    ],
+    explanation: {
+      text: 'axios is used at 0.27.2 to 1.6.2, a major version gap. There was not enough evidence to assess the impact.',
+      source: 'template',
+    },
   }),
   drift({
     dependency_name: 'fastapi',
@@ -328,6 +375,28 @@ const demoResult: ScanResult = {
       limitations: 'No release-note evidence was available, so this is a location to review, not a confirmed break.',
     },
   ],
+  data_sources: [
+    { name: 'GitHub', status: 'ok' },
+    { name: 'npm registry', status: 'ok' },
+    { name: 'PyPI', status: 'ok' },
+    { name: 'Maven Central', status: 'not_used' },
+    { name: 'OSV', status: 'ok' },
+    { name: 'Gemini', status: 'degraded' },
+  ],
+  repository_details: REPOS.map((name) => ({
+    name,
+    kind: 'github',
+    ref: 'main',
+    commit: null,
+    manifests:
+      name === 'payment-service'
+        ? ['package.json', 'package-lock.json', 'pyproject.toml']
+        : name === 'core-service'
+          ? ['requirements.txt']
+          : ['package.json'],
+    code_scanned: true,
+    error: null,
+  })),
 }
 
 export const DEMO_SCAN_ID = 'scn_demo000000'
@@ -401,12 +470,16 @@ function minimalResult(): ScanResult {
   return {
     scanned_repositories: [],
     summary: null,
-    drift_matrix: driftMatrix.slice(0, 3).map((row) => ({ ...row, evidence: null, recommended_version: null })),
+    drift_matrix: driftMatrix
+      .slice(0, 3)
+      .map((row) => ({ ...row, ...NO_EXTRAS, evidence: null, recommended_version: null })),
     graph_summary: null,
     warnings: [],
     skipped_items: [],
     contract_analysis: null,
     code_impact: null,
+    data_sources: [],
+    repository_details: [],
   }
 }
 

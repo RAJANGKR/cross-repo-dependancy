@@ -12,6 +12,7 @@ import {
 import type { ReactNode } from 'react'
 import type { UiError, UiErrorAction, UiErrorKind } from '../../api/errors'
 import { Button } from '../common/Button'
+import { useCopy } from '../common/Controls'
 import { Wordmark } from '../common/Tags'
 
 const ICONS: Record<UiErrorKind, LucideIcon> = {
@@ -54,6 +55,7 @@ interface ErrorStateProps {
 
 export function ErrorState({ error, demo, onAction }: ErrorStateProps) {
   const Icon = ICONS[error.kind]
+  const copy = useCopy()
   return (
     <Shell>
       <div role="alert">
@@ -70,6 +72,9 @@ export function ErrorState({ error, demo, onAction }: ErrorStateProps) {
             {action === 'retry' && demo ? 'Retry demo run' : ACTION_LABELS[action]}
           </Button>
         ))}
+        <Button size="lg" variant="ghost" onClick={() => void copy(`${error.title}\n${error.message}${error.code ? `\nError code: ${error.code}` : ''}`, 'Error details')}>
+          Copy error details
+        </Button>
       </div>
       {error.actions.includes('load-demo') && (
         <p className="mt-4 font-mono text-xs text-muted-foreground">The demo run uses bundled demo data</p>

@@ -133,6 +133,8 @@ interface DependencyGraphProps {
   selectedId: string | null
   /** Repository the table is filtered to, or null. */
   repo: string | null
+  /** Use most of the viewport height (full-screen mode). */
+  tall?: boolean
   onSelectPackage: (id: string) => void
   onToggleRepo: (name: string) => void
 }
@@ -143,9 +145,11 @@ export default function DependencyGraph({
   repoLabel,
   selectedId,
   repo,
+  tall = false,
   onSelectPackage,
   onToggleRepo,
 }: DependencyGraphProps) {
+  const [legend, setLegend] = useState(true)
   const [view, setView] = useState<GraphView>(() => defaultGraphView(rows))
   const [hovered, setHovered] = useState<string | null>(null)
   const [edgeTip, setEdgeTip] = useState<EdgeTip | null>(null)
@@ -249,7 +253,7 @@ export default function DependencyGraph({
     )
   }
 
-  const height = Math.min(640, Math.max(320, layout.height + 96))
+  const height = tall ? 'calc(100vh - 14rem)' : Math.min(640, Math.max(320, layout.height + 96))
 
   return (
     <div>
@@ -259,7 +263,12 @@ export default function DependencyGraph({
           Dashed packages are used by a single repository. Select a package for its details, or a repository
           to filter the table.
         </p>
-        <div>
+        <div className="flex items-end gap-4">
+          <label className="inline-flex cursor-pointer items-center gap-2 pb-2.5 text-sm">
+            <input type="checkbox" role="switch" checked={legend} onChange={(event) => setLegend(event.target.checked)} className="size-4 accent-foreground" />
+            Legend
+          </label>
+          <div>
           <label htmlFor={viewId} className="block font-mono text-xs uppercase text-muted-foreground">
             Show
           </label>
@@ -278,6 +287,7 @@ export default function DependencyGraph({
               </option>
             ))}
           </select>
+          </div>
         </div>
       </div>
 
@@ -320,6 +330,14 @@ export default function DependencyGraph({
             <GraphControls />
           </ReactFlow>
 
+          {legend && (
+            <ul aria-label="Legend" className="pointer-events-none absolute right-3 top-3 z-10 space-y-1 rounded-md border border-border bg-card/95 p-2.5 text-xs shadow-nav">
+              <li className="flex items-center gap-2"><span aria-hidden="true" className="h-3 w-5 rounded-sm border border-risk-high bg-risk-high-tint" />Major drift</li>
+              <li className="flex items-center gap-2"><span aria-hidden="true" className="h-3 w-5 rounded-sm border border-risk-medium bg-risk-medium-tint" />Minor drift</li>
+              <li className="flex items-center gap-2"><span aria-hidden="true" className="h-3 w-5 rounded-sm border border-border" />Shared, no drift</li>
+              <li className="flex items-center gap-2"><span aria-hidden="true" className="h-3 w-5 rounded-sm border border-dashed border-foreground/50" />One repository</li>
+            </ul>
+          )}
           {edgeTip && (
             <div
               role="tooltip"

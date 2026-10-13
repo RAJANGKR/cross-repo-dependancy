@@ -1,0 +1,58 @@
+{
+  "library": "pydantic",
+  "ecosystem": "python",
+  "import_names": [
+    "pydantic"
+  ],
+  "changes": [
+    {
+      "from_major": 1,
+      "to_major": 2,
+      "source_url": "https://docs.pydantic.dev/latest/migration/",
+      "verified_on": "2026-10-13",
+      "items": [
+        {
+          "name": "validator",
+          "kind": "decorator",
+          "status": "deprecated",
+          "replacement": "field_validator",
+          "verified": true,
+          "basis": "The guide states that @validator has been deprecated and should be replaced with @field_validator."
+        },
+        {
+          "name": "Config",
+          "kind": "inner_class",
+          "status": "deprecated",
+          "replacement": "model_config",
+          "verified": true,
+          "basis": "The guide states that creating a class called Config is now deprecated; set the model_config class attribute instead."
+        },
+        {
+          "name": "orm_mode",
+          "kind": "config_key",
+          "status": "renamed",
+          "replacement": "from_attributes",
+          "verified": true,
+          "basis": "Listed under 'The following config settings have been renamed': orm_mode -> from_attributes."
+        },
+        {
+          "name": "parse_obj",
+          "kind": "method",
+          "status": "renamed",
+          "replacement": "model_validate",
+          "verified": true,
+          "basis": "The guide's table of changed method names maps parse_obj() to model_validate()."
+        },
+        {
+          "name": "dict",
+          "kind": "method",
+          "status": "renamed",
+          "replacement": "model_dump",
+          "verified": true,
+          "basis": "The guide's table of changed method names maps dict() to model_dump().",
+          "confidence": "medium"
+        }
+      ]
+    }
+  ]
+}

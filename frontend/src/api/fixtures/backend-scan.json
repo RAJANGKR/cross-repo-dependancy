@@ -1,0 +1,625 @@
+{
+ "scan_id": "scn_a75b33111781",
+ "status": "COMPLETED",
+ "created_at": "2026-10-13T10:14:08.144Z",
+ "updated_at": "2026-10-13T10:14:10.979Z",
+ "completed_at": "2026-10-13T10:14:10.979Z",
+ "duration_seconds": 2.83,
+ "progress": {
+  "stage": "COMPLETED",
+  "percentage": 100,
+  "current_action": "Done"
+ },
+ "result": {
+  "scanned_repositories": [
+   {
+    "name": "service-a",
+    "url": null,
+    "manifest_count": 2,
+    "total_dependencies": 4
+   },
+   {
+    "name": "service-b",
+    "url": null,
+    "manifest_count": 1,
+    "total_dependencies": 2
+   },
+   {
+    "name": "service-c",
+    "url": null,
+    "manifest_count": 1,
+    "total_dependencies": 2
+   }
+  ],
+  "summary": {
+   "total_unique_dependencies": 4,
+   "shared_dependencies_count": 4,
+   "drift_count": 4,
+   "in_sync_count": 0,
+   "severity_counts": {
+    "MAJOR_DRIFT": 2,
+    "MINOR_DRIFT": 2,
+    "INFO": 0,
+    "IN_SYNC": 0
+   },
+   "compatibility_risk_counts": {
+    "CONFIRMED_BREAKING": 0,
+    "SUSPECTED_BREAKING": 2,
+    "UNKNOWN_IMPACT": 1,
+    "NONE": 1
+   }
+  },
+  "drift_matrix": [
+   {
+    "id": "npm:axios",
+    "dependency_name": "axios",
+    "ecosystem": "npm",
+    "drift_disparity": "MAJOR_DRIFT",
+    "compatibility_risk": "SUSPECTED_BREAKING",
+    "declarations_by_repo": {
+     "service-a": {
+      "declared_range": "^0.27.2",
+      "resolved_version": null,
+      "dep_type": "runtime",
+      "source_file": "package.json"
+     },
+     "service-c": {
+      "declared_range": "^1.6.2",
+      "resolved_version": null,
+      "dep_type": "runtime",
+      "source_file": "package.json"
+     }
+    },
+    "present_in_repos": [
+     "service-a",
+     "service-c"
+    ],
+    "missing_in_repos": [
+     "service-b"
+    ],
+    "recommended_version": "1.20.0",
+    "evidence": null,
+    "score": 70,
+    "risk_level": "High",
+    "breakdown": [
+     {
+      "signal": "Major version gap",
+      "points": 50
+     },
+     {
+      "signal": "Known vulnerability",
+      "points": 20
+     }
+    ],
+    "confidence": 0.65,
+    "signals_missing": [
+     "lockfile",
+     "changelog",
+     "code_scan"
+    ],
+    "vulnerabilities": [
+     {
+      "id": "GHSA-3g43-6gmg-66jw",
+      "summary": "axios Vulnerable to Credential Theft and Response Hijacking via Prototype Pollution Gadget in Config Merge",
+      "fixed_in": "1.15.2",
+      "affects_repo": "service-a"
+     },
+     {
+      "id": "GHSA-3p68-rc4w-qgx5",
+      "summary": "Axios has a NO_PROXY Hostname Normalization Bypass that Leads to SSRF",
+      "fixed_in": "1.15.0",
+      "affects_repo": "service-a"
+     },
+     {
+      "id": "GHSA-43fc-jf86-j433",
+      "summary": "Axios is Vulnerable to Denial of Service via __proto__ Key in mergeConfig",
+      "fixed_in": "1.13.5",
+      "affects_repo": "service-a"
+     },
+     {
+      "id": "GHSA-5c9x-8gcm-mpgx",
+      "summary": "Axios' HTTP adapter-streamed uploads bypass maxBodyLength when maxRedirects: 0",
+      "fixed_in": "1.15.1",
+      "affects_repo": "service-a"
+     },
+     {
+      "id": "GHSA-62hf-57xw-28j9",
+      "summary": "Axios: unbounded recursion in toFormData causes DoS via deeply nested request data",
+      "fixed_in": "1.15.1",
+      "affects_repo": "service-a"
+     },
+     {
+      "id": "GHSA-6chq-wfr3-2hj9",
+      "summary": "Axios: Header Injection via Prototype Pollution",
+      "fixed_in": "1.15.1",
+      "affects_repo": "service-a"
+     },
+     {
+      "id": "GHSA-7q8q-rj6j-mhjq",
+      "summary": "Axios: Nested axios option objects can consume polluted prototype values",
+      "fixed_in": "0.33.0",
+      "affects_repo": "service-a"
+     },
+     {
+      "id": "GHSA-898c-q2cr-xwhg",
+      "summary": "axios has DoS & Header Injection via Prototype Pollution Read-Side Gadgets in axios merge functions",
+      "fixed_in": "1.16.0",
+      "affects_repo": "service-a"
+     },
+     {
+      "id": "GHSA-9fr6-4gfg-395g",
+      "summary": "Axios: Prototype-Pollution Gadget in the Default Instance Allows Inherited Object.prototype.method to Override HTTP Method",
+      "fixed_in": "0.34.0",
+      "affects_repo": "service-a"
+     },
+     {
+      "id": "GHSA-fvcv-3m26-pcqx",
+      "summary": "Axios has Unrestricted Cloud Metadata Exfiltration via Header Injection Chain",
+      "fixed_in": "1.15.0",
+      "affects_repo": "service-a"
+     },
+     {
+      "id": "GHSA-hfxv-24rg-xrqf",
+      "summary": "Axios: Regular Expression Denial of Service (ReDoS) via Cookie Name Injection",
+      "fixed_in": "1.16.0",
+      "affects_repo": "service-a"
+     },
+     {
+      "id": "GHSA-j5f8-grm9-p9fc",
+      "summary": "Axios: Proxy-Authorization header leaks to redirect target when proxy is re-evaluated to direct connection",
+      "fixed_in": "1.16.0",
+      "affects_repo": "service-a"
+     },
+     {
+      "id": "GHSA-jr5f-v2jv-69x6",
+      "summary": "axios Requests Vulnerable To Possible SSRF and Credential Leakage via Absolute URL",
+      "fixed_in": "1.8.2",
+      "affects_repo": "service-a"
+     },
+     {
+      "id": "GHSA-m7pr-hjqh-92cm",
+      "summary": "Axios: no_proxy bypass via IP alias allows SSRF",
+      "fixed_in": "1.15.1",
+      "affects_repo": "service-a"
+     },
+     {
+      "id": "GHSA-mmx7-hfxf-jppx",
+      "summary": "Axios: Prototype pollution gadgets can alter axios request construction",
+      "fixed_in": "1.18.0",
+      "affects_repo": "service-a"
+     },
+     {
+      "id": "GHSA-p92q-9vqr-4j8v",
+      "summary": "Axios: Proxy-Authorization Credential Leak to Origin Server Across HTTP-to-HTTPS Redirect in Axios Node.js HTTP Adapter",
+      "fixed_in": "1.16.0",
+      "affects_repo": "service-a"
+     },
+     {
+      "id": "GHSA-pf86-5x62-jrwf",
+      "summary": "Axios: Prototype Pollution Gadgets - Response Tampering, Data Exfiltration, and Request Hijacking",
+      "fixed_in": "1.15.1",
+      "affects_repo": "service-a"
+     },
+     {
+      "id": "GHSA-pjwm-pj3p-43mv",
+      "summary": "axios's shouldBypassProxy does not recognize IPv4-mapped IPv6 addresses, allowing NO_PROXY bypass (incomplete fix for CVE-2025-62718)",
+      "fixed_in": "1.16.0",
+      "affects_repo": "service-a"
+     },
+     {
+      "id": "GHSA-pmwg-cvhr-8vh7",
+      "summary": "Axios: Incomplete Fix for CVE-2025-62718 \u00e2\u20ac\u201d NO_PROXY Protection Bypassed via RFC 1122 Loopback Subnet (127.0.0.0/8) in Axios 1.15.0",
+      "fixed_in": "1.15.1",
+      "affects_repo": "service-a"
+     },
+     {
+      "id": "GHSA-vf2m-468p-8v99",
+      "summary": "Axios: HTTP adapter streamed responses bypass maxContentLength",
+      "fixed_in": "1.15.1",
+      "affects_repo": "service-a"
+     },
+     {
+      "id": "GHSA-w9j2-pvgh-6h63",
+      "summary": "Axios: Authentication Bypass via Prototype Pollution Gadget in `validateStatus` Merge Strategy",
+      "fixed_in": "1.15.1",
+      "affects_repo": "service-a"
+     },
+     {
+      "id": "GHSA-wf5p-g6vw-rhxx",
+      "summary": "Axios Cross-Site Request Forgery Vulnerability",
+      "fixed_in": "1.6.0",
+      "affects_repo": "service-a"
+     },
+     {
+      "id": "GHSA-xhjh-pmcv-23jw",
+      "summary": "Axios: Null Byte Injection via Reverse-Encoding in AxiosURLSearchParams",
+      "fixed_in": "1.15.1",
+      "affects_repo": "service-a"
+     },
+     {
+      "id": "GHSA-xx6v-rp6x-q39c",
+      "summary": "Axios: XSRF Token Cross-Origin Leakage via Prototype Pollution Gadget in `withXSRFToken` Boolean Coercion",
+      "fixed_in": "1.15.1",
+      "affects_repo": "service-a"
+     }
+    ],
+    "explanation": {
+     "text": "axios is used at 0.27.2 to 1.20.0 across the scanned repositories, a major version gap. The versions cross a major boundary and their ranges cannot overlap, but nothing fetched confirms a break. The version that fits the most declared ranges is 1.20.0.",
+     "source": "template"
+    }
+   },
+   {
+    "id": "python:pydantic",
+    "dependency_name": "pydantic",
+    "ecosystem": "python",
+    "drift_disparity": "MAJOR_DRIFT",
+    "compatibility_risk": "SUSPECTED_BREAKING",
+    "declarations_by_repo": {
+     "service-a": {
+      "declared_range": "==1.10.13",
+      "resolved_version": null,
+      "dep_type": "runtime",
+      "source_file": "requirements.txt"
+     },
+     "service-b": {
+      "declared_range": "==2.5.0",
+      "resolved_version": null,
+      "dep_type": "runtime",
+      "source_file": "requirements.txt"
+     }
+    },
+    "present_in_repos": [
+     "service-a",
+     "service-b"
+    ],
+    "missing_in_repos": [
+     "service-c"
+    ],
+    "recommended_version": "2.5.0",
+    "evidence": null,
+    "score": 50,
+    "risk_level": "High",
+    "breakdown": [
+     {
+      "signal": "Major version gap",
+      "points": 50
+     }
+    ],
+    "confidence": 0.65,
+    "signals_missing": [
+     "lockfile",
+     "changelog",
+     "code_scan"
+    ],
+    "vulnerabilities": [],
+    "explanation": {
+     "text": "pydantic is used at 1.10.13 to 2.5.0 across the scanned repositories, a major version gap. The versions cross a major boundary and their ranges cannot overlap, but nothing fetched confirms a break. The version that fits the most declared ranges is 2.5.0.",
+     "source": "template"
+    }
+   },
+   {
+    "id": "python:requests",
+    "dependency_name": "requests",
+    "ecosystem": "python",
+    "drift_disparity": "MINOR_DRIFT",
+    "compatibility_risk": "UNKNOWN_IMPACT",
+    "declarations_by_repo": {
+     "service-a": {
+      "declared_range": "==2.25.1",
+      "resolved_version": null,
+      "dep_type": "runtime",
+      "source_file": "requirements.txt"
+     },
+     "service-b": {
+      "declared_range": "==2.31.0",
+      "resolved_version": null,
+      "dep_type": "runtime",
+      "source_file": "requirements.txt"
+     }
+    },
+    "present_in_repos": [
+     "service-a",
+     "service-b"
+    ],
+    "missing_in_repos": [
+     "service-c"
+    ],
+    "recommended_version": "2.31.0",
+    "evidence": null,
+    "score": 40,
+    "risk_level": "Medium",
+    "breakdown": [
+     {
+      "signal": "Minor version gap",
+      "points": 20
+     },
+     {
+      "signal": "Known vulnerability",
+      "points": 20
+     }
+    ],
+    "confidence": 0.65,
+    "signals_missing": [
+     "lockfile",
+     "changelog",
+     "code_scan"
+    ],
+    "vulnerabilities": [
+     {
+      "id": "GHSA-9hjg-9r4m-mvj7",
+      "summary": "Requests vulnerable to .netrc credentials leak via malicious URLs",
+      "fixed_in": "2.32.4",
+      "affects_repo": "service-a"
+     },
+     {
+      "id": "GHSA-9wx4-h78v-vm56",
+      "summary": "Requests `Session` object does not verify requests after making first request with verify=False",
+      "fixed_in": "2.32.0",
+      "affects_repo": "service-a"
+     },
+     {
+      "id": "GHSA-gc5v-m9x4-r6x2",
+      "summary": "Requests has Insecure Temp File Reuse in its extract_zipped_paths() utility function",
+      "fixed_in": "2.33.0",
+      "affects_repo": "service-a"
+     },
+     {
+      "id": "GHSA-j8r2-6x86-q33q",
+      "summary": "Unintended leak of Proxy-Authorization header in requests",
+      "fixed_in": "2.31.0",
+      "affects_repo": "service-a"
+     },
+     {
+      "id": "PYSEC-2023-74",
+      "summary": "",
+      "fixed_in": "74ea7cf7a6a27a4eeb2ae24e162bcc942a6706d5",
+      "affects_repo": "service-a"
+     },
+     {
+      "id": "PYSEC-2026-1872",
+      "summary": "Requests vulnerable to .netrc credentials leak via malicious URLs",
+      "fixed_in": "2.32.4",
+      "affects_repo": "service-a"
+     },
+     {
+      "id": "PYSEC-2026-1873",
+      "summary": "Requests `Session` object does not verify requests after making first request with verify=False",
+      "fixed_in": "2.32.0",
+      "affects_repo": "service-a"
+     },
+     {
+      "id": "PYSEC-2026-2275",
+      "summary": "",
+      "fixed_in": "2.33.0",
+      "affects_repo": "service-a"
+     },
+     {
+      "id": "GHSA-9hjg-9r4m-mvj7",
+      "summary": "Requests vulnerable to .netrc credentials leak via malicious URLs",
+      "fixed_in": "2.32.4",
+      "affects_repo": "service-b"
+     },
+     {
+      "id": "GHSA-9wx4-h78v-vm56",
+      "summary": "Requests `Session` object does not verify requests after making first request with verify=False",
+      "fixed_in": "2.32.0",
+      "affects_repo": "service-b"
+     },
+     {
+      "id": "GHSA-gc5v-m9x4-r6x2",
+      "summary": "Requests has Insecure Temp File Reuse in its extract_zipped_paths() utility function",
+      "fixed_in": "2.33.0",
+      "affects_repo": "service-b"
+     },
+     {
+      "id": "PYSEC-2026-1872",
+      "summary": "Requests vulnerable to .netrc credentials leak via malicious URLs",
+      "fixed_in": "2.32.4",
+      "affects_repo": "service-b"
+     },
+     {
+      "id": "PYSEC-2026-1873",
+      "summary": "Requests `Session` object does not verify requests after making first request with verify=False",
+      "fixed_in": "2.32.0",
+      "affects_repo": "service-b"
+     },
+     {
+      "id": "PYSEC-2026-2275",
+      "summary": "",
+      "fixed_in": "2.33.0",
+      "affects_repo": "service-b"
+     }
+    ],
+    "explanation": {
+     "text": "requests is used at 2.25.1 to 2.31.0 across the scanned repositories, a minor version gap. The versions differ, and there was not enough evidence to assess the impact. The version that fits the most declared ranges is 2.31.0.",
+     "source": "template"
+    }
+   },
+   {
+    "id": "npm:lodash",
+    "dependency_name": "lodash",
+    "ecosystem": "npm",
+    "drift_disparity": "MINOR_DRIFT",
+    "compatibility_risk": "NONE",
+    "declarations_by_repo": {
+     "service-a": {
+      "declared_range": "4.17.20",
+      "resolved_version": null,
+      "dep_type": "runtime",
+      "source_file": "package.json"
+     },
+     "service-c": {
+      "declared_range": "4.17.21",
+      "resolved_version": null,
+      "dep_type": "runtime",
+      "source_file": "package.json"
+     }
+    },
+    "present_in_repos": [
+     "service-a",
+     "service-c"
+    ],
+    "missing_in_repos": [
+     "service-b"
+    ],
+    "recommended_version": "4.17.21",
+    "evidence": null,
+    "score": 25,
+    "risk_level": "Medium",
+    "breakdown": [
+     {
+      "signal": "Patch version gap",
+      "points": 5
+     },
+     {
+      "signal": "Known vulnerability",
+      "points": 20
+     }
+    ],
+    "confidence": 0.65,
+    "signals_missing": [
+     "lockfile",
+     "changelog",
+     "code_scan"
+    ],
+    "vulnerabilities": [
+     {
+      "id": "GHSA-29mw-wpgm-hmr9",
+      "summary": "Regular Expression Denial of Service (ReDoS) in lodash",
+      "fixed_in": "4.17.21",
+      "affects_repo": "service-a"
+     },
+     {
+      "id": "GHSA-35jh-r3h4-6jhm",
+      "summary": "Command Injection in lodash",
+      "fixed_in": "4.17.21",
+      "affects_repo": "service-a"
+     },
+     {
+      "id": "GHSA-f23m-r3pf-42rh",
+      "summary": "lodash vulnerable to Prototype Pollution via array path bypass in `_.unset` and `_.omit`",
+      "fixed_in": "4.18.0",
+      "affects_repo": "service-a"
+     },
+     {
+      "id": "GHSA-r5fr-rjxr-66jc",
+      "summary": "lodash vulnerable to Code Injection via `_.template` imports key names",
+      "fixed_in": "4.18.0",
+      "affects_repo": "service-a"
+     },
+     {
+      "id": "GHSA-xxjr-mmjv-4gpg",
+      "summary": "Lodash has Prototype Pollution Vulnerability in `_.unset` and `_.omit` functions",
+      "fixed_in": "4.17.23",
+      "affects_repo": "service-a"
+     },
+     {
+      "id": "GHSA-f23m-r3pf-42rh",
+      "summary": "lodash vulnerable to Prototype Pollution via array path bypass in `_.unset` and `_.omit`",
+      "fixed_in": "4.18.0",
+      "affects_repo": "service-c"
+     },
+     {
+      "id": "GHSA-r5fr-rjxr-66jc",
+      "summary": "lodash vulnerable to Code Injection via `_.template` imports key names",
+      "fixed_in": "4.18.0",
+      "affects_repo": "service-c"
+     },
+     {
+      "id": "GHSA-xxjr-mmjv-4gpg",
+      "summary": "Lodash has Prototype Pollution Vulnerability in `_.unset` and `_.omit` functions",
+      "fixed_in": "4.17.23",
+      "affects_repo": "service-c"
+     }
+    ],
+    "explanation": {
+     "text": "lodash is used at 4.17.20 to 4.17.21 across the scanned repositories, a patch version gap. Nothing in the available evidence points to a break. The version that fits the most declared ranges is 4.17.21.",
+     "source": "template"
+    }
+   }
+  ],
+  "graph_summary": {
+   "total_nodes": 7,
+   "total_edges": 8,
+   "density": 0.1905,
+   "highest_drift_nodes": [
+    "axios",
+    "pydantic",
+    "lodash",
+    "requests"
+   ]
+  },
+  "warnings": [
+   "service-a: pasted input, so there is no code scan and resolved versions exist only if a lockfile was pasted.",
+   "service-b: pasted input, so there is no code scan and resolved versions exist only if a lockfile was pasted.",
+   "service-c: pasted input, so there is no code scan and resolved versions exist only if a lockfile was pasted.",
+   "GitHub rate limit is low (0 requests left). Set GITHUB_TOKEN on the backend to raise it."
+  ],
+  "skipped_items": [],
+  "contract_analysis": null,
+  "code_impact": null,
+  "data_sources": [
+   {
+    "name": "GitHub",
+    "status": "failed"
+   },
+   {
+    "name": "npm registry",
+    "status": "ok"
+   },
+   {
+    "name": "PyPI",
+    "status": "ok"
+   },
+   {
+    "name": "Maven Central",
+    "status": "not_used"
+   },
+   {
+    "name": "OSV",
+    "status": "ok"
+   },
+   {
+    "name": "Gemini",
+    "status": "not_configured"
+   }
+  ],
+  "repository_details": [
+   {
+    "name": "service-a",
+    "kind": "pasted",
+    "ref": null,
+    "commit": null,
+    "manifests": [
+     "package.json",
+     "requirements.txt"
+    ],
+    "code_scanned": false,
+    "error": null
+   },
+   {
+    "name": "service-b",
+    "kind": "pasted",
+    "ref": null,
+    "commit": null,
+    "manifests": [
+     "requirements.txt"
+    ],
+    "code_scanned": false,
+    "error": null
+   },
+   {
+    "name": "service-c",
+    "kind": "pasted",
+    "ref": null,
+    "commit": null,
+    "manifests": [
+     "package.json"
+    ],
+    "code_scanned": false,
+    "error": null
+   }
+  ]
+ },
+ "error": null
+}

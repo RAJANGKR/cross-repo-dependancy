@@ -67,7 +67,7 @@ export function computeOverview(result: ScanResult): Overview {
     { key: 'in-sync', label: 'In sync', value: summary?.in_sync_count ?? fromSeverity('IN_SYNC') },
     { key: 'minor', label: 'Minor drift', value: fromSeverity('MINOR_DRIFT') },
     { key: 'major', label: 'Major drift', value: fromSeverity('MAJOR_DRIFT') },
-    { key: 'single', label: 'In one repository only', value: fromSeverity('INFO') },
+    { key: 'single', label: 'Not compared', value: fromSeverity('INFO'), note: 'Single repository or unresolved' },
     {
       key: 'findings',
       label: 'Compatibility findings',

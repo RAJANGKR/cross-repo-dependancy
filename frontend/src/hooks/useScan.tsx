@@ -15,16 +15,12 @@ import {
   USE_MOCK,
 } from '../config'
 import type { DataSource } from '../lib/exportMarkdown'
+import { toHistoryEntry } from '../lib/insights'
+import { HISTORY_LIMIT, log, updateStore } from '../lib/localStore'
+import { toScanRequest, type ScanTarget } from '../lib/targets'
 
-/** A repository as submitted. The label is display-only and never sent. */
-export interface SubmittedRepo {
-  label: string
-  /** `https://github.com/{owner}/{repo}` */
-  url: string
-  /** Repository name, which is how the backend keys its results. */
-  name: string
-  ref: string | null
-}
+/** A target as submitted. The label is display-only and never sent. */
+export type SubmittedRepo = ScanTarget
 
 export type ScanState =
   | { phase: 'idle' }
@@ -89,10 +85,12 @@ export interface ScanApi {
 const ScanContext = createContext<ScanApi | null>(null)
 
 const DEMO_REPOS: SubmittedRepo[] = ['payment-service', 'core-service', 'customer-service'].map((name, index) => ({
+  kind: 'github' as const,
   label: DEFAULT_REPO_LABELS[index] ?? name,
   url: `https://github.com/example-org/${name}`,
   name,
   ref: null,
+  files: [],
 }))
 
 interface Run {
@@ -119,13 +117,7 @@ export function ScanProvider({ children }: { children: ReactNode }) {
     try {
       const record = await runScan(
         run.makeClient(),
-        {
-          repository_targets: repos.map((repo) => ({
-            type: 'github' as const,
-            url: repo.url,
-            ...(repo.ref ? { ref: repo.ref } : {}),
-          })),
-        },
+        toScanRequest(repos),
         {
           signal: controller.signal,
           onUpdate: (update) => {
@@ -138,6 +130,12 @@ export function ScanProvider({ children }: { children: ReactNode }) {
       )
       if (controllerRef.current !== controller) return false
       dispatch({ type: 'done', source, record, repos })
+      if (record.result) {
+        // History keeps names and public URLs only. Pasted content is never stored.
+        const entry = toHistoryEntry(`${record.scan_id}:${Date.now()}`, source, repos, record.result)
+        updateStore((store) => ({ ...store, history: [entry, ...store.history].slice(0, HISTORY_LIMIT) }))
+        log('scan', `${source === 'demo' ? 'Demo run' : 'Scan'} of ${repos.length} targets: ${entry.drifted} drifted packages`)
+      }
       return true
     } catch (error) {
       if (controllerRef.current !== controller || isCancelled(error)) return false

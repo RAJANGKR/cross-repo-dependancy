@@ -83,6 +83,10 @@ interface DriftRowProps {
   onFocusRow: (index: number) => void
   onKeyDown: (event: KeyboardEvent<HTMLElement>) => void
   registerRow: (index: number) => (element: HTMLElement | null) => void
+  compact: boolean
+  /** Undefined hides the selection column. */
+  picked: boolean | undefined
+  onPick: (id: string) => void
 }
 
 const DriftRow = memo(function DriftRow({
@@ -95,7 +99,11 @@ const DriftRow = memo(function DriftRow({
   onFocusRow,
   onKeyDown,
   registerRow,
+  compact,
+  picked,
+  onPick,
 }: DriftRowProps) {
+  const pad = compact ? 'py-2' : 'py-4'
   return (
     <tr
       ref={registerRow(index)}
@@ -110,21 +118,32 @@ const DriftRow = memo(function DriftRow({
         selected && 'bg-secondary',
       )}
     >
-      <th scope="row" className="px-4 py-4 text-left align-top font-medium">
+      {picked !== undefined && (
+        <td className={cx('w-10 px-3 align-top', pad)} onClick={(event) => event.stopPropagation()}>
+          <input
+            type="checkbox"
+            checked={picked}
+            onChange={() => onPick(row.id)}
+            aria-label={`Select ${row.dependency_name}`}
+            className="size-4 accent-foreground"
+          />
+        </td>
+      )}
+      <th scope="row" className={cx('px-4 text-left align-top font-medium', pad)}>
         <span className="break-all">{row.dependency_name}</span>
         <span className="mt-1.5 block">
           <EcosystemTag ecosystem={row.ecosystem} />
         </span>
       </th>
       {repos.map((repo) => (
-        <td key={repo} className="px-4 py-4 align-top">
+        <td key={repo} className={cx('px-4 align-top', pad)}>
           <DeclarationCell declaration={row.declarations_by_repo[repo]} />
         </td>
       ))}
-      <td className="px-4 py-4 align-top">
+      <td className={cx('px-4 align-top', pad)}>
         <DriftBadge value={row.drift_disparity} />
       </td>
-      <td className="px-4 py-4 align-top">
+      <td className={cx('px-4 align-top', pad)}>
         <RiskBadge value={row.compatibility_risk} />
       </td>
     </tr>
@@ -141,9 +160,19 @@ interface DriftTableProps {
   sort: SortKey
   reversed: boolean
   onSort: (key: SortKey) => void
+  compact?: boolean
+  /** Ids ticked for bulk actions. Omit to hide the selection column. */
+  picked?: readonly string[]
+  onPick?: (ids: string[]) => void
 }
 
-export function DriftTable({ rows, repos, repoLabel, selectedId, onSelect, sort, reversed, onSort }: DriftTableProps) {
+export function DriftTable({ rows, repos, repoLabel, selectedId, onSelect, sort, reversed, onSort, compact = false, picked, onPick }: DriftTableProps) {
+  const selectable = picked !== undefined && onPick !== undefined
+  const allPicked = selectable && rows.length > 0 && rows.every((row) => picked.includes(row.id))
+  const toggle = useCallback(
+    (id: string) => onPick?.(picked?.includes(id) ? picked.filter((item) => item !== id) : [...(picked ?? []), id]),
+    [picked, onPick],
+  )
   const activate = useCallback(
     (index: number) => {
       const row = rows[index]
@@ -167,6 +196,17 @@ export function DriftTable({ rows, repos, repoLabel, selectedId, onSelect, sort,
         </caption>
         <thead>
           <tr aria-rowindex={1}>
+            {selectable && (
+              <th scope="col" className="w-10 px-3 py-3 text-left">
+                <input
+                  type="checkbox"
+                  checked={allPicked}
+                  onChange={() => onPick(allPicked ? [] : rows.map((row) => row.id))}
+                  aria-label="Select all shown packages"
+                  className="size-4 accent-foreground"
+                />
+              </th>
+            )}
             <SortHeader label="Package" sortKey="name" active={sort} reversed={reversed} onSort={onSort} />
             {repos.map((repo) => {
               const label = repoLabel(repo)
@@ -184,7 +224,7 @@ export function DriftTable({ rows, repos, repoLabel, selectedId, onSelect, sort,
         <tbody>
           {rows.length === 0 ? (
             <tr>
-              <td colSpan={repos.length + 3} className="border-t border-border px-4 py-12 text-center text-muted-foreground">
+              <td colSpan={repos.length + (selectable ? 4 : 3)} className="border-t border-border px-4 py-12 text-center text-muted-foreground">
                 No packages match these filters
               </td>
             </tr>
@@ -201,6 +241,9 @@ export function DriftTable({ rows, repos, repoLabel, selectedId, onSelect, sort,
                 onFocusRow={nav.setActiveIndex}
                 onKeyDown={nav.onKeyDown}
                 registerRow={nav.registerRow}
+                compact={compact}
+                picked={selectable ? picked.includes(row.id) : undefined}
+                onPick={toggle}
               />
             ))
           )}

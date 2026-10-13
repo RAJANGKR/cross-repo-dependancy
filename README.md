@@ -1,126 +1,107 @@
-# 🔒 DriftLock
+# DriftLock
 
-> **Automated Cross-Repository Dependency Drift Detection & Compatibility Analysis Engine**  
-> *A 24-Hour Hackathon Project | Target MVP Delivery: 18–20 Hours*
+**Dependabot tells you versions differ. DriftLock tells you whether your code will actually break.**
 
-[![Python 3.11](https://img.shields.io/badge/Python-3.11-blue.svg)](https://www.python.org/)
-[![FastAPI](https://img.shields.io/badge/FastAPI-0.110+-009688.svg)](https://fastapi.tiangolo.com/)
-[![Pydantic v2](https://img.shields.io/badge/Pydantic-v2-E92063.svg)](https://docs.pydantic.dev/)
-[![React 18](https://img.shields.io/badge/React-18-61DAFB.svg)](https://react.dev/)
-[![Vite](https://img.shields.io/badge/Vite-5.0-646CFF.svg)](https://vitejs.dev/)
-[![NetworkX](https://img.shields.io/badge/NetworkX-3.0+-orange.svg)](https://networkx.org/)
-[![Gemini API](https://img.shields.io/badge/Gemini-1.5--Flash-8E75B2.svg)](https://ai.google.dev/)
+DriftLock reads 2 to 10 public GitHub repositories (or manifests you paste), lines up their direct dependencies, finds the libraries pinned to different versions, and rates how likely each drift is to break something, with the evidence shown.
 
----
+Built for Hacktopia 2026, problem statement PS 07 (cross-repo dependency drift detector).
 
-## 📌 Executive Overview
+## What it does
 
-In modern microservice architectures, independent development teams frequently deploy services relying on common third-party libraries (`react`, `fastapi`, `pydantic`, `requests`). Over time, divergence between declared constraints and resolved lockfile pins leads to **cross-repository dependency drift**, causing subtle integration incompatibilities, runtime serialization errors, and security vulnerabilities.
+- **Reads manifests and lockfiles**: `package.json`, `package-lock.json`, `requirements.txt`, `pyproject.toml`, `poetry.lock`, `pom.xml`. Declared ranges and resolved (lockfile) versions are kept separate.
+- **Classifies each shared library** deterministically: major drift, minor drift, in sync, or not compared; and a compatibility risk: confirmed breaking, suspected breaking, unknown impact, or no issue identified.
+- **Collects evidence**: registry version lists (npm, PyPI, Maven Central), known vulnerabilities (OSV.dev), release notes (GitHub Releases or a CHANGELOG file), and a code-usage scan of the repository source.
+- **Scores** each drift 0 to 100 with a visible points breakdown and a confidence value that drops when evidence is missing.
+- **Console UI**: command center, drift table, dependency graph, risk intelligence, review queue, fix plans, activity, repository comparison, settings.
 
-**DriftLock** ingests up to three public repositories, extracts both declared specifications and resolved lockfile pins, constructs a unified cross-repository dependency graph using **NetworkX**, and uses the **Google Gemini API** (strictly constrained to ground-truth release notes) to classify breaking changes with verifiable citations.
+## Run it (Windows)
 
----
+Backend, in one terminal:
 
-## 📚 Phase 0: Engineering Contract & Documentation Hub
-
-All foundational specifications, architectural contracts, and development plans are established in the [`docs/`](file:///Users/rjn_g/Documents/%20Tech/Hactopia/docs/) directory:
-
-| Document | Purpose & Description |
-|---|---|
-| [**`docs/PROJECT_CONTEXT.md`**](file:///Users/rjn_g/Documents/%20Tech/Hactopia/docs/PROJECT_CONTEXT.md) | Hackathon constraints, 4-member team workstream allocation, and project boundaries. |
-| [**`docs/REQUIREMENTS.md`**](file:///Users/rjn_g/Documents/%20Tech/Hactopia/docs/REQUIREMENTS.md) | Functional requirements (FR-1 to FR-7), Non-functional requirements, and explicit out-of-scope boundaries. |
-| [**`docs/ARCHITECTURE.md`**](file:///Users/rjn_g/Documents/%20Tech/Hactopia/docs/ARCHITECTURE.md) | Subsystem architecture, Mermaid system diagrams, data flows, and error boundaries. |
-| [**`docs/API_CONTRACT.md`**](file:///Users/rjn_g/Documents/%20Tech/Hactopia/docs/API_CONTRACT.md) | Stable REST/JSON contract (`GET /health`, `POST /api/v1/scans`, `GET /api/v1/scans/{id}`), polling spec, error formats. |
-| [**`docs/DATA_MODEL.md`**](file:///Users/rjn_g/Documents/%20Tech/Hactopia/docs/DATA_MODEL.md) | Pydantic v2 domain schemas, ER diagrams, declared vs. resolved boundary rules, and evidence models. |
-| [**`docs/DEVELOPMENT_PLAN.md`**](file:///Users/rjn_g/Documents/%20Tech/Hactopia/docs/DEVELOPMENT_PLAN.md) | 24-hour hour-by-hour roadmap, engineer task breakdown, milestones, and MVP target checkpoints. |
-| [**`docs/TESTING.md`**](file:///Users/rjn_g/Documents/%20Tech/Hactopia/docs/TESTING.md) | Testing pyramid, fixture datasets (in-sync, minor drift, breaking drift, rate limits), and verification checklist. |
-| [**`docs/DECISIONS.md`**](file:///Users/rjn_g/Documents/%20Tech/Hactopia/docs/DECISIONS.md) | Architectural Decision Records (ADRs: In-process async model, Grounded LLM, NetworkX, Lockfile separation). |
-| [**`docs/DEMO_PLAN.md`**](file:///Users/rjn_g/Documents/%20Tech/Hactopia/docs/DEMO_PLAN.md) | 3-minute pitch script, curated test repositories, and 4-tier live demo contingency fallbacks. |
-
----
-
-## 🏗️ Repository Layout
-
-```
-.
-├── backend/                  # FastAPI + Python 3.11 Backend
-│   ├── app/
-│   │   ├── api/              # REST Endpoints (v1 router, health, scans)
-│   │   ├── core/             # Configuration & environment settings
-│   │   ├── parsers/          # Node.js (package.json, lock) & Python (reqs, pyproject, lock)
-│   │   ├── schemas/          # Pydantic v2 schemas (Dependency, Drift, Scan models)
-│   │   └── services/         # VersionService, DriftEngine, NetworkX Graph, Registry & Gemini
-│   ├── tests/                # Pytest unit, integration, and contract tests
-│   ├── requirements.txt      # Python dependencies
-│   ├── .env.example          # Sample environment configuration
-│   └── .gitignore            # Git ignore rules
-│
-├── frontend/                 # React 18 + Vite + TypeScript Frontend
-│   └── README.md             # Collaborator setup guide and mock payload integration
-│
-├── docs/                     # Shared Engineering Specifications (Phase 0)
-│   ├── PROJECT_CONTEXT.md
-│   ├── REQUIREMENTS.md
-│   ├── ARCHITECTURE.md
-│   ├── API_CONTRACT.md
-│   ├── DATA_MODEL.md
-│   ├── DEVELOPMENT_PLAN.md
-│   ├── TESTING.md
-│   ├── DECISIONS.md
-│   └── DEMO_PLAN.md
-│
-└── README.md                 # Master Project Documentation
-```
-
----
-
-## ⚡ Quickstart Guide
-
-### 1. Backend Service (FastAPI)
-
-```bash
-# Navigate to the backend directory
+```powershell
 cd backend
-
-# Create and activate virtual environment
-python3 -m venv .venv
-source .venv/bin/activate  # On Windows: .venv\Scripts\activate
-
-# Install dependencies
+python -m venv .venv
+.\.venv\Scripts\Activate.ps1
 pip install -r requirements.txt
-
-# Configure environment
-cp .env.example .env
-
-# Run unit and integration tests
-pytest -v
-
-# Start the dev server
+Copy-Item .env.example .env   # optional: add GITHUB_TOKEN and GEMINI_API_KEY
 uvicorn app.main:app --reload --port 8000
 ```
 
-- **API Base URL**: `http://localhost:8000`
-- **Swagger Documentation**: `http://localhost:8000/docs`
-- **Health Check**: `http://localhost:8000/health`
+Frontend, in another:
 
-### 2. Frontend Dashboard (React + Vite)
-
-See [frontend/README.md](file:///Users/rjn_g/Documents/%20Tech/Hactopia/frontend/README.md) for full instructions:
-
-```bash
+```powershell
 cd frontend
-npm create vite@latest . -- --template react-ts
 npm install
+Copy-Item .env.example .env.local
 npm run dev
 ```
 
-The frontend dashboard runs on `http://localhost:5173` and communicates with the backend via CORS.
+Open `http://localhost:5173`. If port 8000 or 5173 is already in use, run the backend on another port (`--port 8010`), set `VITE_API_BASE_URL=http://localhost:8010` in `frontend/.env.local`, and add your frontend origin to `CORS_ORIGINS` in `backend/.env`.
 
----
+## Configuration
 
-## 👥 Hackathon Team Workstreams
+| Where | Variable | Purpose |
+| --- | --- | --- |
+| `backend/.env` | `GITHUB_TOKEN` | Optional. Raises the GitHub API limit from 60 to 5,000 requests per hour. A token with no scopes is enough. |
+| `backend/.env` | `GEMINI_API_KEY`, `GEMINI_MODEL` | Optional. Without a key, explanations are generated from rules. |
+| `backend/.env` | `CORS_ORIGINS` | Frontend origins allowed to call the API. |
+| `backend/.env` | `CACHE_ENABLED`, `CACHE_PATH` | SQLite cache for public upstream data. |
+| `frontend/.env.local` | `VITE_API_BASE_URL` | Backend base URL. |
+| `frontend/.env.local` | `VITE_USE_MOCK` | `true` plays the bundled demo scan instead of calling the backend. |
 
-- **Engineer 1 (Backend Lead)**: FastAPI infrastructure, GitHub REST fetcher, Rate limiting, Async job store.
-- **Engineer 2 (Graph & Analysis Lead)**: Manifest & lockfile parsers, NetworkX cross-repo graph, SemVer comparator.
-- **Engineer 3 (Intelligence & Registry Lead)**: npm/PyPI registry clients, Gemini grounded changelog interpreter, SQLite cache.
-- **Engineer 4 (Frontend Lead)**: React 18, Vite, TypeScript, Tailwind UI, Drift Matrix, Graph Visualizer.
+No secret is ever needed in the frontend, and none is committed.
+
+## How risk is decided
+
+All classification and scoring is deterministic Python (`backend/app/services/classifier.py`, `scoring.py`). Gemini, when configured, only writes explanation text.
+
+- `verified_breaking` is true only when the quoted line appears literally in release-note text the backend fetched for versions between the two being compared, and that line carries a breaking marker.
+- The code-usage scan has tiers. **Tier 1** is an import map: where a library is used, with no claim that anything breaks. **Tier 2** is a rule pack checked against the library's official migration guide; `backend/app/rules/pydantic.json` is the one shipped. Tier 3 (AI-suggested candidate names) is not built.
+- Score weights are untuned estimates: major gap +50, minor +20, patch +5, breaking marker +25, known vulnerability +20, used by 3 or more repositories +10, Tier 2 code hits +15, overlapping ranges -30.
+- Confidence is a heuristic about how much evidence was available. It is not accuracy.
+
+## Tests
+
+```powershell
+cd backend;  .\.venv\Scripts\python -m pytest      # 74 tests, no network: upstreams are mocked
+cd frontend; npm test; npm run build               # 99 tests
+```
+
+`backend/scripts/live_smoke.py` is an optional script that runs one real scan against the live APIs. It is not part of the test suite.
+
+## Demo script
+
+1. Start both servers. The input screen shows "Backend online".
+2. Paste three repository URLs (or press **Fill example repositories**), then **Analyze repositories**. Watch the stages: queued, fetching, parsing, analyzing.
+3. **Command center**: the four headline numbers, the graph, and the priority drifts list.
+4. Open the top drift. Walk the tabs: Overview (score breakdown, confidence, missing signals), Evidence (quoted release note, code locations), Versions, Fix (copy the version line), Notes (accept, dismiss, snooze).
+5. Show a patch-level drift classified "No issue identified": it does not cry wolf.
+6. **Fix plans**: copy all fixes. **Export report** as Markdown.
+7. If the network fails: **Load demo run** plays bundled demo data, labeled as such everywhere.
+
+`GET /api/v1/demo` serves `backend/demo/demo_scan.json`, a saved real run of this backend against four services of `GoogleCloudPlatform/microservices-demo`.
+
+## Limitations
+
+- Direct dependencies only. Transitive dependencies are not compared.
+- Public GitHub repositories only. Private projects can be pasted, without a code scan.
+- Only pushed code is read.
+- The code scan finds changed names, not silent behavior changes, and cannot confirm a runtime failure.
+- Maven: `${property}` and `dependencyManagement` in the same `pom.xml` only; parent POMs and BOM imports are not followed.
+- Risk is a signal, not a guarantee.
+
+## Not built
+
+OpenAPI contract analysis (the UI section exists and stays empty), Tier 3 candidate rules, rule packs other than pydantic, graph export to PNG, and per-repository retry (a retry re-runs the whole scan).
+
+## Roadmap
+
+GitHub App for private repositories, a CI action that fails a build on new confirmed-breaking drift, transitive dependency comparison, more verified rule packs.
+
+## Repository layout
+
+```
+backend/    FastAPI service: parsers, GitHub fetcher, registries, OSV, changelog, classifier, scoring, usage scanner
+frontend/   React 19 + Vite + TypeScript + Tailwind v4 console
+docs/       API contract and data model
+```

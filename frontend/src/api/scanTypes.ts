@@ -19,12 +19,29 @@ export const CONTRACT_STATES = ['ANALYZED', 'SPEC_UNAVAILABLE', 'MALFORMED_SPEC'
 
 // ---- Request ---------------------------------------------------------------
 
-export interface RepositoryTarget {
-  type: 'github'
-  url: string
-  /** Branch, tag or commit. Omitted to let the backend use its default. */
-  ref?: string
+export const MANIFEST_FILENAMES = [
+  'package.json',
+  'package-lock.json',
+  'requirements.txt',
+  'pyproject.toml',
+  'poetry.lock',
+  'pom.xml',
+] as const
+export type ManifestFilename = (typeof MANIFEST_FILENAMES)[number]
+
+export interface PastedFile {
+  filename: ManifestFilename
+  content: string
 }
+
+export type RepositoryTarget =
+  | {
+      type: 'github'
+      url: string
+      /** Branch, tag or commit. Omitted to let the backend use its default. */
+      ref?: string
+    }
+  | { type: 'pasted'; name: string; files: PastedFile[] }
 
 export interface ScanCreateRequest {
   repository_targets: RepositoryTarget[]
@@ -90,6 +107,50 @@ export interface DependencyDrift {
   missing_in_repos: string[]
   recommended_version: string | null
   evidence: ChangelogEvidence | null
+  // Additive fields from the DriftLock backend. Each is null (or empty) when
+  // the backend did not send it, and the UI then shows nothing for it.
+  /** Deterministic 0 to 100 score. A secondary signal next to the classifications. */
+  score: number | null
+  /** Low | Medium | High | Critical, derived from the score by the backend. */
+  risk_level: string | null
+  breakdown: ScoreItem[]
+  /** Heuristic 0 to 1: how much evidence was available. Not accuracy. */
+  confidence: number | null
+  signals_missing: string[]
+  vulnerabilities: Vulnerability[]
+  explanation: Explanation | null
+}
+
+export interface ScoreItem {
+  signal: string
+  points: number
+}
+
+export interface Vulnerability {
+  id: string
+  summary: string
+  affects_repo: string
+  fixed_in: string | null
+}
+
+export interface Explanation {
+  text: string
+  source: 'ai' | 'template'
+}
+
+export interface DataSource {
+  name: string
+  status: string
+}
+
+export interface RepositoryDetail {
+  name: string
+  kind: string
+  ref: string | null
+  commit: string | null
+  manifests: string[]
+  code_scanned: boolean
+  error: string | null
 }
 
 export interface GraphSummary {
@@ -151,6 +212,10 @@ export interface ScanResult {
   contract_analysis: ContractAnalysisEntry[] | null
   /** `null` until the backend returns call-site analysis. */
   code_impact: CodeImpactItem[] | null
+  /** Upstream services used by this scan and how each one answered. */
+  data_sources: DataSource[]
+  /** Per-target detail: resolved branch, commit, manifests read. */
+  repository_details: RepositoryDetail[]
 }
 
 export interface ScanError {

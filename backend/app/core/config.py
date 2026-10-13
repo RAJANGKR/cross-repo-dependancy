@@ -8,7 +8,31 @@ class Settings(BaseSettings):
     DEBUG: bool = True
     HOST: str = "0.0.0.0"
     PORT: int = 8000
-    CORS_ORIGINS: str = "http://localhost:5173,http://localhost:3000,http://127.0.0.1:5173"
+    CORS_ORIGINS: str = "http://localhost:5173,http://localhost:5174,http://localhost:3000,http://127.0.0.1:5173"
+
+    # Optional upstream credentials. Read from backend/.env, never logged.
+    GITHUB_TOKEN: str = ""
+    GEMINI_API_KEY: str = ""
+    GEMINI_MODEL: str = "gemini-2.5-flash"
+
+    # SQLite cache for public upstream data only (never pasted content).
+    CACHE_ENABLED: bool = True
+    CACHE_PATH: str = "driftlock_cache.db"
+    CACHE_TTL_SECONDS: int = 86400
+
+    HTTP_TIMEOUT_SECONDS: float = 15.0
+    HTTP_RETRIES: int = 2
+    MIN_TARGETS: int = 2
+    MAX_TARGETS: int = 10
+    MAX_PASTED_FILE_BYTES: int = 200 * 1024
+    MAX_MANIFEST_BYTES: int = 6 * 1024 * 1024
+    MAX_MANIFESTS_PER_REPO: int = 40
+    MAX_ZIP_BYTES: int = 30 * 1024 * 1024
+    MAX_SOURCE_FILE_BYTES: int = 400 * 1024
+    MAX_CHANGELOG_BYTES: int = 600 * 1024
+    SCAN_TTL_SECONDS: int = 7200
+    REPO_CONCURRENCY: int = 4
+    LIBRARY_CONCURRENCY: int = 6
 
     model_config = SettingsConfigDict(
         env_file=".env",

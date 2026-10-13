@@ -1,0 +1,1722 @@
+{
+ "scan_id": "scn_51dac34b1a08",
+ "status": "COMPLETED",
+ "created_at": "2026-10-13T09:55:03.201Z",
+ "updated_at": "2026-10-13T09:55:08.874Z",
+ "completed_at": "2026-10-13T09:55:08.874Z",
+ "duration_seconds": 5.67,
+ "progress": {
+  "stage": "COMPLETED",
+  "percentage": 100,
+  "current_action": "Done"
+ },
+ "result": {
+  "scanned_repositories": [
+   {
+    "name": "GoogleCloudPlatform/microservices-demo@main/src/paymentservice",
+    "url": "https://github.com/GoogleCloudPlatform/microservices-demo",
+    "manifest_count": 2,
+    "total_dependencies": 13
+   },
+   {
+    "name": "GoogleCloudPlatform/microservices-demo@main/src/currencyservice",
+    "url": "https://github.com/GoogleCloudPlatform/microservices-demo",
+    "manifest_count": 2,
+    "total_dependencies": 15
+   },
+   {
+    "name": "GoogleCloudPlatform/microservices-demo@main/src/emailservice",
+    "url": "https://github.com/GoogleCloudPlatform/microservices-demo",
+    "manifest_count": 2,
+    "total_dependencies": 35
+   },
+   {
+    "name": "GoogleCloudPlatform/microservices-demo@main/src/recommendationservice",
+    "url": "https://github.com/GoogleCloudPlatform/microservices-demo",
+    "manifest_count": 2,
+    "total_dependencies": 31
+   }
+  ],
+  "summary": {
+   "total_unique_dependencies": 52,
+   "shared_dependencies_count": 42,
+   "drift_count": 1,
+   "in_sync_count": 41,
+   "severity_counts": {
+    "MAJOR_DRIFT": 0,
+    "MINOR_DRIFT": 1,
+    "INFO": 10,
+    "IN_SYNC": 41
+   },
+   "compatibility_risk_counts": {
+    "CONFIRMED_BREAKING": 0,
+    "SUSPECTED_BREAKING": 0,
+    "UNKNOWN_IMPACT": 0,
+    "NONE": 52
+   }
+  },
+  "drift_matrix": [
+   {
+    "id": "python:rsa",
+    "dependency_name": "rsa",
+    "ecosystem": "python",
+    "drift_disparity": "MINOR_DRIFT",
+    "compatibility_risk": "NONE",
+    "declarations_by_repo": {
+     "GoogleCloudPlatform/microservices-demo@main/src/emailservice": {
+      "declared_range": "==4.9",
+      "resolved_version": null,
+      "dep_type": "runtime",
+      "source_file": "src/emailservice/requirements.txt"
+     },
+     "GoogleCloudPlatform/microservices-demo@main/src/recommendationservice": {
+      "declared_range": "==4.9.1",
+      "resolved_version": null,
+      "dep_type": "runtime",
+      "source_file": "src/recommendationservice/requirements.in"
+     }
+    },
+    "present_in_repos": [
+     "GoogleCloudPlatform/microservices-demo@main/src/emailservice",
+     "GoogleCloudPlatform/microservices-demo@main/src/recommendationservice"
+    ],
+    "missing_in_repos": [
+     "GoogleCloudPlatform/microservices-demo@main/src/paymentservice",
+     "GoogleCloudPlatform/microservices-demo@main/src/currencyservice"
+    ],
+    "recommended_version": "4.9.1",
+    "evidence": null,
+    "score": 5,
+    "risk_level": "Low",
+    "breakdown": [
+     {
+      "signal": "Patch version gap",
+      "points": 5
+     }
+    ],
+    "confidence": 0.75,
+    "signals_missing": [
+     "lockfile",
+     "changelog"
+    ],
+    "vulnerabilities": [],
+    "explanation": {
+     "text": "rsa is used at 4.9 to 4.9.1 across the scanned repositories, a patch version gap. Nothing in the available evidence points to a break. The version that fits the most declared ranges is 4.9.1.",
+     "source": "template"
+    }
+   },
+   {
+    "id": "npm:@google-cloud/trace-agent",
+    "dependency_name": "@google-cloud/trace-agent",
+    "ecosystem": "npm",
+    "drift_disparity": "INFO",
+    "compatibility_risk": "NONE",
+    "declarations_by_repo": {
+     "GoogleCloudPlatform/microservices-demo@main/src/currencyservice": {
+      "declared_range": "8.0.0",
+      "resolved_version": "8.0.0",
+      "dep_type": "runtime",
+      "source_file": "src/currencyservice/package.json"
+     }
+    },
+    "present_in_repos": [
+     "GoogleCloudPlatform/microservices-demo@main/src/currencyservice"
+    ],
+    "missing_in_repos": [
+     "GoogleCloudPlatform/microservices-demo@main/src/paymentservice",
+     "GoogleCloudPlatform/microservices-demo@main/src/emailservice",
+     "GoogleCloudPlatform/microservices-demo@main/src/recommendationservice"
+    ],
+    "recommended_version": null,
+    "evidence": null
+   },
+   {
+    "id": "npm:async",
+    "dependency_name": "async",
+    "ecosystem": "npm",
+    "drift_disparity": "INFO",
+    "compatibility_risk": "NONE",
+    "declarations_by_repo": {
+     "GoogleCloudPlatform/microservices-demo@main/src/currencyservice": {
+      "declared_range": "3.2.6",
+      "resolved_version": "3.2.6",
+      "dep_type": "runtime",
+      "source_file": "src/currencyservice/package.json"
+     }
+    },
+    "present_in_repos": [
+     "GoogleCloudPlatform/microservices-demo@main/src/currencyservice"
+    ],
+    "missing_in_repos": [
+     "GoogleCloudPlatform/microservices-demo@main/src/paymentservice",
+     "GoogleCloudPlatform/microservices-demo@main/src/emailservice",
+     "GoogleCloudPlatform/microservices-demo@main/src/recommendationservice"
+    ],
+    "recommended_version": null,
+    "evidence": null
+   },
+   {
+    "id": "python:google-cloud-trace",
+    "dependency_name": "google-cloud-trace",
+    "ecosystem": "python",
+    "drift_disparity": "INFO",
+    "compatibility_risk": "NONE",
+    "declarations_by_repo": {
+     "GoogleCloudPlatform/microservices-demo@main/src/emailservice": {
+      "declared_range": "==1.17.0",
+      "resolved_version": null,
+      "dep_type": "runtime",
+      "source_file": "src/emailservice/requirements.in"
+     }
+    },
+    "present_in_repos": [
+     "GoogleCloudPlatform/microservices-demo@main/src/emailservice"
+    ],
+    "missing_in_repos": [
+     "GoogleCloudPlatform/microservices-demo@main/src/paymentservice",
+     "GoogleCloudPlatform/microservices-demo@main/src/currencyservice",
+     "GoogleCloudPlatform/microservices-demo@main/src/recommendationservice"
+    ],
+    "recommended_version": null,
+    "evidence": null
+   },
+   {
+    "id": "npm:google-protobuf",
+    "dependency_name": "google-protobuf",
+    "ecosystem": "npm",
+    "drift_disparity": "INFO",
+    "compatibility_risk": "NONE",
+    "declarations_by_repo": {
+     "GoogleCloudPlatform/microservices-demo@main/src/currencyservice": {
+      "declared_range": "4.0.2",
+      "resolved_version": "4.0.2",
+      "dep_type": "runtime",
+      "source_file": "src/currencyservice/package.json"
+     }
+    },
+    "present_in_repos": [
+     "GoogleCloudPlatform/microservices-demo@main/src/currencyservice"
+    ],
+    "missing_in_repos": [
+     "GoogleCloudPlatform/microservices-demo@main/src/paymentservice",
+     "GoogleCloudPlatform/microservices-demo@main/src/emailservice",
+     "GoogleCloudPlatform/microservices-demo@main/src/recommendationservice"
+    ],
+    "recommended_version": null,
+    "evidence": null
+   },
+   {
+    "id": "python:grpcio-status",
+    "dependency_name": "grpcio-status",
+    "ecosystem": "python",
+    "drift_disparity": "INFO",
+    "compatibility_risk": "NONE",
+    "declarations_by_repo": {
+     "GoogleCloudPlatform/microservices-demo@main/src/emailservice": {
+      "declared_range": "==1.76.0",
+      "resolved_version": null,
+      "dep_type": "runtime",
+      "source_file": "src/emailservice/requirements.txt"
+     }
+    },
+    "present_in_repos": [
+     "GoogleCloudPlatform/microservices-demo@main/src/emailservice"
+    ],
+    "missing_in_repos": [
+     "GoogleCloudPlatform/microservices-demo@main/src/paymentservice",
+     "GoogleCloudPlatform/microservices-demo@main/src/currencyservice",
+     "GoogleCloudPlatform/microservices-demo@main/src/recommendationservice"
+    ],
+    "recommended_version": null,
+    "evidence": null
+   },
+   {
+    "id": "python:jinja2",
+    "dependency_name": "jinja2",
+    "ecosystem": "python",
+    "drift_disparity": "INFO",
+    "compatibility_risk": "NONE",
+    "declarations_by_repo": {
+     "GoogleCloudPlatform/microservices-demo@main/src/emailservice": {
+      "declared_range": "==3.1.6",
+      "resolved_version": null,
+      "dep_type": "runtime",
+      "source_file": "src/emailservice/requirements.in"
+     }
+    },
+    "present_in_repos": [
+     "GoogleCloudPlatform/microservices-demo@main/src/emailservice"
+    ],
+    "missing_in_repos": [
+     "GoogleCloudPlatform/microservices-demo@main/src/paymentservice",
+     "GoogleCloudPlatform/microservices-demo@main/src/currencyservice",
+     "GoogleCloudPlatform/microservices-demo@main/src/recommendationservice"
+    ],
+    "recommended_version": null,
+    "evidence": null
+   },
+   {
+    "id": "python:markupsafe",
+    "dependency_name": "markupsafe",
+    "ecosystem": "python",
+    "drift_disparity": "INFO",
+    "compatibility_risk": "NONE",
+    "declarations_by_repo": {
+     "GoogleCloudPlatform/microservices-demo@main/src/emailservice": {
+      "declared_range": "==2.1.3",
+      "resolved_version": null,
+      "dep_type": "runtime",
+      "source_file": "src/emailservice/requirements.txt"
+     }
+    },
+    "present_in_repos": [
+     "GoogleCloudPlatform/microservices-demo@main/src/emailservice"
+    ],
+    "missing_in_repos": [
+     "GoogleCloudPlatform/microservices-demo@main/src/paymentservice",
+     "GoogleCloudPlatform/microservices-demo@main/src/currencyservice",
+     "GoogleCloudPlatform/microservices-demo@main/src/recommendationservice"
+    ],
+    "recommended_version": null,
+    "evidence": null
+   },
+   {
+    "id": "npm:simple-card-validator",
+    "dependency_name": "simple-card-validator",
+    "ecosystem": "npm",
+    "drift_disparity": "INFO",
+    "compatibility_risk": "NONE",
+    "declarations_by_repo": {
+     "GoogleCloudPlatform/microservices-demo@main/src/paymentservice": {
+      "declared_range": "^1.1.0",
+      "resolved_version": "1.1.0",
+      "dep_type": "runtime",
+      "source_file": "src/paymentservice/package.json"
+     }
+    },
+    "present_in_repos": [
+     "GoogleCloudPlatform/microservices-demo@main/src/paymentservice"
+    ],
+    "missing_in_repos": [
+     "GoogleCloudPlatform/microservices-demo@main/src/currencyservice",
+     "GoogleCloudPlatform/microservices-demo@main/src/emailservice",
+     "GoogleCloudPlatform/microservices-demo@main/src/recommendationservice"
+    ],
+    "recommended_version": null,
+    "evidence": null
+   },
+   {
+    "id": "npm:uuid",
+    "dependency_name": "uuid",
+    "ecosystem": "npm",
+    "drift_disparity": "INFO",
+    "compatibility_risk": "NONE",
+    "declarations_by_repo": {
+     "GoogleCloudPlatform/microservices-demo@main/src/paymentservice": {
+      "declared_range": "^14.0.0",
+      "resolved_version": "14.0.2",
+      "dep_type": "runtime",
+      "source_file": "src/paymentservice/package.json"
+     }
+    },
+    "present_in_repos": [
+     "GoogleCloudPlatform/microservices-demo@main/src/paymentservice"
+    ],
+    "missing_in_repos": [
+     "GoogleCloudPlatform/microservices-demo@main/src/currencyservice",
+     "GoogleCloudPlatform/microservices-demo@main/src/emailservice",
+     "GoogleCloudPlatform/microservices-demo@main/src/recommendationservice"
+    ],
+    "recommended_version": null,
+    "evidence": null
+   },
+   {
+    "id": "npm:xml2js",
+    "dependency_name": "xml2js",
+    "ecosystem": "npm",
+    "drift_disparity": "INFO",
+    "compatibility_risk": "NONE",
+    "declarations_by_repo": {
+     "GoogleCloudPlatform/microservices-demo@main/src/currencyservice": {
+      "declared_range": "0.6.2",
+      "resolved_version": "0.6.2",
+      "dep_type": "runtime",
+      "source_file": "src/currencyservice/package.json"
+     }
+    },
+    "present_in_repos": [
+     "GoogleCloudPlatform/microservices-demo@main/src/currencyservice"
+    ],
+    "missing_in_repos": [
+     "GoogleCloudPlatform/microservices-demo@main/src/paymentservice",
+     "GoogleCloudPlatform/microservices-demo@main/src/emailservice",
+     "GoogleCloudPlatform/microservices-demo@main/src/recommendationservice"
+    ],
+    "recommended_version": null,
+    "evidence": null
+   },
+   {
+    "id": "npm:@google-cloud/profiler",
+    "dependency_name": "@google-cloud/profiler",
+    "ecosystem": "npm",
+    "drift_disparity": "IN_SYNC",
+    "compatibility_risk": "NONE",
+    "declarations_by_repo": {
+     "GoogleCloudPlatform/microservices-demo@main/src/paymentservice": {
+      "declared_range": "8.0.1",
+      "resolved_version": "8.0.1",
+      "dep_type": "runtime",
+      "source_file": "src/paymentservice/package.json"
+     },
+     "GoogleCloudPlatform/microservices-demo@main/src/currencyservice": {
+      "declared_range": "8.0.1",
+      "resolved_version": "8.0.1",
+      "dep_type": "runtime",
+      "source_file": "src/currencyservice/package.json"
+     }
+    },
+    "present_in_repos": [
+     "GoogleCloudPlatform/microservices-demo@main/src/paymentservice",
+     "GoogleCloudPlatform/microservices-demo@main/src/currencyservice"
+    ],
+    "missing_in_repos": [
+     "GoogleCloudPlatform/microservices-demo@main/src/emailservice",
+     "GoogleCloudPlatform/microservices-demo@main/src/recommendationservice"
+    ],
+    "recommended_version": null,
+    "evidence": null
+   },
+   {
+    "id": "npm:@grpc/grpc-js",
+    "dependency_name": "@grpc/grpc-js",
+    "ecosystem": "npm",
+    "drift_disparity": "IN_SYNC",
+    "compatibility_risk": "NONE",
+    "declarations_by_repo": {
+     "GoogleCloudPlatform/microservices-demo@main/src/paymentservice": {
+      "declared_range": "1.14.4",
+      "resolved_version": "1.14.4",
+      "dep_type": "runtime",
+      "source_file": "src/paymentservice/package.json"
+     },
+     "GoogleCloudPlatform/microservices-demo@main/src/currencyservice": {
+      "declared_range": "1.14.4",
+      "resolved_version": "1.14.4",
+      "dep_type": "runtime",
+      "source_file": "src/currencyservice/package.json"
+     }
+    },
+    "present_in_repos": [
+     "GoogleCloudPlatform/microservices-demo@main/src/paymentservice",
+     "GoogleCloudPlatform/microservices-demo@main/src/currencyservice"
+    ],
+    "missing_in_repos": [
+     "GoogleCloudPlatform/microservices-demo@main/src/emailservice",
+     "GoogleCloudPlatform/microservices-demo@main/src/recommendationservice"
+    ],
+    "recommended_version": null,
+    "evidence": null
+   },
+   {
+    "id": "npm:@grpc/proto-loader",
+    "dependency_name": "@grpc/proto-loader",
+    "ecosystem": "npm",
+    "drift_disparity": "IN_SYNC",
+    "compatibility_risk": "NONE",
+    "declarations_by_repo": {
+     "GoogleCloudPlatform/microservices-demo@main/src/paymentservice": {
+      "declared_range": "0.8.1",
+      "resolved_version": "0.8.1",
+      "dep_type": "runtime",
+      "source_file": "src/paymentservice/package.json"
+     },
+     "GoogleCloudPlatform/microservices-demo@main/src/currencyservice": {
+      "declared_range": "0.8.1",
+      "resolved_version": "0.8.1",
+      "dep_type": "runtime",
+      "source_file": "src/currencyservice/package.json"
+     }
+    },
+    "present_in_repos": [
+     "GoogleCloudPlatform/microservices-demo@main/src/paymentservice",
+     "GoogleCloudPlatform/microservices-demo@main/src/currencyservice"
+    ],
+    "missing_in_repos": [
+     "GoogleCloudPlatform/microservices-demo@main/src/emailservice",
+     "GoogleCloudPlatform/microservices-demo@main/src/recommendationservice"
+    ],
+    "recommended_version": null,
+    "evidence": null
+   },
+   {
+    "id": "npm:@opentelemetry/api",
+    "dependency_name": "@opentelemetry/api",
+    "ecosystem": "npm",
+    "drift_disparity": "IN_SYNC",
+    "compatibility_risk": "NONE",
+    "declarations_by_repo": {
+     "GoogleCloudPlatform/microservices-demo@main/src/paymentservice": {
+      "declared_range": "1.9.1",
+      "resolved_version": "1.9.1",
+      "dep_type": "runtime",
+      "source_file": "src/paymentservice/package.json"
+     },
+     "GoogleCloudPlatform/microservices-demo@main/src/currencyservice": {
+      "declared_range": "1.9.1",
+      "resolved_version": "1.9.1",
+      "dep_type": "runtime",
+      "source_file": "src/currencyservice/package.json"
+     }
+    },
+    "present_in_repos": [
+     "GoogleCloudPlatform/microservices-demo@main/src/paymentservice",
+     "GoogleCloudPlatform/microservices-demo@main/src/currencyservice"
+    ],
+    "missing_in_repos": [
+     "GoogleCloudPlatform/microservices-demo@main/src/emailservice",
+     "GoogleCloudPlatform/microservices-demo@main/src/recommendationservice"
+    ],
+    "recommended_version": null,
+    "evidence": null
+   },
+   {
+    "id": "npm:@opentelemetry/exporter-otlp-grpc",
+    "dependency_name": "@opentelemetry/exporter-otlp-grpc",
+    "ecosystem": "npm",
+    "drift_disparity": "IN_SYNC",
+    "compatibility_risk": "NONE",
+    "declarations_by_repo": {
+     "GoogleCloudPlatform/microservices-demo@main/src/paymentservice": {
+      "declared_range": "0.26.0",
+      "resolved_version": "0.26.0",
+      "dep_type": "runtime",
+      "source_file": "src/paymentservice/package.json"
+     },
+     "GoogleCloudPlatform/microservices-demo@main/src/currencyservice": {
+      "declared_range": "0.26.0",
+      "resolved_version": "0.26.0",
+      "dep_type": "runtime",
+      "source_file": "src/currencyservice/package.json"
+     }
+    },
+    "present_in_repos": [
+     "GoogleCloudPlatform/microservices-demo@main/src/paymentservice",
+     "GoogleCloudPlatform/microservices-demo@main/src/currencyservice"
+    ],
+    "missing_in_repos": [
+     "GoogleCloudPlatform/microservices-demo@main/src/emailservice",
+     "GoogleCloudPlatform/microservices-demo@main/src/recommendationservice"
+    ],
+    "recommended_version": null,
+    "evidence": null
+   },
+   {
+    "id": "npm:@opentelemetry/instrumentation-grpc",
+    "dependency_name": "@opentelemetry/instrumentation-grpc",
+    "ecosystem": "npm",
+    "drift_disparity": "IN_SYNC",
+    "compatibility_risk": "NONE",
+    "declarations_by_repo": {
+     "GoogleCloudPlatform/microservices-demo@main/src/paymentservice": {
+      "declared_range": "0.222.0",
+      "resolved_version": "0.222.0",
+      "dep_type": "runtime",
+      "source_file": "src/paymentservice/package.json"
+     },
+     "GoogleCloudPlatform/microservices-demo@main/src/currencyservice": {
+      "declared_range": "0.222.0",
+      "resolved_version": "0.222.0",
+      "dep_type": "runtime",
+      "source_file": "src/currencyservice/package.json"
+     }
+    },
+    "present_in_repos": [
+     "GoogleCloudPlatform/microservices-demo@main/src/paymentservice",
+     "GoogleCloudPlatform/microservices-demo@main/src/currencyservice"
+    ],
+    "missing_in_repos": [
+     "GoogleCloudPlatform/microservices-demo@main/src/emailservice",
+     "GoogleCloudPlatform/microservices-demo@main/src/recommendationservice"
+    ],
+    "recommended_version": null,
+    "evidence": null
+   },
+   {
+    "id": "npm:@opentelemetry/resources",
+    "dependency_name": "@opentelemetry/resources",
+    "ecosystem": "npm",
+    "drift_disparity": "IN_SYNC",
+    "compatibility_risk": "NONE",
+    "declarations_by_repo": {
+     "GoogleCloudPlatform/microservices-demo@main/src/paymentservice": {
+      "declared_range": "2.11.0",
+      "resolved_version": "2.11.0",
+      "dep_type": "runtime",
+      "source_file": "src/paymentservice/package.json"
+     },
+     "GoogleCloudPlatform/microservices-demo@main/src/currencyservice": {
+      "declared_range": "2.11.0",
+      "resolved_version": "2.11.0",
+      "dep_type": "runtime",
+      "source_file": "src/currencyservice/package.json"
+     }
+    },
+    "present_in_repos": [
+     "GoogleCloudPlatform/microservices-demo@main/src/paymentservice",
+     "GoogleCloudPlatform/microservices-demo@main/src/currencyservice"
+    ],
+    "missing_in_repos": [
+     "GoogleCloudPlatform/microservices-demo@main/src/emailservice",
+     "GoogleCloudPlatform/microservices-demo@main/src/recommendationservice"
+    ],
+    "recommended_version": null,
+    "evidence": null
+   },
+   {
+    "id": "npm:@opentelemetry/sdk-node",
+    "dependency_name": "@opentelemetry/sdk-node",
+    "ecosystem": "npm",
+    "drift_disparity": "IN_SYNC",
+    "compatibility_risk": "NONE",
+    "declarations_by_repo": {
+     "GoogleCloudPlatform/microservices-demo@main/src/paymentservice": {
+      "declared_range": "0.222.0",
+      "resolved_version": "0.222.0",
+      "dep_type": "runtime",
+      "source_file": "src/paymentservice/package.json"
+     },
+     "GoogleCloudPlatform/microservices-demo@main/src/currencyservice": {
+      "declared_range": "0.222.0",
+      "resolved_version": "0.222.0",
+      "dep_type": "runtime",
+      "source_file": "src/currencyservice/package.json"
+     }
+    },
+    "present_in_repos": [
+     "GoogleCloudPlatform/microservices-demo@main/src/paymentservice",
+     "GoogleCloudPlatform/microservices-demo@main/src/currencyservice"
+    ],
+    "missing_in_repos": [
+     "GoogleCloudPlatform/microservices-demo@main/src/emailservice",
+     "GoogleCloudPlatform/microservices-demo@main/src/recommendationservice"
+    ],
+    "recommended_version": null,
+    "evidence": null
+   },
+   {
+    "id": "npm:@opentelemetry/sdk-trace-base",
+    "dependency_name": "@opentelemetry/sdk-trace-base",
+    "ecosystem": "npm",
+    "drift_disparity": "IN_SYNC",
+    "compatibility_risk": "NONE",
+    "declarations_by_repo": {
+     "GoogleCloudPlatform/microservices-demo@main/src/paymentservice": {
+      "declared_range": "2.11.0",
+      "resolved_version": "2.11.0",
+      "dep_type": "runtime",
+      "source_file": "src/paymentservice/package.json"
+     },
+     "GoogleCloudPlatform/microservices-demo@main/src/currencyservice": {
+      "declared_range": "2.11.0",
+      "resolved_version": "2.11.0",
+      "dep_type": "runtime",
+      "source_file": "src/currencyservice/package.json"
+     }
+    },
+    "present_in_repos": [
+     "GoogleCloudPlatform/microservices-demo@main/src/paymentservice",
+     "GoogleCloudPlatform/microservices-demo@main/src/currencyservice"
+    ],
+    "missing_in_repos": [
+     "GoogleCloudPlatform/microservices-demo@main/src/emailservice",
+     "GoogleCloudPlatform/microservices-demo@main/src/recommendationservice"
+    ],
+    "recommended_version": null,
+    "evidence": null
+   },
+   {
+    "id": "npm:@opentelemetry/semantic-conventions",
+    "dependency_name": "@opentelemetry/semantic-conventions",
+    "ecosystem": "npm",
+    "drift_disparity": "IN_SYNC",
+    "compatibility_risk": "NONE",
+    "declarations_by_repo": {
+     "GoogleCloudPlatform/microservices-demo@main/src/paymentservice": {
+      "declared_range": "1.43.0",
+      "resolved_version": "1.43.0",
+      "dep_type": "runtime",
+      "source_file": "src/paymentservice/package.json"
+     },
+     "GoogleCloudPlatform/microservices-demo@main/src/currencyservice": {
+      "declared_range": "1.43.0",
+      "resolved_version": "1.43.0",
+      "dep_type": "runtime",
+      "source_file": "src/currencyservice/package.json"
+     }
+    },
+    "present_in_repos": [
+     "GoogleCloudPlatform/microservices-demo@main/src/paymentservice",
+     "GoogleCloudPlatform/microservices-demo@main/src/currencyservice"
+    ],
+    "missing_in_repos": [
+     "GoogleCloudPlatform/microservices-demo@main/src/emailservice",
+     "GoogleCloudPlatform/microservices-demo@main/src/recommendationservice"
+    ],
+    "recommended_version": null,
+    "evidence": null
+   },
+   {
+    "id": "python:cachetools",
+    "dependency_name": "cachetools",
+    "ecosystem": "python",
+    "drift_disparity": "IN_SYNC",
+    "compatibility_risk": "NONE",
+    "declarations_by_repo": {
+     "GoogleCloudPlatform/microservices-demo@main/src/emailservice": {
+      "declared_range": "==5.3.2",
+      "resolved_version": null,
+      "dep_type": "runtime",
+      "source_file": "src/emailservice/requirements.txt"
+     },
+     "GoogleCloudPlatform/microservices-demo@main/src/recommendationservice": {
+      "declared_range": "==5.3.2",
+      "resolved_version": null,
+      "dep_type": "runtime",
+      "source_file": "src/recommendationservice/requirements.txt"
+     }
+    },
+    "present_in_repos": [
+     "GoogleCloudPlatform/microservices-demo@main/src/emailservice",
+     "GoogleCloudPlatform/microservices-demo@main/src/recommendationservice"
+    ],
+    "missing_in_repos": [
+     "GoogleCloudPlatform/microservices-demo@main/src/paymentservice",
+     "GoogleCloudPlatform/microservices-demo@main/src/currencyservice"
+    ],
+    "recommended_version": null,
+    "evidence": null
+   },
+   {
+    "id": "python:certifi",
+    "dependency_name": "certifi",
+    "ecosystem": "python",
+    "drift_disparity": "IN_SYNC",
+    "compatibility_risk": "NONE",
+    "declarations_by_repo": {
+     "GoogleCloudPlatform/microservices-demo@main/src/emailservice": {
+      "declared_range": "==2024.7.4",
+      "resolved_version": null,
+      "dep_type": "runtime",
+      "source_file": "src/emailservice/requirements.txt"
+     },
+     "GoogleCloudPlatform/microservices-demo@main/src/recommendationservice": {
+      "declared_range": "==2024.7.4",
+      "resolved_version": null,
+      "dep_type": "runtime",
+      "source_file": "src/recommendationservice/requirements.txt"
+     }
+    },
+    "present_in_repos": [
+     "GoogleCloudPlatform/microservices-demo@main/src/emailservice",
+     "GoogleCloudPlatform/microservices-demo@main/src/recommendationservice"
+    ],
+    "missing_in_repos": [
+     "GoogleCloudPlatform/microservices-demo@main/src/paymentservice",
+     "GoogleCloudPlatform/microservices-demo@main/src/currencyservice"
+    ],
+    "recommended_version": null,
+    "evidence": null
+   },
+   {
+    "id": "python:charset-normalizer",
+    "dependency_name": "charset-normalizer",
+    "ecosystem": "python",
+    "drift_disparity": "IN_SYNC",
+    "compatibility_risk": "NONE",
+    "declarations_by_repo": {
+     "GoogleCloudPlatform/microservices-demo@main/src/emailservice": {
+      "declared_range": "==3.3.2",
+      "resolved_version": null,
+      "dep_type": "runtime",
+      "source_file": "src/emailservice/requirements.txt"
+     },
+     "GoogleCloudPlatform/microservices-demo@main/src/recommendationservice": {
+      "declared_range": "==3.3.2",
+      "resolved_version": null,
+      "dep_type": "runtime",
+      "source_file": "src/recommendationservice/requirements.txt"
+     }
+    },
+    "present_in_repos": [
+     "GoogleCloudPlatform/microservices-demo@main/src/emailservice",
+     "GoogleCloudPlatform/microservices-demo@main/src/recommendationservice"
+    ],
+    "missing_in_repos": [
+     "GoogleCloudPlatform/microservices-demo@main/src/paymentservice",
+     "GoogleCloudPlatform/microservices-demo@main/src/currencyservice"
+    ],
+    "recommended_version": null,
+    "evidence": null
+   },
+   {
+    "id": "python:google-api-core",
+    "dependency_name": "google-api-core",
+    "ecosystem": "python",
+    "drift_disparity": "IN_SYNC",
+    "compatibility_risk": "NONE",
+    "declarations_by_repo": {
+     "GoogleCloudPlatform/microservices-demo@main/src/emailservice": {
+      "declared_range": "==2.28.1",
+      "resolved_version": null,
+      "dep_type": "runtime",
+      "source_file": "src/emailservice/requirements.in"
+     },
+     "GoogleCloudPlatform/microservices-demo@main/src/recommendationservice": {
+      "declared_range": "==2.28.1",
+      "resolved_version": null,
+      "dep_type": "runtime",
+      "source_file": "src/recommendationservice/requirements.in"
+     }
+    },
+    "present_in_repos": [
+     "GoogleCloudPlatform/microservices-demo@main/src/emailservice",
+     "GoogleCloudPlatform/microservices-demo@main/src/recommendationservice"
+    ],
+    "missing_in_repos": [
+     "GoogleCloudPlatform/microservices-demo@main/src/paymentservice",
+     "GoogleCloudPlatform/microservices-demo@main/src/currencyservice"
+    ],
+    "recommended_version": null,
+    "evidence": null
+   },
+   {
+    "id": "python:google-auth",
+    "dependency_name": "google-auth",
+    "ecosystem": "python",
+    "drift_disparity": "IN_SYNC",
+    "compatibility_risk": "NONE",
+    "declarations_by_repo": {
+     "GoogleCloudPlatform/microservices-demo@main/src/emailservice": {
+      "declared_range": "==2.23.4",
+      "resolved_version": null,
+      "dep_type": "runtime",
+      "source_file": "src/emailservice/requirements.txt"
+     },
+     "GoogleCloudPlatform/microservices-demo@main/src/recommendationservice": {
+      "declared_range": "==2.23.4",
+      "resolved_version": null,
+      "dep_type": "runtime",
+      "source_file": "src/recommendationservice/requirements.txt"
+     }
+    },
+    "present_in_repos": [
+     "GoogleCloudPlatform/microservices-demo@main/src/emailservice",
+     "GoogleCloudPlatform/microservices-demo@main/src/recommendationservice"
+    ],
+    "missing_in_repos": [
+     "GoogleCloudPlatform/microservices-demo@main/src/paymentservice",
+     "GoogleCloudPlatform/microservices-demo@main/src/currencyservice"
+    ],
+    "recommended_version": null,
+    "evidence": null
+   },
+   {
+    "id": "python:googleapis-common-protos",
+    "dependency_name": "googleapis-common-protos",
+    "ecosystem": "python",
+    "drift_disparity": "IN_SYNC",
+    "compatibility_risk": "NONE",
+    "declarations_by_repo": {
+     "GoogleCloudPlatform/microservices-demo@main/src/emailservice": {
+      "declared_range": "==1.72.0",
+      "resolved_version": null,
+      "dep_type": "runtime",
+      "source_file": "src/emailservice/requirements.txt"
+     },
+     "GoogleCloudPlatform/microservices-demo@main/src/recommendationservice": {
+      "declared_range": "==1.72.0",
+      "resolved_version": null,
+      "dep_type": "runtime",
+      "source_file": "src/recommendationservice/requirements.txt"
+     }
+    },
+    "present_in_repos": [
+     "GoogleCloudPlatform/microservices-demo@main/src/emailservice",
+     "GoogleCloudPlatform/microservices-demo@main/src/recommendationservice"
+    ],
+    "missing_in_repos": [
+     "GoogleCloudPlatform/microservices-demo@main/src/paymentservice",
+     "GoogleCloudPlatform/microservices-demo@main/src/currencyservice"
+    ],
+    "recommended_version": null,
+    "evidence": null
+   },
+   {
+    "id": "python:grpcio",
+    "dependency_name": "grpcio",
+    "ecosystem": "python",
+    "drift_disparity": "IN_SYNC",
+    "compatibility_risk": "NONE",
+    "declarations_by_repo": {
+     "GoogleCloudPlatform/microservices-demo@main/src/emailservice": {
+      "declared_range": "==1.76.0",
+      "resolved_version": null,
+      "dep_type": "runtime",
+      "source_file": "src/emailservice/requirements.in"
+     },
+     "GoogleCloudPlatform/microservices-demo@main/src/recommendationservice": {
+      "declared_range": "==1.76.0",
+      "resolved_version": null,
+      "dep_type": "runtime",
+      "source_file": "src/recommendationservice/requirements.txt"
+     }
+    },
+    "present_in_repos": [
+     "GoogleCloudPlatform/microservices-demo@main/src/emailservice",
+     "GoogleCloudPlatform/microservices-demo@main/src/recommendationservice"
+    ],
+    "missing_in_repos": [
+     "GoogleCloudPlatform/microservices-demo@main/src/paymentservice",
+     "GoogleCloudPlatform/microservices-demo@main/src/currencyservice"
+    ],
+    "recommended_version": null,
+    "evidence": null
+   },
+   {
+    "id": "python:grpcio-health-checking",
+    "dependency_name": "grpcio-health-checking",
+    "ecosystem": "python",
+    "drift_disparity": "IN_SYNC",
+    "compatibility_risk": "NONE",
+    "declarations_by_repo": {
+     "GoogleCloudPlatform/microservices-demo@main/src/emailservice": {
+      "declared_range": "==1.76.0",
+      "resolved_version": null,
+      "dep_type": "runtime",
+      "source_file": "src/emailservice/requirements.in"
+     },
+     "GoogleCloudPlatform/microservices-demo@main/src/recommendationservice": {
+      "declared_range": "==1.76.0",
+      "resolved_version": null,
+      "dep_type": "runtime",
+      "source_file": "src/recommendationservice/requirements.in"
+     }
+    },
+    "present_in_repos": [
+     "GoogleCloudPlatform/microservices-demo@main/src/emailservice",
+     "GoogleCloudPlatform/microservices-demo@main/src/recommendationservice"
+    ],
+    "missing_in_repos": [
+     "GoogleCloudPlatform/microservices-demo@main/src/paymentservice",
+     "GoogleCloudPlatform/microservices-demo@main/src/currencyservice"
+    ],
+    "recommended_version": null,
+    "evidence": null
+   },
+   {
+    "id": "python:idna",
+    "dependency_name": "idna",
+    "ecosystem": "python",
+    "drift_disparity": "IN_SYNC",
+    "compatibility_risk": "NONE",
+    "declarations_by_repo": {
+     "GoogleCloudPlatform/microservices-demo@main/src/emailservice": {
+      "declared_range": "==3.7",
+      "resolved_version": null,
+      "dep_type": "runtime",
+      "source_file": "src/emailservice/requirements.txt"
+     },
+     "GoogleCloudPlatform/microservices-demo@main/src/recommendationservice": {
+      "declared_range": "==3.7",
+      "resolved_version": null,
+      "dep_type": "runtime",
+      "source_file": "src/recommendationservice/requirements.txt"
+     }
+    },
+    "present_in_repos": [
+     "GoogleCloudPlatform/microservices-demo@main/src/emailservice",
+     "GoogleCloudPlatform/microservices-demo@main/src/recommendationservice"
+    ],
+    "missing_in_repos": [
+     "GoogleCloudPlatform/microservices-demo@main/src/paymentservice",
+     "GoogleCloudPlatform/microservices-demo@main/src/currencyservice"
+    ],
+    "recommended_version": null,
+    "evidence": null
+   },
+   {
+    "id": "python:importlib-metadata",
+    "dependency_name": "importlib-metadata",
+    "ecosystem": "python",
+    "drift_disparity": "IN_SYNC",
+    "compatibility_risk": "NONE",
+    "declarations_by_repo": {
+     "GoogleCloudPlatform/microservices-demo@main/src/emailservice": {
+      "declared_range": "==6.8.0",
+      "resolved_version": null,
+      "dep_type": "runtime",
+      "source_file": "src/emailservice/requirements.txt"
+     },
+     "GoogleCloudPlatform/microservices-demo@main/src/recommendationservice": {
+      "declared_range": "==6.8.0",
+      "resolved_version": null,
+      "dep_type": "runtime",
+      "source_file": "src/recommendationservice/requirements.txt"
+     }
+    },
+    "present_in_repos": [
+     "GoogleCloudPlatform/microservices-demo@main/src/emailservice",
+     "GoogleCloudPlatform/microservices-demo@main/src/recommendationservice"
+    ],
+    "missing_in_repos": [
+     "GoogleCloudPlatform/microservices-demo@main/src/paymentservice",
+     "GoogleCloudPlatform/microservices-demo@main/src/currencyservice"
+    ],
+    "recommended_version": null,
+    "evidence": null
+   },
+   {
+    "id": "python:opentelemetry-api",
+    "dependency_name": "opentelemetry-api",
+    "ecosystem": "python",
+    "drift_disparity": "IN_SYNC",
+    "compatibility_risk": "NONE",
+    "declarations_by_repo": {
+     "GoogleCloudPlatform/microservices-demo@main/src/emailservice": {
+      "declared_range": "==1.39.1",
+      "resolved_version": null,
+      "dep_type": "runtime",
+      "source_file": "src/emailservice/requirements.txt"
+     },
+     "GoogleCloudPlatform/microservices-demo@main/src/recommendationservice": {
+      "declared_range": "==1.39.1",
+      "resolved_version": null,
+      "dep_type": "runtime",
+      "source_file": "src/recommendationservice/requirements.txt"
+     }
+    },
+    "present_in_repos": [
+     "GoogleCloudPlatform/microservices-demo@main/src/emailservice",
+     "GoogleCloudPlatform/microservices-demo@main/src/recommendationservice"
+    ],
+    "missing_in_repos": [
+     "GoogleCloudPlatform/microservices-demo@main/src/paymentservice",
+     "GoogleCloudPlatform/microservices-demo@main/src/currencyservice"
+    ],
+    "recommended_version": null,
+    "evidence": null
+   },
+   {
+    "id": "python:opentelemetry-distro",
+    "dependency_name": "opentelemetry-distro",
+    "ecosystem": "python",
+    "drift_disparity": "IN_SYNC",
+    "compatibility_risk": "NONE",
+    "declarations_by_repo": {
+     "GoogleCloudPlatform/microservices-demo@main/src/emailservice": {
+      "declared_range": "==0.60b1",
+      "resolved_version": null,
+      "dep_type": "runtime",
+      "source_file": "src/emailservice/requirements.in"
+     },
+     "GoogleCloudPlatform/microservices-demo@main/src/recommendationservice": {
+      "declared_range": "==0.60b1",
+      "resolved_version": null,
+      "dep_type": "runtime",
+      "source_file": "src/recommendationservice/requirements.in"
+     }
+    },
+    "present_in_repos": [
+     "GoogleCloudPlatform/microservices-demo@main/src/emailservice",
+     "GoogleCloudPlatform/microservices-demo@main/src/recommendationservice"
+    ],
+    "missing_in_repos": [
+     "GoogleCloudPlatform/microservices-demo@main/src/paymentservice",
+     "GoogleCloudPlatform/microservices-demo@main/src/currencyservice"
+    ],
+    "recommended_version": null,
+    "evidence": null
+   },
+   {
+    "id": "python:opentelemetry-exporter-otlp-proto-common",
+    "dependency_name": "opentelemetry-exporter-otlp-proto-common",
+    "ecosystem": "python",
+    "drift_disparity": "IN_SYNC",
+    "compatibility_risk": "NONE",
+    "declarations_by_repo": {
+     "GoogleCloudPlatform/microservices-demo@main/src/emailservice": {
+      "declared_range": "==1.39.1",
+      "resolved_version": null,
+      "dep_type": "runtime",
+      "source_file": "src/emailservice/requirements.txt"
+     },
+     "GoogleCloudPlatform/microservices-demo@main/src/recommendationservice": {
+      "declared_range": "==1.39.1",
+      "resolved_version": null,
+      "dep_type": "runtime",
+      "source_file": "src/recommendationservice/requirements.txt"
+     }
+    },
+    "present_in_repos": [
+     "GoogleCloudPlatform/microservices-demo@main/src/emailservice",
+     "GoogleCloudPlatform/microservices-demo@main/src/recommendationservice"
+    ],
+    "missing_in_repos": [
+     "GoogleCloudPlatform/microservices-demo@main/src/paymentservice",
+     "GoogleCloudPlatform/microservices-demo@main/src/currencyservice"
+    ],
+    "recommended_version": null,
+    "evidence": null
+   },
+   {
+    "id": "python:opentelemetry-exporter-otlp-proto-grpc",
+    "dependency_name": "opentelemetry-exporter-otlp-proto-grpc",
+    "ecosystem": "python",
+    "drift_disparity": "IN_SYNC",
+    "compatibility_risk": "NONE",
+    "declarations_by_repo": {
+     "GoogleCloudPlatform/microservices-demo@main/src/emailservice": {
+      "declared_range": "==1.39.1",
+      "resolved_version": null,
+      "dep_type": "runtime",
+      "source_file": "src/emailservice/requirements.in"
+     },
+     "GoogleCloudPlatform/microservices-demo@main/src/recommendationservice": {
+      "declared_range": "==1.39.1",
+      "resolved_version": null,
+      "dep_type": "runtime",
+      "source_file": "src/recommendationservice/requirements.in"
+     }
+    },
+    "present_in_repos": [
+     "GoogleCloudPlatform/microservices-demo@main/src/emailservice",
+     "GoogleCloudPlatform/microservices-demo@main/src/recommendationservice"
+    ],
+    "missing_in_repos": [
+     "GoogleCloudPlatform/microservices-demo@main/src/paymentservice",
+     "GoogleCloudPlatform/microservices-demo@main/src/currencyservice"
+    ],
+    "recommended_version": null,
+    "evidence": null
+   },
+   {
+    "id": "python:opentelemetry-instrumentation",
+    "dependency_name": "opentelemetry-instrumentation",
+    "ecosystem": "python",
+    "drift_disparity": "IN_SYNC",
+    "compatibility_risk": "NONE",
+    "declarations_by_repo": {
+     "GoogleCloudPlatform/microservices-demo@main/src/emailservice": {
+      "declared_range": "==0.60b1",
+      "resolved_version": null,
+      "dep_type": "runtime",
+      "source_file": "src/emailservice/requirements.txt"
+     },
+     "GoogleCloudPlatform/microservices-demo@main/src/recommendationservice": {
+      "declared_range": "==0.60b1",
+      "resolved_version": null,
+      "dep_type": "runtime",
+      "source_file": "src/recommendationservice/requirements.txt"
+     }
+    },
+    "present_in_repos": [
+     "GoogleCloudPlatform/microservices-demo@main/src/emailservice",
+     "GoogleCloudPlatform/microservices-demo@main/src/recommendationservice"
+    ],
+    "missing_in_repos": [
+     "GoogleCloudPlatform/microservices-demo@main/src/paymentservice",
+     "GoogleCloudPlatform/microservices-demo@main/src/currencyservice"
+    ],
+    "recommended_version": null,
+    "evidence": null
+   },
+   {
+    "id": "python:opentelemetry-instrumentation-grpc",
+    "dependency_name": "opentelemetry-instrumentation-grpc",
+    "ecosystem": "python",
+    "drift_disparity": "IN_SYNC",
+    "compatibility_risk": "NONE",
+    "declarations_by_repo": {
+     "GoogleCloudPlatform/microservices-demo@main/src/emailservice": {
+      "declared_range": "==0.60b1",
+      "resolved_version": null,
+      "dep_type": "runtime",
+      "source_file": "src/emailservice/requirements.in"
+     },
+     "GoogleCloudPlatform/microservices-demo@main/src/recommendationservice": {
+      "declared_range": "==0.60b1",
+      "resolved_version": null,
+      "dep_type": "runtime",
+      "source_file": "src/recommendationservice/requirements.in"
+     }
+    },
+    "present_in_repos": [
+     "GoogleCloudPlatform/microservices-demo@main/src/emailservice",
+     "GoogleCloudPlatform/microservices-demo@main/src/recommendationservice"
+    ],
+    "missing_in_repos": [
+     "GoogleCloudPlatform/microservices-demo@main/src/paymentservice",
+     "GoogleCloudPlatform/microservices-demo@main/src/currencyservice"
+    ],
+    "recommended_version": null,
+    "evidence": null
+   },
+   {
+    "id": "python:opentelemetry-proto",
+    "dependency_name": "opentelemetry-proto",
+    "ecosystem": "python",
+    "drift_disparity": "IN_SYNC",
+    "compatibility_risk": "NONE",
+    "declarations_by_repo": {
+     "GoogleCloudPlatform/microservices-demo@main/src/emailservice": {
+      "declared_range": "==1.39.1",
+      "resolved_version": null,
+      "dep_type": "runtime",
+      "source_file": "src/emailservice/requirements.txt"
+     },
+     "GoogleCloudPlatform/microservices-demo@main/src/recommendationservice": {
+      "declared_range": "==1.39.1",
+      "resolved_version": null,
+      "dep_type": "runtime",
+      "source_file": "src/recommendationservice/requirements.txt"
+     }
+    },
+    "present_in_repos": [
+     "GoogleCloudPlatform/microservices-demo@main/src/emailservice",
+     "GoogleCloudPlatform/microservices-demo@main/src/recommendationservice"
+    ],
+    "missing_in_repos": [
+     "GoogleCloudPlatform/microservices-demo@main/src/paymentservice",
+     "GoogleCloudPlatform/microservices-demo@main/src/currencyservice"
+    ],
+    "recommended_version": null,
+    "evidence": null
+   },
+   {
+    "id": "python:opentelemetry-sdk",
+    "dependency_name": "opentelemetry-sdk",
+    "ecosystem": "python",
+    "drift_disparity": "IN_SYNC",
+    "compatibility_risk": "NONE",
+    "declarations_by_repo": {
+     "GoogleCloudPlatform/microservices-demo@main/src/emailservice": {
+      "declared_range": "==1.39.1",
+      "resolved_version": null,
+      "dep_type": "runtime",
+      "source_file": "src/emailservice/requirements.txt"
+     },
+     "GoogleCloudPlatform/microservices-demo@main/src/recommendationservice": {
+      "declared_range": "==1.39.1",
+      "resolved_version": null,
+      "dep_type": "runtime",
+      "source_file": "src/recommendationservice/requirements.txt"
+     }
+    },
+    "present_in_repos": [
+     "GoogleCloudPlatform/microservices-demo@main/src/emailservice",
+     "GoogleCloudPlatform/microservices-demo@main/src/recommendationservice"
+    ],
+    "missing_in_repos": [
+     "GoogleCloudPlatform/microservices-demo@main/src/paymentservice",
+     "GoogleCloudPlatform/microservices-demo@main/src/currencyservice"
+    ],
+    "recommended_version": null,
+    "evidence": null
+   },
+   {
+    "id": "python:opentelemetry-semantic-conventions",
+    "dependency_name": "opentelemetry-semantic-conventions",
+    "ecosystem": "python",
+    "drift_disparity": "IN_SYNC",
+    "compatibility_risk": "NONE",
+    "declarations_by_repo": {
+     "GoogleCloudPlatform/microservices-demo@main/src/emailservice": {
+      "declared_range": "==0.60b1",
+      "resolved_version": null,
+      "dep_type": "runtime",
+      "source_file": "src/emailservice/requirements.txt"
+     },
+     "GoogleCloudPlatform/microservices-demo@main/src/recommendationservice": {
+      "declared_range": "==0.60b1",
+      "resolved_version": null,
+      "dep_type": "runtime",
+      "source_file": "src/recommendationservice/requirements.txt"
+     }
+    },
+    "present_in_repos": [
+     "GoogleCloudPlatform/microservices-demo@main/src/emailservice",
+     "GoogleCloudPlatform/microservices-demo@main/src/recommendationservice"
+    ],
+    "missing_in_repos": [
+     "GoogleCloudPlatform/microservices-demo@main/src/paymentservice",
+     "GoogleCloudPlatform/microservices-demo@main/src/currencyservice"
+    ],
+    "recommended_version": null,
+    "evidence": null
+   },
+   {
+    "id": "python:packaging",
+    "dependency_name": "packaging",
+    "ecosystem": "python",
+    "drift_disparity": "IN_SYNC",
+    "compatibility_risk": "NONE",
+    "declarations_by_repo": {
+     "GoogleCloudPlatform/microservices-demo@main/src/emailservice": {
+      "declared_range": "==25.0",
+      "resolved_version": null,
+      "dep_type": "runtime",
+      "source_file": "src/emailservice/requirements.txt"
+     },
+     "GoogleCloudPlatform/microservices-demo@main/src/recommendationservice": {
+      "declared_range": "==25.0",
+      "resolved_version": null,
+      "dep_type": "runtime",
+      "source_file": "src/recommendationservice/requirements.txt"
+     }
+    },
+    "present_in_repos": [
+     "GoogleCloudPlatform/microservices-demo@main/src/emailservice",
+     "GoogleCloudPlatform/microservices-demo@main/src/recommendationservice"
+    ],
+    "missing_in_repos": [
+     "GoogleCloudPlatform/microservices-demo@main/src/paymentservice",
+     "GoogleCloudPlatform/microservices-demo@main/src/currencyservice"
+    ],
+    "recommended_version": null,
+    "evidence": null
+   },
+   {
+    "id": "npm:pino",
+    "dependency_name": "pino",
+    "ecosystem": "npm",
+    "drift_disparity": "IN_SYNC",
+    "compatibility_risk": "NONE",
+    "declarations_by_repo": {
+     "GoogleCloudPlatform/microservices-demo@main/src/paymentservice": {
+      "declared_range": "10.3.1",
+      "resolved_version": "10.3.1",
+      "dep_type": "runtime",
+      "source_file": "src/paymentservice/package.json"
+     },
+     "GoogleCloudPlatform/microservices-demo@main/src/currencyservice": {
+      "declared_range": "10.3.1",
+      "resolved_version": "10.3.1",
+      "dep_type": "runtime",
+      "source_file": "src/currencyservice/package.json"
+     }
+    },
+    "present_in_repos": [
+     "GoogleCloudPlatform/microservices-demo@main/src/paymentservice",
+     "GoogleCloudPlatform/microservices-demo@main/src/currencyservice"
+    ],
+    "missing_in_repos": [
+     "GoogleCloudPlatform/microservices-demo@main/src/emailservice",
+     "GoogleCloudPlatform/microservices-demo@main/src/recommendationservice"
+    ],
+    "recommended_version": null,
+    "evidence": null
+   },
+   {
+    "id": "python:proto-plus",
+    "dependency_name": "proto-plus",
+    "ecosystem": "python",
+    "drift_disparity": "IN_SYNC",
+    "compatibility_risk": "NONE",
+    "declarations_by_repo": {
+     "GoogleCloudPlatform/microservices-demo@main/src/emailservice": {
+      "declared_range": "==1.27.0",
+      "resolved_version": null,
+      "dep_type": "runtime",
+      "source_file": "src/emailservice/requirements.txt"
+     },
+     "GoogleCloudPlatform/microservices-demo@main/src/recommendationservice": {
+      "declared_range": "==1.27.0",
+      "resolved_version": null,
+      "dep_type": "runtime",
+      "source_file": "src/recommendationservice/requirements.txt"
+     }
+    },
+    "present_in_repos": [
+     "GoogleCloudPlatform/microservices-demo@main/src/emailservice",
+     "GoogleCloudPlatform/microservices-demo@main/src/recommendationservice"
+    ],
+    "missing_in_repos": [
+     "GoogleCloudPlatform/microservices-demo@main/src/paymentservice",
+     "GoogleCloudPlatform/microservices-demo@main/src/currencyservice"
+    ],
+    "recommended_version": null,
+    "evidence": null
+   },
+   {
+    "id": "python:protobuf",
+    "dependency_name": "protobuf",
+    "ecosystem": "python",
+    "drift_disparity": "IN_SYNC",
+    "compatibility_risk": "NONE",
+    "declarations_by_repo": {
+     "GoogleCloudPlatform/microservices-demo@main/src/emailservice": {
+      "declared_range": "==6.33.5",
+      "resolved_version": null,
+      "dep_type": "runtime",
+      "source_file": "src/emailservice/requirements.txt"
+     },
+     "GoogleCloudPlatform/microservices-demo@main/src/recommendationservice": {
+      "declared_range": "==6.33.5",
+      "resolved_version": null,
+      "dep_type": "runtime",
+      "source_file": "src/recommendationservice/requirements.txt"
+     }
+    },
+    "present_in_repos": [
+     "GoogleCloudPlatform/microservices-demo@main/src/emailservice",
+     "GoogleCloudPlatform/microservices-demo@main/src/recommendationservice"
+    ],
+    "missing_in_repos": [
+     "GoogleCloudPlatform/microservices-demo@main/src/paymentservice",
+     "GoogleCloudPlatform/microservices-demo@main/src/currencyservice"
+    ],
+    "recommended_version": null,
+    "evidence": null
+   },
+   {
+    "id": "python:pyasn1",
+    "dependency_name": "pyasn1",
+    "ecosystem": "python",
+    "drift_disparity": "IN_SYNC",
+    "compatibility_risk": "NONE",
+    "declarations_by_repo": {
+     "GoogleCloudPlatform/microservices-demo@main/src/emailservice": {
+      "declared_range": "==0.5.0",
+      "resolved_version": null,
+      "dep_type": "runtime",
+      "source_file": "src/emailservice/requirements.txt"
+     },
+     "GoogleCloudPlatform/microservices-demo@main/src/recommendationservice": {
+      "declared_range": "==0.5.0",
+      "resolved_version": null,
+      "dep_type": "runtime",
+      "source_file": "src/recommendationservice/requirements.txt"
+     }
+    },
+    "present_in_repos": [
+     "GoogleCloudPlatform/microservices-demo@main/src/emailservice",
+     "GoogleCloudPlatform/microservices-demo@main/src/recommendationservice"
+    ],
+    "missing_in_repos": [
+     "GoogleCloudPlatform/microservices-demo@main/src/paymentservice",
+     "GoogleCloudPlatform/microservices-demo@main/src/currencyservice"
+    ],
+    "recommended_version": null,
+    "evidence": null
+   },
+   {
+    "id": "python:pyasn1-modules",
+    "dependency_name": "pyasn1-modules",
+    "ecosystem": "python",
+    "drift_disparity": "IN_SYNC",
+    "compatibility_risk": "NONE",
+    "declarations_by_repo": {
+     "GoogleCloudPlatform/microservices-demo@main/src/emailservice": {
+      "declared_range": "==0.3.0",
+      "resolved_version": null,
+      "dep_type": "runtime",
+      "source_file": "src/emailservice/requirements.txt"
+     },
+     "GoogleCloudPlatform/microservices-demo@main/src/recommendationservice": {
+      "declared_range": "==0.3.0",
+      "resolved_version": null,
+      "dep_type": "runtime",
+      "source_file": "src/recommendationservice/requirements.txt"
+     }
+    },
+    "present_in_repos": [
+     "GoogleCloudPlatform/microservices-demo@main/src/emailservice",
+     "GoogleCloudPlatform/microservices-demo@main/src/recommendationservice"
+    ],
+    "missing_in_repos": [
+     "GoogleCloudPlatform/microservices-demo@main/src/paymentservice",
+     "GoogleCloudPlatform/microservices-demo@main/src/currencyservice"
+    ],
+    "recommended_version": null,
+    "evidence": null
+   },
+   {
+    "id": "python:python-json-logger",
+    "dependency_name": "python-json-logger",
+    "ecosystem": "python",
+    "drift_disparity": "IN_SYNC",
+    "compatibility_risk": "NONE",
+    "declarations_by_repo": {
+     "GoogleCloudPlatform/microservices-demo@main/src/emailservice": {
+      "declared_range": "==4.0.0",
+      "resolved_version": null,
+      "dep_type": "runtime",
+      "source_file": "src/emailservice/requirements.in"
+     },
+     "GoogleCloudPlatform/microservices-demo@main/src/recommendationservice": {
+      "declared_range": "==4.0.0",
+      "resolved_version": null,
+      "dep_type": "runtime",
+      "source_file": "src/recommendationservice/requirements.in"
+     }
+    },
+    "present_in_repos": [
+     "GoogleCloudPlatform/microservices-demo@main/src/emailservice",
+     "GoogleCloudPlatform/microservices-demo@main/src/recommendationservice"
+    ],
+    "missing_in_repos": [
+     "GoogleCloudPlatform/microservices-demo@main/src/paymentservice",
+     "GoogleCloudPlatform/microservices-demo@main/src/currencyservice"
+    ],
+    "recommended_version": null,
+    "evidence": null
+   },
+   {
+    "id": "python:requests",
+    "dependency_name": "requests",
+    "ecosystem": "python",
+    "drift_disparity": "IN_SYNC",
+    "compatibility_risk": "NONE",
+    "declarations_by_repo": {
+     "GoogleCloudPlatform/microservices-demo@main/src/emailservice": {
+      "declared_range": "==2.32.5",
+      "resolved_version": null,
+      "dep_type": "runtime",
+      "source_file": "src/emailservice/requirements.in"
+     },
+     "GoogleCloudPlatform/microservices-demo@main/src/recommendationservice": {
+      "declared_range": "==2.32.5",
+      "resolved_version": null,
+      "dep_type": "runtime",
+      "source_file": "src/recommendationservice/requirements.in"
+     }
+    },
+    "present_in_repos": [
+     "GoogleCloudPlatform/microservices-demo@main/src/emailservice",
+     "GoogleCloudPlatform/microservices-demo@main/src/recommendationservice"
+    ],
+    "missing_in_repos": [
+     "GoogleCloudPlatform/microservices-demo@main/src/paymentservice",
+     "GoogleCloudPlatform/microservices-demo@main/src/currencyservice"
+    ],
+    "recommended_version": null,
+    "evidence": null
+   },
+   {
+    "id": "python:typing-extensions",
+    "dependency_name": "typing-extensions",
+    "ecosystem": "python",
+    "drift_disparity": "IN_SYNC",
+    "compatibility_risk": "NONE",
+    "declarations_by_repo": {
+     "GoogleCloudPlatform/microservices-demo@main/src/emailservice": {
+      "declared_range": "==4.15.0",
+      "resolved_version": null,
+      "dep_type": "runtime",
+      "source_file": "src/emailservice/requirements.txt"
+     },
+     "GoogleCloudPlatform/microservices-demo@main/src/recommendationservice": {
+      "declared_range": "==4.15.0",
+      "resolved_version": null,
+      "dep_type": "runtime",
+      "source_file": "src/recommendationservice/requirements.txt"
+     }
+    },
+    "present_in_repos": [
+     "GoogleCloudPlatform/microservices-demo@main/src/emailservice",
+     "GoogleCloudPlatform/microservices-demo@main/src/recommendationservice"
+    ],
+    "missing_in_repos": [
+     "GoogleCloudPlatform/microservices-demo@main/src/paymentservice",
+     "GoogleCloudPlatform/microservices-demo@main/src/currencyservice"
+    ],
+    "recommended_version": null,
+    "evidence": null
+   },
+   {
+    "id": "python:urllib3",
+    "dependency_name": "urllib3",
+    "ecosystem": "python",
+    "drift_disparity": "IN_SYNC",
+    "compatibility_risk": "NONE",
+    "declarations_by_repo": {
+     "GoogleCloudPlatform/microservices-demo@main/src/emailservice": {
+      "declared_range": "==2.6.3",
+      "resolved_version": null,
+      "dep_type": "runtime",
+      "source_file": "src/emailservice/requirements.txt"
+     },
+     "GoogleCloudPlatform/microservices-demo@main/src/recommendationservice": {
+      "declared_range": "==2.6.3",
+      "resolved_version": null,
+      "dep_type": "runtime",
+      "source_file": "src/recommendationservice/requirements.txt"
+     }
+    },
+    "present_in_repos": [
+     "GoogleCloudPlatform/microservices-demo@main/src/emailservice",
+     "GoogleCloudPlatform/microservices-demo@main/src/recommendationservice"
+    ],
+    "missing_in_repos": [
+     "GoogleCloudPlatform/microservices-demo@main/src/paymentservice",
+     "GoogleCloudPlatform/microservices-demo@main/src/currencyservice"
+    ],
+    "recommended_version": null,
+    "evidence": null
+   },
+   {
+    "id": "python:wrapt",
+    "dependency_name": "wrapt",
+    "ecosystem": "python",
+    "drift_disparity": "IN_SYNC",
+    "compatibility_risk": "NONE",
+    "declarations_by_repo": {
+     "GoogleCloudPlatform/microservices-demo@main/src/emailservice": {
+      "declared_range": "==1.16.0",
+      "resolved_version": null,
+      "dep_type": "runtime",
+      "source_file": "src/emailservice/requirements.txt"
+     },
+     "GoogleCloudPlatform/microservices-demo@main/src/recommendationservice": {
+      "declared_range": "==1.16.0",
+      "resolved_version": null,
+      "dep_type": "runtime",
+      "source_file": "src/recommendationservice/requirements.txt"
+     }
+    },
+    "present_in_repos": [
+     "GoogleCloudPlatform/microservices-demo@main/src/emailservice",
+     "GoogleCloudPlatform/microservices-demo@main/src/recommendationservice"
+    ],
+    "missing_in_repos": [
+     "GoogleCloudPlatform/microservices-demo@main/src/paymentservice",
+     "GoogleCloudPlatform/microservices-demo@main/src/currencyservice"
+    ],
+    "recommended_version": null,
+    "evidence": null
+   },
+   {
+    "id": "python:zipp",
+    "dependency_name": "zipp",
+    "ecosystem": "python",
+    "drift_disparity": "IN_SYNC",
+    "compatibility_risk": "NONE",
+    "declarations_by_repo": {
+     "GoogleCloudPlatform/microservices-demo@main/src/emailservice": {
+      "declared_range": "==3.19.1",
+      "resolved_version": null,
+      "dep_type": "runtime",
+      "source_file": "src/emailservice/requirements.txt"
+     },
+     "GoogleCloudPlatform/microservices-demo@main/src/recommendationservice": {
+      "declared_range": "==3.19.1",
+      "resolved_version": null,
+      "dep_type": "runtime",
+      "source_file": "src/recommendationservice/requirements.txt"
+     }
+    },
+    "present_in_repos": [
+     "GoogleCloudPlatform/microservices-demo@main/src/emailservice",
+     "GoogleCloudPlatform/microservices-demo@main/src/recommendationservice"
+    ],
+    "missing_in_repos": [
+     "GoogleCloudPlatform/microservices-demo@main/src/paymentservice",
+     "GoogleCloudPlatform/microservices-demo@main/src/currencyservice"
+    ],
+    "recommended_version": null,
+    "evidence": null
+   }
+  ],
+  "graph_summary": {
+   "total_nodes": 56,
+   "total_edges": 94,
+   "density": 0.0305,
+   "highest_drift_nodes": [
+    "rsa"
+   ]
+  },
+  "warnings": [
+   "GitHub rate limit is low (2 requests left). Set GITHUB_TOKEN on the backend to raise it."
+  ],
+  "skipped_items": [],
+  "contract_analysis": null,
+  "code_impact": [],
+  "data_sources": [
+   {
+    "name": "GitHub",
+    "status": "ok"
+   },
+   {
+    "name": "npm registry",
+    "status": "not_used"
+   },
+   {
+    "name": "PyPI",
+    "status": "not_used"
+   },
+   {
+    "name": "Maven Central",
+    "status": "not_used"
+   },
+   {
+    "name": "OSV",
+    "status": "not_used"
+   },
+   {
+    "name": "Gemini",
+    "status": "not_configured"
+   }
+  ],
+  "repository_details": [
+   {
+    "name": "GoogleCloudPlatform/microservices-demo@main/src/paymentservice",
+    "kind": "github",
+    "ref": "main",
+    "commit": "38e7348eb289eb5b87c0c6e8cb19ced0449dc389",
+    "manifests": [
+     "src/paymentservice/package-lock.json",
+     "src/paymentservice/package.json"
+    ],
+    "code_scanned": true,
+    "error": null
+   },
+   {
+    "name": "GoogleCloudPlatform/microservices-demo@main/src/currencyservice",
+    "kind": "github",
+    "ref": "main",
+    "commit": "38e7348eb289eb5b87c0c6e8cb19ced0449dc389",
+    "manifests": [
+     "src/currencyservice/package-lock.json",
+     "src/currencyservice/package.json"
+    ],
+    "code_scanned": true,
+    "error": null
+   },
+   {
+    "name": "GoogleCloudPlatform/microservices-demo@main/src/emailservice",
+    "kind": "github",
+    "ref": "main",
+    "commit": "38e7348eb289eb5b87c0c6e8cb19ced0449dc389",
+    "manifests": [
+     "src/emailservice/requirements.in",
+     "src/emailservice/requirements.txt"
+    ],
+    "code_scanned": true,
+    "error": null
+   },
+   {
+    "name": "GoogleCloudPlatform/microservices-demo@main/src/recommendationservice",
+    "kind": "github",
+    "ref": "main",
+    "commit": "38e7348eb289eb5b87c0c6e8cb19ced0449dc389",
+    "manifests": [
+     "src/recommendationservice/requirements.in",
+     "src/recommendationservice/requirements.txt"
+    ],
+    "code_scanned": true,
+    "error": null
+   }
+  ]
+ },
+ "error": null
+}

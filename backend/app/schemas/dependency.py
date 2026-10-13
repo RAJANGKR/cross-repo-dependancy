@@ -6,6 +6,7 @@ from pydantic import BaseModel, Field
 class Ecosystem(str, Enum):
     NPM = "npm"
     PYTHON = "python"
+    MAVEN = "maven"
 
 
 class DependencyType(str, Enum):

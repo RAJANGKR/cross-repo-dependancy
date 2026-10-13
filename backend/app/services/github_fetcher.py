@@ -1,0 +1,154 @@
+"""Reads public GitHub repositories over the REST API. Files are fetched as
+text only; nothing downloaded is ever executed."""
+from dataclasses import dataclass, field
+from typing import Dict, List, Optional
+from urllib.parse import quote
+
+from app.core.config import settings
+from app.core.security import manifest_kind
+from app.services.http import FetchError, Http
+
+API = "https://api.github.com"
+RAW = "https://raw.githubusercontent.com"
+CODELOAD = "https://codeload.github.com"
+SKIP_DIRS = {"node_modules", "venv", ".venv", "target", "dist", "build", "vendor", ".git", "__pycache__", "site-packages"}
+
+_SHORT_TTL = 300        # things that move: default branch, branch heads, releases
+_PINNED_TTL = 30 * 86400  # content addressed by commit SHA never changes
+
+
+@dataclass
+class RepoFiles:
+    owner: str
+    repo: str
+    ref: str = ""
+    commit: str = ""
+    subdir: str = ""
+    files: Dict[str, str] = field(default_factory=dict)
+    warnings: List[str] = field(default_factory=list)
+    error: Optional[str] = None
+
+
+def describe(error: FetchError, what: str) -> str:
+    return {
+        "not_found": f"{what} was not found, or the repository is private",
+        "rate_limit": "GitHub rate limit reached. Set GITHUB_TOKEN on the backend or retry later",
+        "timeout": f"Timed out while reading {what}",
+        "network": f"Network error while reading {what}",
+        "too_large": f"{what} is larger than the size limit",
+    }.get(error.kind, f"GitHub returned an error for {what} (HTTP {error.status})")
+
+
+def _skipped(path: str) -> bool:
+    return any(part in SKIP_DIRS for part in path.split("/")[:-1])
+
+
+async def resolve_ref(http: Http, owner: str, repo: str, ref_path: str) -> Optional[tuple]:
+    """Split `feature/x/sub/dir` into (ref, commit sha, sub-folder).
+
+    A branch name may itself contain slashes, so the longest candidate is
+    tried first and shortened until GitHub recognizes it as a ref."""
+    parts = ref_path.split("/")
+    for size in range(len(parts), 0, -1):
+        ref = "/".join(parts[:size])
+        try:
+            sha = await http.get_text(
+                f"{API}/repos/{owner}/{repo}/commits/{quote(ref, safe='/')}",
+                headers={"Accept": "application/vnd.github.sha"},
+                ttl=_SHORT_TTL,
+            )
+        except FetchError as error:
+            if error.kind in ("not_found", "http"):
+                # A candidate that is not a ref is an expected answer, not an upstream failure.
+                http.failures["api.github.com"] = max(0, http.failures.get("api.github.com", 1) - 1)
+                continue
+            raise
+        return ref, sha.strip(), "/".join(parts[size:])
+    return None
+
+
+async def fetch_repo(http: Http, owner: str, repo: str, ref_path: Optional[str]) -> RepoFiles:
+    """Resolve the ref, list the tree, and download every supported manifest."""
+    result = RepoFiles(owner=owner, repo=repo)
+    what = f"{owner}/{repo}"
+    try:
+        if not ref_path:
+            info = await http.get_json(f"{API}/repos/{owner}/{repo}", ttl=_SHORT_TTL)
+            ref_path = str(info.get("default_branch") or "main")
+        resolved = await resolve_ref(http, owner, repo, ref_path)
+        if resolved is None:
+            result.error = f'Branch, tag or commit "{ref_path}" could not be resolved in {what}'
+            return result
+        result.ref, result.commit, result.subdir = resolved
+
+        tree = await http.get_json(f"{API}/repos/{owner}/{repo}/git/trees/{result.commit}?recursive=1", ttl=_PINNED_TTL)
+    except FetchError as error:
+        result.error = describe(error, what)
+        return result
+
+    if tree.get("truncated"):
+        result.warnings.append(f"{what}: the file tree is too large for one request, so some manifests may be missed")
+    prefix = f"{result.subdir}/" if result.subdir else ""
+    paths = sorted(
+        (
+            entry["path"]
+            for entry in tree.get("tree", [])
+            if entry.get("type") == "blob"
+            and manifest_kind(entry.get("path", ""))
+            and entry["path"].startswith(prefix)
+            and not _skipped(entry["path"])
+        ),
+        key=lambda path: (path.count("/"), path),
+    )
+    if len(paths) > settings.MAX_MANIFESTS_PER_REPO:
+        result.warnings.append(f"{what}: {len(paths)} manifests found, only the first {settings.MAX_MANIFESTS_PER_REPO} were read")
+        paths = paths[: settings.MAX_MANIFESTS_PER_REPO]
+
+    for path in paths:
+        try:
+            result.files[path] = await fetch_file(http, owner, repo, result.commit, path, settings.MAX_MANIFEST_BYTES, _PINNED_TTL)
+        except FetchError as error:
+            result.warnings.append(f"{what}: {describe(error, path)}")
+    return result
+
+
+async def fetch_file(http: Http, owner: str, repo: str, ref: str, path: str, max_bytes: int, ttl: int) -> str:
+    """One file as text. Uses the contents API (raw media type); if that is rate
+    limited, falls back to raw.githubusercontent.com, which some networks block."""
+    try:
+        return await http.get_text(
+            f"{API}/repos/{owner}/{repo}/contents/{quote(path, safe='/')}?ref={quote(ref, safe='')}",
+            headers={"Accept": "application/vnd.github.raw+json"},
+            max_bytes=max_bytes,
+            ttl=ttl,
+        )
+    except FetchError as error:
+        if error.kind != "rate_limit":
+            raise
+        try:
+            return await http.get_text(f"{RAW}/{owner}/{repo}/{ref}/{quote(path, safe='/')}", max_bytes=max_bytes, ttl=ttl)
+        except FetchError:
+            raise error from None
+
+
+async def fetch_releases(http: Http, owner: str, repo: str) -> List[dict]:
+    data = await http.get_json(f"{API}/repos/{owner}/{repo}/releases?per_page=100", ttl=6 * 3600)
+    return [item for item in data if isinstance(item, dict)] if isinstance(data, list) else []
+
+
+async def fetch_changelog_file(http: Http, owner: str, repo: str) -> Optional[tuple]:
+    """(text, url) of a root CHANGELOG file, or None."""
+    for name in ("CHANGELOG.md", "CHANGES.md", "HISTORY.md", "CHANGELOG.rst", "CHANGES.rst"):
+        try:
+            text = await fetch_file(http, owner, repo, "HEAD", name, settings.MAX_CHANGELOG_BYTES, 6 * 3600)
+            return text, f"https://github.com/{owner}/{repo}/blob/HEAD/{name}"
+        except FetchError as error:
+            if error.kind in ("not_found", "too_large", "http"):
+                continue
+            raise
+    return None
+
+
+async def fetch_zipball(http: Http, owner: str, repo: str, commit: str) -> bytes:
+    """Source archive for one commit, held in memory and size-capped."""
+    return await http.get_bytes(f"{CODELOAD}/{owner}/{repo}/zip/{commit}", max_bytes=settings.MAX_ZIP_BYTES)

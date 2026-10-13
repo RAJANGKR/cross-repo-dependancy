@@ -2,13 +2,12 @@ import { useState } from 'react'
 import type { UiError } from '../../api/errors'
 import { API_BASE_URL } from '../../config'
 import { useBackendHealth, type BackendHealth } from '../../hooks/useBackendHealth'
-import type { SubmittedRepo } from '../../hooks/useScan'
 import { cx } from '../../lib/cx'
-import type { RepoInput } from '../../lib/validateRepoUrl'
+import type { ScanTarget } from '../../lib/targets'
 import { GlyphField } from '../common/GlyphField'
 import { Wordmark } from '../common/Tags'
 import { LimitationsDialog } from '../states/LimitationsDialog'
-import { RepoForm } from './RepoForm'
+import { RepoForm, type FormState } from './RepoForm'
 
 const HEADLINE_WORD = 'break'
 
@@ -16,7 +15,7 @@ const STEPS = [
   {
     numeral: 'I',
     title: 'Fetch',
-    text: 'Reads manifests and lockfiles from three public repositories: package.json, package-lock.json, requirements.txt, pyproject.toml and poetry.lock.',
+    text: 'Reads manifests and lockfiles from each public repository, or from what you paste: package.json, requirements.txt, pyproject.toml, pom.xml and their lockfiles.',
   },
   {
     numeral: 'II',
@@ -38,16 +37,16 @@ const HEALTH: Record<BackendHealth, { label: string; dot: string }> = {
 }
 
 interface InputScreenProps {
-  inputs: RepoInput[]
-  onInputsChange: (inputs: RepoInput[]) => void
+  form: FormState
+  onFormChange: (form: FormState) => void
   busy: boolean
   error: UiError | null
   onDismissError: () => void
-  onSubmit: (repos: SubmittedRepo[]) => void
+  onSubmit: (targets: ScanTarget[]) => void
   onLoadDemo: () => void
 }
 
-export function InputScreen({ inputs, onInputsChange, busy, error, onDismissError, onSubmit, onLoadDemo }: InputScreenProps) {
+export function InputScreen({ form, onFormChange, busy, error, onDismissError, onSubmit, onLoadDemo }: InputScreenProps) {
   const [limitationsOpen, setLimitationsOpen] = useState(false)
   const health = useBackendHealth()
 
@@ -112,14 +111,14 @@ export function InputScreen({ inputs, onInputsChange, busy, error, onDismissErro
           </span>
         </h1>
         <p className="mt-10 max-w-2xl animate-rise-in text-xl leading-relaxed text-muted-foreground lg:text-2xl">
-          Compare three services at once. See which shared packages have drifted, what each repository
+          Compare 2 to 10 services at once. See which shared packages have drifted, what each repository
           really resolves to, and what the release notes say about it.
         </p>
 
         <div className="mt-12 max-w-5xl">
           <RepoForm
-            inputs={inputs}
-            onChange={onInputsChange}
+            form={form}
+            onChange={onFormChange}
             onSubmit={onSubmit}
             onLoadDemo={onLoadDemo}
             busy={busy}
@@ -153,6 +152,9 @@ export function InputScreen({ inputs, onInputsChange, busy, error, onDismissErro
       <footer className="relative border-t border-border">
         <div className="mx-auto flex max-w-[1400px] flex-wrap items-center justify-between gap-4 px-4 py-8 text-sm text-muted-foreground sm:px-6 lg:px-8">
           <p>DriftLock. Missing evidence is never shown as proof of safety.</p>
+          <a href="https://github.com/RAJANGKR/cross-repo-dependancy" target="_blank" rel="noreferrer" className="underline decoration-foreground/30 underline-offset-4 transition-colors hover:text-foreground">
+            GitHub repo
+          </a>
           <button
             type="button"
             onClick={() => setLimitationsOpen(true)}

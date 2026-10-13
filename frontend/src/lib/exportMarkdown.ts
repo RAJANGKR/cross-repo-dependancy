@@ -9,8 +9,9 @@ export const SOURCE_LABELS: Record<DataSource, string> = { live: 'Live scan', de
 
 export const LIMITATIONS: readonly string[] = [
   'Direct dependencies from manifests and lockfiles only. Transitive dependencies are not compared.',
-  'Public GitHub repositories only, three per scan.',
-  'npm and Python manifests are supported: package.json, package-lock.json, requirements.txt, pyproject.toml and poetry.lock.',
+  'Public GitHub repositories only, 2 to 10 per scan. Private projects can be pasted, without a code scan.',
+  'npm, Python and Maven manifests are supported: package.json, package-lock.json, requirements.txt, pyproject.toml, poetry.lock and pom.xml.',
+  'Only pushed code is read. The code scan finds changed names, not silent behavior changes, and cannot confirm a runtime failure.',
   'A major version gap is not a confirmed break. Compatibility risk is only as strong as the release notes behind it.',
   'Missing evidence is not proof of safety. "No issue identified" means nothing was found in what was available.',
   'AI-written interpretation is labeled as such and is never used to decide a classification on its own.',
@@ -162,8 +163,8 @@ export function exportFileName(date: Date): string {
 }
 
 /** Triggers a client-side download. Nothing is uploaded. */
-export function downloadMarkdown(markdown: string, fileName: string): void {
-  const url = URL.createObjectURL(new Blob([markdown], { type: 'text/markdown;charset=utf-8' }))
+export function downloadText(text: string, fileName: string, type: string): void {
+  const url = URL.createObjectURL(new Blob([text], { type: `${type};charset=utf-8` }))
   const link = document.createElement('a')
   link.href = url
   link.download = fileName

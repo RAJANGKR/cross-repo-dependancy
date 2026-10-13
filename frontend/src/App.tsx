@@ -1,27 +1,34 @@
 import { useCallback, useEffect, useRef, useState } from 'react'
 import type { UiErrorAction } from './api/errors'
 import { AnalyzingState } from './components/analyzing/AnalyzingState'
+import { ToastProvider } from './components/common/Controls'
+import { useTheme } from './components/console/Shell'
 import { InputScreen } from './components/input/InputScreen'
+import type { FormState } from './components/input/RepoForm'
 import { ResultsScreen } from './components/results/ResultsScreen'
 import { ErrorState, NoResults } from './components/states/ErrorState'
-import { DEFAULT_REPO_LABELS, REPO_COUNT } from './config'
+import { INITIAL_REPO_ROWS } from './config'
 import { AnnouncerProvider, useAnnounce } from './hooks/useAnnouncer'
 import { carrySearch, navigate, ROUTE_PATHS, useRoute } from './hooks/useRoute'
-import { ScanProvider, useScan, type SubmittedRepo } from './hooks/useScan'
+import { ScanProvider, useScan } from './hooks/useScan'
 import { isDrifted } from './lib/classify'
-import type { RepoInput } from './lib/validateRepoUrl'
+import type { HistoryEntry } from './lib/localStore'
+import { newRow, type ScanTarget } from './lib/targets'
 
-const EMPTY_INPUTS: RepoInput[] = Array.from({ length: REPO_COUNT }, (_, index) => ({
-  label: DEFAULT_REPO_LABELS[index] ?? '',
-  url: '',
-}))
+const emptyForm = (): FormState => ({
+  tab: 'github',
+  rows: Array.from({ length: INITIAL_REPO_ROWS }, (_, index) => newRow(index)),
+  projects: [],
+})
 
 function AppShell() {
   const route = useRoute()
   const { state, startScan, loadDemo, retry, cancel, reset } = useScan()
   const announce = useAnnounce()
+  useTheme()
   // Held here, above the screens, so the form survives a cancel or a new scan.
-  const [inputs, setInputs] = useState<RepoInput[]>(EMPTY_INPUTS)
+  // It is React state only: pasted content is never written to storage.
+  const [form, setForm] = useState<FormState>(emptyForm)
 
   const goTo = useCallback(
     (name: 'input' | 'results', keepQuery = false) =>
@@ -37,8 +44,23 @@ function AppShell() {
     [goTo, route.name],
   )
 
-  const submit = useCallback((repos: SubmittedRepo[]) => void run(() => startScan(repos)), [run, startScan])
+  const submit = useCallback((targets: ScanTarget[]) => void run(() => startScan(targets)), [run, startScan])
   const demo = useCallback(() => void run(loadDemo), [run, loadDemo])
+  const scanAgain = useCallback(() => void run(retry), [run, retry])
+
+  /** Puts a history entry's repositories back in the form. Pasted projects are never saved, so they cannot be restored. */
+  const restore = useCallback(
+    (entry: HistoryEntry) => {
+      const github = entry.targets.filter((target) => target.kind === 'github' && target.url)
+      setForm({
+        tab: 'github',
+        projects: [],
+        rows: github.map((target, index) => ({ ...newRow(index), label: target.label, url: target.url ?? '', ref: target.ref ?? '' })),
+      })
+      goTo('input')
+    },
+    [goTo],
+  )
 
   // Announce scan milestones to screen readers.
   const lastPhase = useRef(state.phase)
@@ -75,7 +97,7 @@ function AppShell() {
     const inline = state.error.kind === 'bad-request'
     if (!inline) {
       const onAction = (action: UiErrorAction) => {
-        if (action === 'retry') void run(retry)
+        if (action === 'retry') scanAgain()
         else if (action === 'load-demo') demo()
         else {
           reset()
@@ -96,6 +118,8 @@ function AppShell() {
           submitted={state.repos}
           search={route.search}
           onNewScan={() => goTo('input')}
+          onScanAgain={scanAgain}
+          onRunAgain={restore}
         />
       )
     }
@@ -106,8 +130,8 @@ function AppShell() {
 
   return (
     <InputScreen
-      inputs={inputs}
-      onInputsChange={setInputs}
+      form={form}
+      onFormChange={setForm}
       busy={false}
       error={state.phase === 'error' ? state.error : null}
       onDismissError={reset}
@@ -120,9 +144,11 @@ function AppShell() {
 export default function App() {
   return (
     <AnnouncerProvider>
-      <ScanProvider>
-        <AppShell />
-      </ScanProvider>
+      <ToastProvider>
+        <ScanProvider>
+          <AppShell />
+        </ScanProvider>
+      </ToastProvider>
     </AnnouncerProvider>
   )
 }

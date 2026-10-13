@@ -1,6 +1,6 @@
 # DriftLock frontend
 
-React, TypeScript and Vite dashboard for DriftLock. It submits three public GitHub repositories to the backend, follows the scan while it runs, and shows where their shared dependencies have drifted and what the evidence says about it.
+React, TypeScript and Vite dashboard for DriftLock. It submits 2 to 10 public GitHub repositories (or pasted manifests) to the backend, follows the scan while it runs, and shows where their shared dependencies have drifted and what the evidence says about it.
 
 ## Run it
 
@@ -28,13 +28,13 @@ There are no secrets in the frontend. GitHub and Gemini keys are configured on t
 
 The API client follows `docs/API_CONTRACT.md`:
 
-- `POST /api/v1/scans` with `{ repository_targets: [{ type: "github", url, ref? }] }`, answered with `202` and `{ scan_id, status, poll_url }`.
+- `POST /api/v1/scans` with `{ repository_targets: [...] }`, where a target is `{ type: "github", url, ref? }` or `{ type: "pasted", name, files }`, answered with `202` and `{ scan_id, status, poll_url }`.
 - `GET /api/v1/scans/{scan_id}`, polled every 1.5 seconds until the status is `COMPLETED` or `FAILED`.
 - `GET /health`, used for the "Backend online" indicator.
 
 Polling stops on a terminal status, on cancel, when the scan record is missing, after three consecutive failed polls, or after three minutes.
 
-The backend in this repository does not serve `/api/v1/scans` yet (it has `/api/v1/scan/compare`). Until it does, a real scan ends on a "Scan endpoint not available" screen. Use **Load demo run** to see the full dashboard in the meantime.
+The backend in `backend/` implements this contract. See the root README for how to run both.
 
 ## Demo data
 
@@ -44,19 +44,24 @@ With `VITE_USE_MOCK=true`, a `?mock=` query parameter plays a specific scenario 
 
 `failed`, `error400`, `ratelimit`, `offline`, `notfound`, `timeout`, `partial`, `empty`, `minimal`
 
-## What the dashboard shows
+## What the console shows
 
-- **Overview**: repositories scanned, dependencies analyzed, in sync, minor drift, major drift, single-repository packages, compatibility findings and warnings. A number the backend did not send is shown as "Not available", never as zero.
-- **Dependencies**: one row per package, with each repository's declared range, resolved version and source file kept separate. Filter by name, ecosystem, drift and risk; sort from the menu or the column headers; filters live in the URL.
-- **Detail panel**: versions by repository, what the classifications mean, release evidence, related call sites and a rule-based next step.
-- **Graph**: repository-to-package links built from the declarations in the result. Calls between services are not inferred.
-- **Release evidence**: quoted release notes, the source link, and AI interpretation labeled and kept apart from the quote.
-- **API contracts** and **Code impact**: rendered when the backend returns the data, with a plain "not returned" state until then.
-- **Repositories and warnings**: what was and was not analyzed, including repositories the backend dropped.
+- **Command center**: scan status, overview numbers, four KPI cards, the dependency graph, priority drifts, repository health grades, top offenders and an ecosystem breakdown.
+- **Active drifts**: one row per package with declared range, resolved version and source file per repository. Search, filters, quick toggles, saved views, bulk actions, compact rows.
+- **Detail panel**: tabs for Overview (score breakdown, confidence, missing signals, vulnerabilities), Evidence, Versions, Fix (copy the version line, copy a PR description) and Notes (accept, dismiss, snooze, assign).
+- **Risk intelligence**: release evidence, API contracts and code impact.
+- **Review queue**, **Fix plans**, **Activity** (scan history and compare with previous), **Repositories** (coverage and two-repository comparison), **Settings**.
+- Command palette (Ctrl or Cmd + K), keyboard shortcuts (?), light and dark themes, Technical and Executive views, a first-run tour, print styles.
+
+A number the backend did not send is shown as "Not available", never as zero. Demo data is labeled on every screen.
+
+### Saved in this browser
+
+Review decisions, fix progress, the last 10 scan summaries, saved views and settings are kept in `localStorage` under one versioned key. Pasted manifest content is never written there: history keeps names and public URLs only. Settings has **Export all local data** and **Clear local data**.
 
 ### Provisional fields
 
-The API contract does not define contract analysis or call-site analysis yet. The frontend reads them from `result.contract_analysis` and `result.code_impact` using the field names in `src/api/scanTypes.ts`. Align those names with the backend schema when it is written; only `src/api/parseScan.ts` needs to change.
+The API contract section of the result (`contract_analysis`) is not produced by the backend yet. The frontend reads it using the field names in `src/api/scanTypes.ts`; only `src/api/parseScan.ts` needs to change when the backend defines it.
 
 ## Scripts
 
@@ -70,8 +75,8 @@ npm run build
 
 ```
 src/api/         scan types, response parsing, HTTP client, polling, error mapping, demo scan
-src/lib/         URL validation, classification labels, overview numbers, filters, graph layout, export
+src/lib/         URL and form validation, classification labels, overview numbers, filters, graph layout, fixes, health grades, local store, export
 src/hooks/       scan state, routing, keyboard navigation, announcements
-src/components/  input, analyzing, results, detail, states, common
+src/components/  input, analyzing, console, results, detail, states, common
 src/index.css    theme tokens (colors, fonts, motion)
 ```

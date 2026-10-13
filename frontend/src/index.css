@@ -129,6 +129,55 @@
   }
 }
 
+/* Dark theme: the same tokens, overridden. Components never name a color. */
+:root[data-theme='dark'] {
+  --color-background: #0d0b0a;
+  --color-foreground: #f4f2ee;
+  --color-card: #161311;
+  --color-card-foreground: #f4f2ee;
+  --color-primary: #f4f2ee;
+  --color-primary-foreground: #0d0b0a;
+  --color-secondary: #1f1b18;
+  --color-secondary-foreground: #f4f2ee;
+  --color-muted: #26211e;
+  --color-muted-foreground: #a89c92;
+  --color-accent: #2c2622;
+  --color-accent-foreground: #f4f2ee;
+  --color-border: #332d29;
+  --color-input: #332d29;
+  --color-ring: #f4f2ee;
+  --color-risk-low: #6fc79a;
+  --color-risk-low-tint: #14291f;
+  --color-risk-medium: #e0b252;
+  --color-risk-medium-tint: #2e2410;
+  --color-risk-high: #f09a5c;
+  --color-risk-high-tint: #331d10;
+  --color-risk-critical: #ff7a85;
+  --color-risk-critical-tint: #361216;
+  --color-success: #6fc79a;
+  --color-success-tint: #14291f;
+  --color-warning: #e0b252;
+  --color-warning-tint: #2e2410;
+  --color-info: #d3ccc7;
+  --color-info-tint: #1f1b18;
+  --color-chart-4: #7b6f66;
+  color-scheme: dark;
+}
+
+/* Print: the report without navigation, controls or overlays. */
+@media print {
+  .print\:hidden,
+  nav,
+  header,
+  [role='dialog'],
+  button {
+    display: none !important;
+  }
+  body {
+    background: #fff;
+  }
+}
+
 @layer base {
   html {
     scroll-behavior: smooth;
