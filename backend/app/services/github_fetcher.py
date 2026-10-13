@@ -56,11 +56,13 @@ async def resolve_ref(http: Http, owner: str, repo: str, ref_path: str) -> Optio
                 f"{API}/repos/{owner}/{repo}/commits/{quote(ref, safe='/')}",
                 headers={"Accept": "application/vnd.github.sha"},
                 ttl=_SHORT_TTL,
+                ignore_404_failure=True,
             )
         except FetchError as error:
             if error.kind in ("not_found", "http"):
                 # A candidate that is not a ref is an expected answer, not an upstream failure.
-                http.failures["api.github.com"] = max(0, http.failures.get("api.github.com", 1) - 1)
+                if error.kind != "not_found":
+                    http.failures["api.github.com"] = max(0, http.failures.get("api.github.com", 1) - 1)
                 continue
             raise
         return ref, sha.strip(), "/".join(parts[size:])
@@ -112,7 +114,9 @@ async def fetch_repo(http: Http, owner: str, repo: str, ref_path: Optional[str])
     return result
 
 
-async def fetch_file(http: Http, owner: str, repo: str, ref: str, path: str, max_bytes: int, ttl: int) -> str:
+async def fetch_file(
+    http: Http, owner: str, repo: str, ref: str, path: str, max_bytes: int, ttl: int, ignore_404_failure: bool = False
+) -> str:
     """One file as text. Uses the contents API (raw media type); if that is rate
     limited, falls back to raw.githubusercontent.com, which some networks block."""
     try:
@@ -121,12 +125,18 @@ async def fetch_file(http: Http, owner: str, repo: str, ref: str, path: str, max
             headers={"Accept": "application/vnd.github.raw+json"},
             max_bytes=max_bytes,
             ttl=ttl,
+            ignore_404_failure=ignore_404_failure,
         )
     except FetchError as error:
         if error.kind != "rate_limit":
             raise
         try:
-            return await http.get_text(f"{RAW}/{owner}/{repo}/{ref}/{quote(path, safe='/')}", max_bytes=max_bytes, ttl=ttl)
+            return await http.get_text(
+                f"{RAW}/{owner}/{repo}/{ref}/{quote(path, safe='/')}",
+                max_bytes=max_bytes,
+                ttl=ttl,
+                ignore_404_failure=ignore_404_failure,
+            )
         except FetchError:
             raise error from None
 
@@ -140,7 +150,7 @@ async def fetch_changelog_file(http: Http, owner: str, repo: str) -> Optional[tu
     """(text, url) of a root CHANGELOG file, or None."""
     for name in ("CHANGELOG.md", "CHANGES.md", "HISTORY.md", "CHANGELOG.rst", "CHANGES.rst"):
         try:
-            text = await fetch_file(http, owner, repo, "HEAD", name, settings.MAX_CHANGELOG_BYTES, 6 * 3600)
+            text = await fetch_file(http, owner, repo, "HEAD", name, settings.MAX_CHANGELOG_BYTES, 6 * 3600, ignore_404_failure=True)
             return text, f"https://github.com/{owner}/{repo}/blob/HEAD/{name}"
         except FetchError as error:
             if error.kind in ("not_found", "too_large", "http"):

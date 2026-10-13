@@ -1,5 +1,5 @@
 import { createContext, useCallback, useContext, useMemo, useReducer, useRef, type ReactNode } from 'react'
-import { createDemoClient, readDemoVariant } from '../api/demoScan'
+import { createDemoClient, DEMO_REPO_URLS, readDemoVariant } from '../api/demoScan'
 import { isCancelled, toUiError, type UiError } from '../api/errors'
 import { runScan } from '../api/runScan'
 import { createScanClient, type ScanClient } from '../api/scanClient'
@@ -87,7 +87,7 @@ const ScanContext = createContext<ScanApi | null>(null)
 const DEMO_REPOS: SubmittedRepo[] = ['payment-service', 'core-service', 'customer-service'].map((name, index) => ({
   kind: 'github' as const,
   label: DEFAULT_REPO_LABELS[index] ?? name,
-  url: `https://github.com/example-org/${name}`,
+  url: DEMO_REPO_URLS[name] ?? `https://github.com/GoogleCloudPlatform/microservices-demo/tree/main/src/${name}`,
   name,
   ref: null,
   files: [],

@@ -82,8 +82,14 @@ function Distribution({ slices }: { slices: DistributionSlice[] | null }) {
   )
 }
 
+interface OverviewProps {
+  overview: OverviewData
+  warningCount: number
+  onOpenRepositories?: () => void
+}
+
 /** Says plainly whether the scan finished clean or with caveats. */
-function ScanStatus({ overview, warningCount }: { overview: OverviewData; warningCount: number }) {
+function ScanStatus({ overview, warningCount, onOpenRepositories }: OverviewProps) {
   if (!overview.hasWarnings) {
     return (
       <p className="flex items-start gap-3 rounded-md border border-success/30 bg-success-tint px-4 py-3 text-sm">
@@ -104,18 +110,28 @@ function ScanStatus({ overview, warningCount }: { overview: OverviewData; warnin
       <span>
         <span className="font-medium">Scan completed with warnings.</span> {parts.join(', ')}. The results below
         cover only what could be analyzed.{' '}
-        <a href="#repositories" className="underline decoration-foreground/30 underline-offset-4 hover:decoration-foreground">
-          See what was and was not analyzed
-        </a>
+        {onOpenRepositories ? (
+          <button
+            type="button"
+            onClick={onOpenRepositories}
+            className="inline cursor-pointer border-0 bg-transparent p-0 text-inherit font-inherit underline decoration-foreground/30 underline-offset-4 hover:decoration-foreground"
+          >
+            See what was and was not analyzed
+          </button>
+        ) : (
+          <a href="#repositories" className="underline decoration-foreground/30 underline-offset-4 hover:decoration-foreground">
+            See what was and was not analyzed
+          </a>
+        )}
       </span>
     </p>
   )
 }
 
-export function Overview({ overview, warningCount }: { overview: OverviewData; warningCount: number }) {
+export function Overview({ overview, warningCount, onOpenRepositories }: OverviewProps) {
   return (
     <div className="space-y-6">
-      <ScanStatus overview={overview} warningCount={warningCount} />
+      <ScanStatus overview={overview} warningCount={warningCount} onOpenRepositories={onOpenRepositories} />
       <div className="grid gap-6 xl:grid-cols-[minmax(0,1fr)_20rem]">
         <dl className="grid grid-cols-2 gap-px overflow-hidden rounded-lg border border-border bg-border lg:grid-cols-4">
           {overview.metrics.map((metric) => (

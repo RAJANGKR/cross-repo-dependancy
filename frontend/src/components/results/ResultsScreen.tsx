@@ -113,6 +113,17 @@ export function ResultsScreen({ record, result, source, submitted, search, onNew
     [visible, selectedIndex, select],
   )
 
+  useEffect(() => {
+    const handleHash = () => {
+      if (window.location.hash === '#repositories' && view !== 'repos') {
+        setView('repos')
+      }
+    }
+    handleHash()
+    window.addEventListener('hashchange', handleHash)
+    return () => window.removeEventListener('hashchange', handleHash)
+  }, [view, setView])
+
   const ordered = () => sortDrifts(rows, filters.sort, filters.reversed)
   const exportMarkdown = () => {
     downloadText(buildMarkdown(record, ordered(), source), exportFileName(new Date()), 'text/markdown')
@@ -240,7 +251,11 @@ export function ResultsScreen({ record, result, source, submitted, search, onNew
             </div>
           </div>
           <div className="mb-6">
-            <Overview overview={overview} warningCount={result.warnings.length + result.skipped_items.length} />
+            <Overview
+              overview={overview}
+              warningCount={result.warnings.length + result.skipped_items.length}
+              onOpenRepositories={() => setView('repos')}
+            />
           </div>
           <CommandCenter
             result={result}
@@ -404,7 +419,7 @@ export function ResultsScreen({ record, result, source, submitted, search, onNew
       {view === 'fixes' && <FixPlans rows={rows} repos={repos} repoLabel={repoLabel} onOpen={select} />}
       {view === 'activity' && <ActivityView onRunAgain={onRunAgain} />}
       {view === 'repos' && (
-        <section aria-labelledby="repositories-title">
+        <section id="repositories" aria-labelledby="repositories-title">
           <SectionHeading id="repositories-title" eyebrow="Coverage" title="Repositories" aside={<Button size="sm" onClick={onScanAgain}>Retry scan</Button>}>
             What was and was not analyzed. Retry re-runs every repository, because the backend scans them together.
           </SectionHeading>

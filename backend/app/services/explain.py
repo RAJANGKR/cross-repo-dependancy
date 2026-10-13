@@ -38,13 +38,40 @@ async def ai_notes(http: Http, name: str, versions: List[str], reasons: List[str
         f"Library: {name}\nVersions in use: {', '.join(versions)}\nDeterministic findings: {'; '.join(reasons)}\n"
         "Release-note lines:\n" + "\n".join(f"- {line}" for line in changelog_lines[:8])
     )
-    try:
-        data = await http.post_json(
-            _GEMINI.format(model=settings.GEMINI_MODEL),
-            {"contents": [{"parts": [{"text": prompt}]}], "generationConfig": {"temperature": 0.2, "maxOutputTokens": 220}},
-            headers={"x-goog-api-key": settings.GEMINI_API_KEY},
-        )
-        text = data["candidates"][0]["content"]["parts"][0]["text"]
-    except (FetchError, KeyError, IndexError, TypeError):
-        return None
-    return " ".join(str(text).split())[:700] or None
+    configured = (settings.GEMINI_MODEL or "").strip().removeprefix("models/")
+    candidates = [configured, "gemini-3.1-flash-lite", "gemini-3.8-flash", "gemini-3-flash-preview"]
+    models_to_try = list(dict.fromkeys(m for m in candidates if m))
+
+    payload = {
+        "contents": [{"parts": [{"text": prompt}]}],
+        "generationConfig": {"temperature": 0.2, "maxOutputTokens": 220},
+    }
+
+    for idx, model in enumerate(models_to_try):
+        is_last = idx == len(models_to_try) - 1
+        url = _GEMINI.format(model=model)
+        try:
+            data = await http.post_json(
+                url,
+                payload,
+                headers={"x-goog-api-key": settings.GEMINI_API_KEY},
+                ignore_404_failure=not is_last,
+            )
+            candidate_list = data.get("candidates", [])
+            if not candidate_list:
+                continue
+            parts = candidate_list[0].get("content", {}).get("parts", [])
+            text_parts = [
+                part.get("text", "")
+                for part in parts
+                if isinstance(part, dict) and "text" in part and not part.get("thought", False)
+            ]
+            if not text_parts:
+                text_parts = [part.get("text", "") for part in parts if isinstance(part, dict) and "text" in part]
+            text = " ".join(text_parts).strip()
+            if text:
+                http.failures["generativelanguage.googleapis.com"] = 0
+                return " ".join(str(text).split())[:700] or None
+        except (FetchError, KeyError, IndexError, TypeError):
+            continue
+    return None
