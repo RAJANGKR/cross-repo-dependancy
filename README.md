@@ -12,6 +12,8 @@ Built for Hacktopia 2026, problem statement PS 07 (cross-repo dependency drift d
 - **Classifies each shared library** deterministically: major drift, minor drift, in sync, or not compared; and a compatibility risk: confirmed breaking, suspected breaking, unknown impact, or no issue identified.
 - **Collects evidence**: registry version lists (npm, PyPI, Maven Central), known vulnerabilities (OSV.dev), release notes (GitHub Releases or a CHANGELOG file), and a code-usage scan of the repository source.
 - **Scores** each drift 0 to 100 with a visible points breakdown and a confidence value that drops when evidence is missing.
+- **Compares API contracts**: OpenAPI / Swagger files that are verifiably two versions of the same API are diffed, and each consumer repository is checked for whether its code calls the changed operation or uses the changed field. Shown under Risk intelligence, with the evidence behind every row.
+- **Plans a rollout**: for one provider and one consumer, each at a current and a proposed ref, the Rollout planner says whether to deploy the provider first, the consumer first, either, or neither, and marks a state Unknown when the code could not be followed.
 - **Console UI**: command center, drift table, dependency graph, risk intelligence, review queue, fix plans, activity, repository comparison, settings.
 
 ## Run it (Windows)
@@ -99,8 +101,8 @@ The same check runs locally with `python backend/scripts/driftlock_ci.py --head 
 ## Tests
 
 ```powershell
-cd backend;  .\.venv\Scripts\python -m pytest      # 74 tests, no network: upstreams are mocked
-cd frontend; npm test; npm run build               # 99 tests
+cd backend;  .\.venv\Scripts\python -m pytest      # 588 tests, no network: upstreams are mocked
+cd frontend; npm test; npm run build               # 170 tests
 ```
 
 `backend/scripts/live_smoke.py` is an optional script that runs one real scan against the live APIs. It is not part of the test suite.
