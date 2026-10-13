@@ -15,7 +15,22 @@ export const SCAN_STAGES = ['QUEUED', 'FETCHING', 'PARSING', 'ANALYZING'] as con
 
 export const DRIFT_DISPARITIES = ['MAJOR_DRIFT', 'MINOR_DRIFT', 'INFO', 'IN_SYNC'] as const
 export const COMPATIBILITY_RISKS = ['CONFIRMED_BREAKING', 'SUSPECTED_BREAKING', 'UNKNOWN_IMPACT', 'NONE'] as const
-export const CONTRACT_STATES = ['ANALYZED', 'SPEC_UNAVAILABLE', 'MALFORMED_SPEC', 'RELATIONSHIP_UNVERIFIED', 'NOT_COMPARED'] as const
+export const CONTRACT_STATES = ['ANALYZED', 'SPEC_UNAVAILABLE', 'MALFORMED_SPEC', 'RELATIONSHIP_UNVERIFIED', 'NOT_COMPARED', 'UNRESOLVED'] as const
+/**
+ * How much evidence stands behind a contract change, weakest first. None of
+ * them is a runtime observation, and NO_USAGE_FOUND is not a statement of safety.
+ */
+export const EVIDENCE_TIERS = ['T0_DETECTED', 'T1_OPERATION_MATCH', 'T2_FIELD_MATCH', 'NO_USAGE_FOUND', 'UNRESOLVED'] as const
+export const FIELD_USAGES = [
+  'CALLS_OPERATION',
+  'READS_CHANGED_FIELD',
+  'FIELD_NOT_READ',
+  'OMITS_REQUIRED_FIELD',
+  'SENDS_REQUIRED_FIELD',
+  'MAY_SEND_REQUIRED_FIELD',
+  'NOT_DETERMINED',
+  'NO_USAGE_FOUND',
+] as const
 
 // ---- Request ---------------------------------------------------------------
 
@@ -165,8 +180,8 @@ export interface GraphSummary {
  * backend/app/services/openapi_diff_engine.py (docs/API_CONTRACT.md,
  * "Contract analysis"). A finding is a difference between two specification
  * files. It is potentially breaking; it is never a confirmed runtime failure.
- * The backend also sends additive fields (`classification`,
- * `consumer_references`) that this dashboard does not read yet.
+ * The optional fields are filled by `parseScan` for every live result; they
+ * are optional only so that older saved records still type-check.
  */
 export interface ContractFinding {
   change_type: string
@@ -178,6 +193,38 @@ export interface ContractFinding {
   json_pointer: string
   severity: string
   impact: string
+  /** Evidence tier for this finding; see EVIDENCE_TIERS. Empty when the backend sent none. */
+  evidence_tier?: string
+  /** The changed element, for example `customer.legacy_id`, `[].amount` or a parameter name. */
+  field?: string
+  /** Where the element lives: `response_body`, `request_body`, `query`, `header`. */
+  field_in?: string
+  /** What the consumer code does with it; see FIELD_USAGES. */
+  usage?: string
+  /** Why this tier was assigned, including what could not be determined. */
+  explanation?: string
+  /** Consumer source location of the decisive evidence. */
+  source_file?: string
+  source_line?: number | null
+}
+
+/** One contract change as seen from one consumer repository. */
+export interface ContractImpactRow {
+  change_type: string
+  method: string
+  path: string
+  field: string
+  field_in: string
+  previous_value: string
+  new_value: string
+  evidence_tier: string
+  usage: string
+  repository: string
+  /** Empty when there is no source location (NO_USAGE_FOUND). */
+  file: string
+  line: number | null
+  snippet: string
+  explanation: string
 }
 
 /**
@@ -194,6 +241,8 @@ export interface ContractAnalysisEntry {
   spec_file: string
   message: string
   findings: ContractFinding[]
+  /** For an analyzed consumer: every change of the comparison with its evidence tier. */
+  consumer_impact?: ContractImpactRow[]
 }
 
 export interface CodeImpactItem {

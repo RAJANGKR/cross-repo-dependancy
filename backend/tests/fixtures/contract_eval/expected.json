@@ -1,0 +1,505 @@
+{
+  "about": "Reviewed expected results for the contract-impact evaluation. The task that is measured is CHANGED-ELEMENT USAGE DETECTION: does the consumer's own inspected code use the element that changed. 'uses_changed_element' is the ground truth for that task: true when the code reads the changed response field, calls the removed operation, or makes a request that lacks the newly required value on at least one code path. It says nothing about whether the consumer would actually break: a consumer that reads a field whose type changed and handles both types is still labelled true. No breakage labels exist in this file, and none should be derived from it. 'tier' and 'usage' are what a correct, conservative tool should report given what is statically knowable; where usage is real but the code cannot be followed, the correct tier is UNRESOLVED and the case counts against recall. The labels were written by reading the fixture sources, before the tool was run on them. Do not edit a label to make a metric pass.",
+  "provider": {
+    "baseline": "provider/v1/openapi.yaml",
+    "candidate": "provider/v2/openapi.yaml"
+  },
+  "changes": {
+    "legacy_id": {
+      "change_type": "CHANGED_RESPONSE_FIELD_TYPE",
+      "method": "GET",
+      "path": "/customers/{id}",
+      "field": "customer.legacy_id",
+      "was": "integer",
+      "now": "string"
+    },
+    "sessions": {
+      "change_type": "REMOVED_OPERATION",
+      "method": "DELETE",
+      "path": "/customers/{id}/sessions",
+      "field": ""
+    },
+    "amount_list": {
+      "change_type": "CHANGED_RESPONSE_FIELD_TYPE",
+      "method": "GET",
+      "path": "/invoices",
+      "field": "[].amount",
+      "was": "number",
+      "now": "string"
+    },
+    "status": {
+      "change_type": "NEW_REQUIRED_REQUEST_FIELD",
+      "method": "GET",
+      "path": "/invoices",
+      "field": "status",
+      "in": "query"
+    },
+    "amount_created": {
+      "change_type": "CHANGED_RESPONSE_FIELD_TYPE",
+      "method": "POST",
+      "path": "/invoices",
+      "field": "amount",
+      "was": "number",
+      "now": "string"
+    },
+    "currency": {
+      "change_type": "NEW_REQUIRED_REQUEST_FIELD",
+      "method": "POST",
+      "path": "/invoices",
+      "field": "currency",
+      "in": "request_body"
+    }
+  },
+  "default": {
+    "tier": "NO_USAGE_FOUND",
+    "usage": "NO_USAGE_FOUND",
+    "why": "The consumer does not call this operation.",
+    "uses_changed_element": false
+  },
+  "consumers": {
+    "py_reads_field": {
+      "covers": "A changed response field that a consumer reads (Python, subscript chain).",
+      "changes": {
+        "legacy_id": {
+          "tier": "T2_FIELD_MATCH",
+          "usage": "READS_CHANGED_FIELD",
+          "why": "response.json()[\"customer\"][\"legacy_id\"] is read.",
+          "file": "app.py",
+          "line": 12,
+          "uses_changed_element": true
+        }
+      }
+    },
+    "js_reads_field": {
+      "covers": "A changed response field that a consumer reads (JavaScript, axios res.data member chain).",
+      "changes": {
+        "legacy_id": {
+          "tier": "T2_FIELD_MATCH",
+          "usage": "READS_CHANGED_FIELD",
+          "why": "res.data.customer.legacy_id is read.",
+          "file": "src/customers.js",
+          "line": 7,
+          "uses_changed_element": true
+        }
+      }
+    },
+    "ts_destructures": {
+      "covers": "Destructuring of a changed response field (TypeScript, fetch).",
+      "changes": {
+        "legacy_id": {
+          "tier": "T2_FIELD_MATCH",
+          "usage": "READS_CHANGED_FIELD",
+          "why": "legacy_id is destructured from the decoded body.",
+          "file": "src/api.ts",
+          "line": 5,
+          "uses_changed_element": true
+        }
+      }
+    },
+    "py_helper_returns": {
+      "covers": "The response is returned by a helper and read by its caller in another file.",
+      "changes": {
+        "legacy_id": {
+          "tier": "T2_FIELD_MATCH",
+          "usage": "READS_CHANGED_FIELD",
+          "why": "fetch_customer() returns the body; views.py reads customer['legacy_id'].",
+          "file": "views.py",
+          "line": 6,
+          "uses_changed_element": true
+        }
+      }
+    },
+    "js_passes_on": {
+      "covers": "The customer object is passed to a function in another module, which reads the field.",
+      "changes": {
+        "legacy_id": {
+          "tier": "T2_FIELD_MATCH",
+          "usage": "READS_CHANGED_FIELD",
+          "why": "saveCustomer(res.data.customer) reads customer.legacy_id in store.js.",
+          "file": "src/store.js",
+          "line": 4,
+          "uses_changed_element": true
+        }
+      }
+    },
+    "jsx_state": {
+      "covers": "The field is read from React state that was set from the response.",
+      "changes": {
+        "legacy_id": {
+          "tier": "T2_FIELD_MATCH",
+          "usage": "READS_CHANGED_FIELD",
+          "why": "setCustomer(body.customer), then customer?.legacy_id is rendered.",
+          "file": "src/Customer.jsx",
+          "line": 12,
+          "uses_changed_element": true
+        }
+      }
+    },
+    "js_calls_only": {
+      "covers": "A consumer that calls the endpoint but does not use the changed field.",
+      "changes": {
+        "legacy_id": {
+          "tier": "T1_OPERATION_MATCH",
+          "usage": "FIELD_NOT_READ",
+          "why": "Only customer.name is read. Calling the operation does not show the field is used.",
+          "file": "src/name.js",
+          "line": 7,
+          "uses_changed_element": false
+        }
+      }
+    },
+    "py_omits_required": {
+      "covers": "A new required request field that a consumer does not send (Python, payload variable).",
+      "changes": {
+        "currency": {
+          "tier": "T2_FIELD_MATCH",
+          "usage": "OMITS_REQUIRED_FIELD",
+          "why": "The payload has amount and memo only.",
+          "file": "billing.py",
+          "line": 10,
+          "uses_changed_element": true
+        },
+        "amount_created": {
+          "tier": "T1_OPERATION_MATCH",
+          "usage": "FIELD_NOT_READ",
+          "why": "Only the status code is checked; the response body is not read.",
+          "file": "billing.py",
+          "line": 10,
+          "uses_changed_element": false
+        }
+      }
+    },
+    "ts_payload_builder": {
+      "covers": "A new required request field that a consumer does not send (payload built by a local function).",
+      "changes": {
+        "currency": {
+          "tier": "T2_FIELD_MATCH",
+          "usage": "OMITS_REQUIRED_FIELD",
+          "why": "buildInvoice() returns { amount, memo }.",
+          "file": "src/create.ts",
+          "line": 8,
+          "uses_changed_element": true
+        },
+        "amount_created": {
+          "tier": "T1_OPERATION_MATCH",
+          "usage": "FIELD_NOT_READ",
+          "why": "Only created.id is read.",
+          "file": "src/create.ts",
+          "line": 8,
+          "uses_changed_element": false
+        }
+      }
+    },
+    "py_sends_required": {
+      "covers": "A consumer that already sends the newly required field.",
+      "changes": {
+        "currency": {
+          "tier": "T2_FIELD_MATCH",
+          "usage": "SENDS_REQUIRED_FIELD",
+          "why": "payload[\"currency\"] is set before the call.",
+          "file": "billing.py",
+          "line": 11,
+          "uses_changed_element": false
+        },
+        "amount_created": {
+          "tier": "T1_OPERATION_MATCH",
+          "usage": "FIELD_NOT_READ",
+          "why": "Only id is read from the response.",
+          "file": "billing.py",
+          "line": 11,
+          "uses_changed_element": false
+        }
+      }
+    },
+    "js_invoices_list": {
+      "covers": "A newly required query parameter that is not sent, and a changed field read in an array callback.",
+      "changes": {
+        "status": {
+          "tier": "T2_FIELD_MATCH",
+          "usage": "OMITS_REQUIRED_FIELD",
+          "why": "params has page only.",
+          "file": "src/invoices.js",
+          "line": 6,
+          "uses_changed_element": true
+        },
+        "amount_list": {
+          "tier": "T2_FIELD_MATCH",
+          "usage": "READS_CHANGED_FIELD",
+          "why": "res.data.map((invoice) => invoice.amount).",
+          "file": "src/invoices.js",
+          "line": 7,
+          "uses_changed_element": true
+        }
+      }
+    },
+    "py_invoices_list": {
+      "covers": "A newly required query parameter that is already sent, and a changed field read in a loop.",
+      "changes": {
+        "status": {
+          "tier": "T2_FIELD_MATCH",
+          "usage": "SENDS_REQUIRED_FIELD",
+          "why": "params={\"status\": \"open\"}.",
+          "file": "report.py",
+          "line": 9,
+          "uses_changed_element": false
+        },
+        "amount_list": {
+          "tier": "T2_FIELD_MATCH",
+          "usage": "READS_CHANGED_FIELD",
+          "why": "invoice[\"amount\"] is summed in the loop.",
+          "file": "report.py",
+          "line": 12,
+          "uses_changed_element": true
+        }
+      }
+    },
+    "py_deletes_sessions": {
+      "covers": "A consumer that calls a removed operation.",
+      "changes": {
+        "sessions": {
+          "tier": "T1_OPERATION_MATCH",
+          "usage": "CALLS_OPERATION",
+          "why": "requests.delete on /customers/{id}/sessions.",
+          "file": "cleanup.py",
+          "line": 9,
+          "uses_changed_element": true
+        }
+      }
+    },
+    "dynamic_field": {
+      "covers": "A dynamic field access that must remain unresolved.",
+      "changes": {
+        "legacy_id": {
+          "tier": "UNRESOLVED",
+          "usage": "NOT_DETERMINED",
+          "why": "body[\"customer\"][name] with name from a list that contains legacy_id: truly affected, not statically provable.",
+          "file": "report.py",
+          "line": 11,
+          "uses_changed_element": true
+        }
+      }
+    },
+    "dynamic_url": {
+      "covers": "A dynamic URL that must remain unresolved.",
+      "default": {
+        "tier": "UNRESOLVED",
+        "usage": "NOT_DETERMINED",
+        "why": "The path is chosen at runtime, so no operation can be ruled in or out.",
+        "uses_changed_element": false
+      },
+      "changes": {
+        "legacy_id": {
+          "tier": "UNRESOLVED",
+          "usage": "NOT_DETERMINED",
+          "why": "load('customers', id) then .customer.legacy_id: truly affected, but the path is only known at runtime.",
+          "file": "client.js",
+          "line": 5,
+          "uses_changed_element": true
+        }
+      }
+    },
+    "unrelated_shop": {
+      "covers": "An unrelated service with overlapping paths; regression for defect C (shared paths are not a relationship).",
+      "default": {
+        "tier": "RELATIONSHIP_UNVERIFIED",
+        "usage": "RELATIONSHIP_UNVERIFIED",
+        "why": "The calls go to SHOP_API, a different service that exposes the same paths.",
+        "uses_changed_element": false
+      },
+      "changes": {}
+    },
+    "shared_paths": {
+      "covers": "Regression for defect C: relative paths with nothing naming the provider.",
+      "default": {
+        "tier": "RELATIONSHIP_UNVERIFIED",
+        "usage": "RELATIONSHIP_UNVERIFIED",
+        "why": "Relative paths to the application's own backend.",
+        "uses_changed_element": false
+      },
+      "changes": {}
+    },
+    "nested_paths": {
+      "covers": "Regression for defect A: longer and nested paths must not match shorter operations.",
+      "changes": {}
+    },
+    "method_neighbors": {
+      "covers": "Regression for defect B: a GET next to an unrelated DELETE must not count as the removed DELETE.",
+      "changes": {}
+    },
+    "imported_function_name": {
+      "covers": "Review defect: an imported function with the same name as an unrelated local one must not be followed into the local one.",
+      "changes": {
+        "legacy_id": {
+          "tier": "UNRESOLVED",
+          "usage": "NOT_DETERMINED",
+          "uses_changed_element": false,
+          "why": "save() is imported from an external package; tools/disk.js save() is unrelated. The inspected code never reads legacy_id of a customer.",
+          "file": "src/sync.js",
+          "line": 9
+        }
+      }
+    },
+    "method_name_match": {
+      "covers": "Review defect: a method call matched by name to an unrelated free function.",
+      "changes": {
+        "legacy_id": {
+          "tier": "UNRESOLVED",
+          "usage": "NOT_DETERMINED",
+          "uses_changed_element": false,
+          "why": "this.cache.store() is a method of an injected object; helpers/store.js store() is never called with a customer.",
+          "file": "src/sync.js",
+          "line": 13
+        }
+      }
+    },
+    "other_object_call": {
+      "covers": "Review defect: a call on another object must not count as a caller of the local function of the same name.",
+      "changes": {
+        "legacy_id": {
+          "tier": "UNRESOLVED",
+          "usage": "NOT_DETERMINED",
+          "uses_changed_element": false,
+          "why": "fetch_customer() returns the response and has no caller; crm.fetch_customer() belongs to another client.",
+          "file": "client.py",
+          "line": 9
+        }
+      }
+    },
+    "axios_default_params": {
+      "covers": "Review defect: client default parameters supply the newly required query parameter.",
+      "changes": {
+        "status": {
+          "tier": "T2_FIELD_MATCH",
+          "usage": "SENDS_REQUIRED_FIELD",
+          "uses_changed_element": false,
+          "why": "axios.create({ params: { status: 'open' } }) adds it to every request.",
+          "file": "src/invoices.js",
+          "line": 6
+        },
+        "amount_list": {
+          "tier": "T1_OPERATION_MATCH",
+          "usage": "FIELD_NOT_READ",
+          "uses_changed_element": false,
+          "why": "Only the HTTP status is used.",
+          "file": "src/invoices.js",
+          "line": 6
+        }
+      }
+    },
+    "axios_interceptor": {
+      "covers": "Review defect: a request interceptor adds the newly required body field.",
+      "changes": {
+        "currency": {
+          "tier": "T2_FIELD_MATCH",
+          "usage": "SENDS_REQUIRED_FIELD",
+          "uses_changed_element": false,
+          "why": "The interceptor in src/setup.js sets config.data.currency on every request.",
+          "file": "src/invoices.js",
+          "line": 5
+        },
+        "amount_created": {
+          "tier": "T1_OPERATION_MATCH",
+          "usage": "FIELD_NOT_READ",
+          "uses_changed_element": false,
+          "why": "Only the HTTP status is used.",
+          "file": "src/invoices.js",
+          "line": 5
+        }
+      }
+    },
+    "py_session_defaults": {
+      "covers": "Review defect: session default parameters supply the newly required query parameter.",
+      "changes": {
+        "status": {
+          "tier": "T2_FIELD_MATCH",
+          "usage": "SENDS_REQUIRED_FIELD",
+          "uses_changed_element": false,
+          "why": "session.params = {\"status\": \"open\"} applies to every request of the session.",
+          "file": "billing.py",
+          "line": 11
+        },
+        "amount_list": {
+          "tier": "T1_OPERATION_MATCH",
+          "usage": "FIELD_NOT_READ",
+          "uses_changed_element": false,
+          "why": "Only the status code is printed.",
+          "file": "billing.py",
+          "line": 11
+        }
+      }
+    },
+    "unknown_method": {
+      "covers": "Review defect: the HTTP method is unknown, so a URL of a path whose DELETE was removed is not a call to that DELETE.",
+      "changes": {
+        "sessions": {
+          "tier": "UNRESOLVED",
+          "usage": "NOT_DETERMINED",
+          "uses_changed_element": false,
+          "why": "transport.send(url) does not state a method (the transport sends a GET, which still exists).",
+          "file": "src/sessions.js",
+          "line": 5
+        }
+      }
+    },
+    "conditional_field": {
+      "covers": "Review defect: the newly required field is set only on some paths before the request.",
+      "changes": {
+        "currency": {
+          "tier": "T2_FIELD_MATCH",
+          "usage": "MAY_SEND_REQUIRED_FIELD",
+          "uses_changed_element": true,
+          "why": "payload[\"currency\"] is set only when a currency is passed, so a request without it is possible.",
+          "file": "billing.py",
+          "line": 12
+        },
+        "amount_created": {
+          "tier": "T1_OPERATION_MATCH",
+          "usage": "FIELD_NOT_READ",
+          "uses_changed_element": false,
+          "why": "The response is not used.",
+          "file": "billing.py",
+          "line": 12
+        }
+      }
+    },
+    "dynamic_url_concat": {
+      "covers": "A base URL plus a runtime path (BILLING_URL + path) must stay unresolved.",
+      "default": {
+        "tier": "UNRESOLVED",
+        "usage": "NOT_DETERMINED",
+        "uses_changed_element": false,
+        "why": "The path is chosen at runtime, so no operation can be ruled in or out."
+      },
+      "changes": {
+        "legacy_id": {
+          "tier": "UNRESOLVED",
+          "usage": "NOT_DETERMINED",
+          "uses_changed_element": true,
+          "why": "get_json(\"/customers/\" + id) reads customer.legacy_id, but the request is BILLING_URL + path.",
+          "file": "client.py",
+          "line": 9
+        }
+      }
+    },
+    "dynamic_url_template": {
+      "covers": "A base URL plus a runtime path in a template (`${BILLING_URL}${path}`) must stay unresolved.",
+      "default": {
+        "tier": "UNRESOLVED",
+        "usage": "NOT_DETERMINED",
+        "uses_changed_element": false,
+        "why": "The path is chosen at runtime, so no operation can be ruled in or out."
+      },
+      "changes": {
+        "legacy_id": {
+          "tier": "UNRESOLVED",
+          "usage": "NOT_DETERMINED",
+          "uses_changed_element": true,
+          "why": "getJson(`/customers/${id}`) reads body.customer.legacy_id, but the request is `${BILLING_URL}${path}`.",
+          "file": "src/http.js",
+          "line": 3
+        }
+      }
+    }
+  },
+  "task": "changed-element usage detection"
+}

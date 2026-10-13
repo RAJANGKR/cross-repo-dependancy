@@ -1,5 +1,5 @@
 import type { DependencyDrift, ScanRecord } from '../api/scanTypes'
-import { contractMeta, driftMeta, riskMeta } from './classify'
+import { changedFieldLabel, contractMeta, driftMeta, evidenceBadge, riskMeta } from './classify'
 import { ecosystemLabel, formatDateTime, formatDuration, humanizeCode } from './formatters'
 import { computeOverview } from './overview'
 
@@ -14,6 +14,7 @@ export const LIMITATIONS: readonly string[] = [
   'Only pushed code is read. The code scan finds changed names, not silent behavior changes, and cannot confirm a runtime failure.',
   'A major version gap is not a confirmed break. Compatibility risk is only as strong as the release notes behind it.',
   'API contract findings compare OpenAPI files of the same API only when its identity and version order are verified. They are potentially breaking changes, not confirmed failures.',
+  'Consumer evidence for a contract change comes from reading source code. "No usage found" and "Unresolved" do not mean the consumer is unaffected.',
   'Missing evidence is not proof of safety. "No issue identified" means nothing was found in what was available.',
   'AI-written interpretation is labeled as such and is never used to decide a classification on its own.',
 ]
@@ -113,6 +114,17 @@ export function buildMarkdown(record: ScanRecord, rows: readonly DependencyDrift
     for (const entry of result.contract_analysis) {
       const pair = entry.consumer_repo ? `${entry.provider_repo} to ${entry.consumer_repo}` : entry.provider_repo
       lines.push(`- ${inline(pair) || 'Unknown repository'}: ${contractMeta(entry.status).label}`)
+      if (entry.consumer_impact?.length) {
+        // One line per change with its evidence tier, including the changes with no usage found.
+        for (const row of entry.consumer_impact) {
+          const field = changedFieldLabel(row.field, row.field_in)
+          const where = row.file ? `, ${inline(row.file)}${row.line === null ? '' : `:${row.line}`}` : ''
+          lines.push(
+            `  - ${evidenceBadge(row.evidence_tier, row.usage).label}: ${humanizeCode(row.change_type) || 'Change'} ${inline(row.method)} ${code(row.path || 'unknown path')}${field ? `, ${inline(field)}` : ''}${where}`,
+          )
+        }
+        continue
+      }
       for (const finding of entry.findings) {
         lines.push(
           `  - ${humanizeCode(finding.change_type) || 'Change'}: ${inline(finding.method)} ${code(finding.path || 'unknown path')}`,

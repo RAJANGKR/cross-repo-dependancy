@@ -204,6 +204,20 @@ REPOS.update({
     )}),
     # Serves its own /orders routes and calls nothing of the Orders API.
     "acme/gateway": _repo("6", {"server.js": "app.get('/orders', list)\nrouter.post('/orders', create)\nconst url = '/internal/admin/orders'\n"}),
+    # Field-level usage: reads a changed response field, omits a newly required one, already sends another.
+    "acme/checkout": _repo("c", {"src/checkout.js": (
+        "import axios from 'axios'\n\n"
+        "const ORDERS_API = process.env.ORDERS_API_URL\n\n"
+        "export async function orderNumber(id) {\n"
+        "  const res = await axios.get(`${ORDERS_API}/orders/${id}`)\n"
+        "  return String(res.data.id).padStart(8, '0')\n"
+        "}\n\n"
+        "export const placeOrder = (item) => axios.post(`${ORDERS_API}/orders`, { item })\n\n"
+        "export async function openOrderCount() {\n"
+        "  const res = await axios.get(`${ORDERS_API}/orders`, { params: { status: 'open' } })\n"
+        "  console.log(res.data.length)\n"
+        "}\n"
+    )}),
     "acme/broken-spec": _repo("7", {"api/openapi.yaml": "openapi: 3.0.0\npaths: [unclosed\n"}),
     "acme/pay-a": _repo("8", {"openapi.yaml": _payments("latest")}),
     "acme/pay-b": _repo("9", {"openapi.yaml": _payments("1.4.0")}),

@@ -1,0 +1,88 @@
+openapi: 3.0.3
+info:
+  title: Billing API
+  version: 1.4.0
+  x-api-id: billing-core
+servers:
+  - url: https://billing.acme.example
+paths:
+  /health:
+    get:
+      responses:
+        '200': {description: ok}
+  /items:
+    get:
+      responses:
+        '200':
+          description: ok
+          content:
+            application/json:
+              schema: {type: array, items: {type: object, properties: {sku: {type: string}}}}
+  /customers/{id}:
+    get:
+      parameters:
+        - {name: id, in: path, required: true, schema: {type: string}}
+      responses:
+        '200':
+          description: ok
+          content:
+            application/json:
+              schema: {$ref: '#/components/schemas/CustomerEnvelope'}
+  /customers/{id}/sessions:
+    get:
+      responses:
+        '200':
+          description: ok
+          content:
+            application/json:
+              schema: {type: array, items: {type: object, properties: {token: {type: string}}}}
+    delete:
+      responses:
+        '204': {description: all sessions revoked}
+  /invoices:
+    get:
+      parameters:
+        - {name: status, in: query, required: false, schema: {type: string}}
+        - {name: page, in: query, required: false, schema: {type: integer}}
+      responses:
+        '200':
+          description: ok
+          content:
+            application/json:
+              schema: {type: array, items: {$ref: '#/components/schemas/Invoice'}}
+    post:
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: {$ref: '#/components/schemas/NewInvoice'}
+      responses:
+        '201':
+          description: created
+          content:
+            application/json:
+              schema: {$ref: '#/components/schemas/Invoice'}
+components:
+  schemas:
+    CustomerEnvelope:
+      type: object
+      properties:
+        status: {type: string}
+        customer:
+          type: object
+          properties:
+            legacy_id: {type: integer}
+            name: {type: string}
+    Invoice:
+      type: object
+      properties:
+        id: {type: string}
+        amount: {type: number}
+        currency: {type: string}
+    NewInvoice:
+      type: object
+      required: [amount]
+      properties:
+        amount: {type: number}
+        currency: {type: string}
+        memo: {type: string}

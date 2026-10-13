@@ -318,7 +318,8 @@ def test_consumer_that_references_a_changed_endpoint():
     refund = by_change[("REMOVED_PATH", "", "/orders/{id}/refunds")]
     assert refund["classification"] == "CONSUMER_REFERENCE_FOUND"
     assert refund["consumer_references"] == [{"repository": "storefront", "file": "src/api.js", "line": 5, "match": "exact",
-                                              "snippet": "export const refund = (id) => fetch(`${BASE}/orders/${id}/refunds`, {"}]  # the commented-out call on line 3 is ignored
+                                              "snippet": "export const refund = (id) => fetch(`${BASE}/orders/${id}/refunds`, {",
+                                              "evidence_tier": "T1_OPERATION_MATCH", "usage": "CALLS_OPERATION"}]  # the commented-out call on line 3 is ignored
     assert "storefront references this endpoint at src/api.js:5" in refund["impact"] and "not proof" in refund["impact"]
     # The spec-level entry still lists every change, without consumer claims.
     (spec_level,) = entries(record, provider="orders-v2", consumer="")
@@ -387,27 +388,47 @@ def test_dependency_analysis_is_unchanged_next_to_contract_analysis():
 
 # ---- Compatibility with the dashboard --------------------------------------------
 
-def interface_fields(name):
+def interface_fields(name, optional=False):
+    """{field: type} of a TypeScript interface: its required fields, or its optional (`name?:`) ones."""
     body = re.search(rf"export interface {name} \{{(.*?)\n\}}", SCAN_TYPES.read_text(encoding="utf-8"), re.S).group(1)
-    return dict(re.findall(r"^\s{2}(\w+)\??:\s*([^\n]+)$", body, re.M))
+    return {field: kind for field, mark, kind in re.findall(r"^\s{2}(\w+)(\??):\s*([^\n]+)$", body, re.M) if bool(mark) == optional}
 
 
 def test_response_matches_the_frontend_contract_types():
     """Field names and types are read from frontend/src/api/scanTypes.ts itself."""
     entry_fields, finding_fields = interface_fields("ContractAnalysisEntry"), interface_fields("ContractFinding")
     assert set(entry_fields) == {"provider_repo", "consumer_repo", "status", "spec_file", "message", "findings"}
-    record = scan(github("orders-v1", "orders-v2", "storefront", "reports", "catalog", "mobile-bff", "inventory", "broken-spec", "service-a"))
+    assert set(interface_fields("ContractAnalysisEntry", optional=True)) == {"consumer_impact"}
+    tier_fields, row_fields = interface_fields("ContractFinding", optional=True), interface_fields("ContractImpactRow")
+    assert set(tier_fields) == {"evidence_tier", "field", "field_in", "usage", "explanation", "source_file", "source_line"}
+    source = SCAN_TYPES.read_text(encoding="utf-8")
+    constants = lambda name: set(re.search(rf"{name} = \[(.*?)\]", source, re.S).group(1).replace("'", "").replace(" ", "").replace("\n", "").strip(",").split(","))
+    record = scan(github("orders-v1", "orders-v2", "storefront", "reports", "catalog", "mobile-bff", "checkout", "inventory", "broken-spec", "service-a"))
     result = record.result["contract_analysis"]
-    known = set(re.search(r"CONTRACT_STATES = \[(.*?)\]", SCAN_TYPES.read_text(encoding="utf-8")).group(1).replace("'", "").replace(" ", "").split(","))
-    assert {e["status"] for e in result} == {"ANALYZED", "NOT_COMPARED", "MALFORMED_SPEC", "SPEC_UNAVAILABLE", "RELATIONSHIP_UNVERIFIED"} <= known
+    assert {e["status"] for e in result} == {"ANALYZED", "NOT_COMPARED", "MALFORMED_SPEC", "SPEC_UNAVAILABLE", "RELATIONSHIP_UNVERIFIED"} <= constants("CONTRACT_STATES")
+    tiers, usages = set(), set()
     for entry in result:
         assert set(entry_fields) <= set(entry)
         assert all(isinstance(entry[name], str) for name, kind in entry_fields.items() if kind == "string")
         assert isinstance(entry["findings"], list) and entry["provider_repo"] and entry["message"]
+        # Every analyzed consumer carries one evidence row per change; nothing else does.
+        assert ("consumer_impact" in entry) == (entry["status"] == "ANALYZED" and bool(entry["consumer_repo"]))
         for finding in entry["findings"]:
             assert set(finding_fields) <= set(finding)
             assert all(isinstance(finding[name], str) and finding[name] for name in finding_fields if name != "method")
             assert finding["severity"] in ("HIGH", "MEDIUM") and finding["json_pointer"].startswith("/")
+            assert isinstance(finding["evidence_tier"], str) and isinstance(finding["field"], str) and isinstance(finding["field_in"], str)
+            tiers.add(finding["evidence_tier"])
+            if entry["consumer_repo"]:
+                assert set(tier_fields) <= set(finding) and finding["usage"] and finding["explanation"] and finding["source_file"] and isinstance(finding["source_line"], int)
+        for row in entry.get("consumer_impact", []):
+            assert set(row) == set(row_fields)
+            assert all(isinstance(row[name], str) for name, kind in row_fields.items() if kind == "string")
+            assert row["line"] is None or isinstance(row["line"], int)
+            assert row["explanation"] and (row["file"] != "") == (row["line"] is not None)
+            tiers.add(row["evidence_tier"])
+            usages.add(row["usage"])
+    assert tiers == constants("EVIDENCE_TIERS") and usages <= constants("FIELD_USAGES")
     json.dumps(result)  # plain JSON all the way down
 
     # The same output is the fixture the frontend tests parse and render.
@@ -566,7 +587,9 @@ def test_shared_generic_paths_alone_never_make_a_consumer():
 def test_a_host_or_a_naming_signal_verifies_the_relationship(source, name, signal):
     entry = engine.consumer_entry(orders_comparison(), "web", {name: source})
     assert entry["status"] == "ANALYZED" and signal in entry["relationship"]["consumer_evidence"]
-    assert ("NEW_REQUIRED_REQUEST_FIELD", "GET", "/orders") in changes(entry["findings"])
+    # Once the relationship is verified, the newly required query parameter is assessed at field level.
+    (status,) = [row for row in entry["consumer_impact"] if (row["change_type"], row["method"], row["path"]) == ("NEW_REQUIRED_REQUEST_FIELD", "GET", "/orders")]
+    assert status["evidence_tier"] == "T2_FIELD_MATCH" and status["usage"] == ("SENDS_REQUIRED_FIELD" if "status=open" in source else "OMITS_REQUIRED_FIELD")
     assert signal in entry["message"]
 
 
@@ -596,7 +619,8 @@ def test_scan_reports_ambiguous_and_verified_consumers_differently():
     (bff,) = entries(record, consumer="mobile-bff")
     assert bff["status"] == "ANALYZED" and "server host orders.acme.example" in bff["relationship"]["consumer_evidence"]
     assert changes(bff["findings"]) == {("REMOVED_OPERATION", "DELETE", "/orders/{id}")}           # requests.delete, path joined with "+"
-    assert bff["findings"][0]["consumer_references"][0] | {"snippet": ""} == {"repository": "mobile-bff", "file": "bff.py", "line": 5, "match": "concatenated", "snippet": ""}
+    assert bff["findings"][0]["consumer_references"][0] | {"snippet": ""} == {
+        "repository": "mobile-bff", "file": "bff.py", "line": 5, "match": "concatenated", "snippet": "", "evidence_tier": "T1_OPERATION_MATCH", "usage": "CALLS_OPERATION"}
     assert "the path is built by concatenation" in bff["findings"][0]["impact"]
 
     (storefront,) = entries(record, consumer="storefront")

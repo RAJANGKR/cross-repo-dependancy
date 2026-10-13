@@ -129,6 +129,12 @@ const CONTRACT: Record<string, Omit<ClassMeta, 'value' | 'known'>> = {
     tone: 'medium',
     rank: 1,
   },
+  UNRESOLVED: {
+    label: 'Unresolved',
+    description: 'Requests to this API are built at runtime, so no operation could be matched or excluded. This is neither a match nor an absence of usage.',
+    tone: 'neutral',
+    rank: 1,
+  },
   NOT_COMPARED: {
     label: 'Not compared',
     description: 'A specification on its own says nothing about compatibility.',
@@ -155,6 +161,134 @@ function lookup(table: Record<string, Omit<ClassMeta, 'value' | 'known'>>, value
 export const driftMeta = (value: string): ClassMeta => lookup(DRIFT, value)
 export const riskMeta = (value: string): ClassMeta => lookup(RISK, value)
 export const contractMeta = (value: string): ClassMeta => lookup(CONTRACT, value)
+
+/**
+ * Evidence tiers for contract changes: how far the analysis got. The tier alone
+ * does not say what was found (reading a changed field and sending a required
+ * one are both field-level), so badges are chosen by `evidenceBadge`, which
+ * also looks at the usage. Tones describe how much attention a row deserves,
+ * never safety.
+ */
+const EVIDENCE: Record<string, Omit<ClassMeta, 'value' | 'known'>> = {
+  T2_FIELD_MATCH: {
+    label: 'Field-level evidence',
+    description: 'Consumer source code was followed down to the changed field. This is evidence from source code, not an observed failure.',
+    tone: 'neutral',
+    rank: 4,
+  },
+  T1_OPERATION_MATCH: {
+    label: 'Operation-level evidence',
+    description: 'Consumer source code calls the changed operation. Nothing is claimed about the changed field.',
+    tone: 'neutral',
+    rank: 3,
+  },
+  UNRESOLVED: {
+    label: 'Unresolved',
+    description: 'The code, the client, the HTTP method or the URL could not be established. The consumer may or may not be affected.',
+    tone: 'neutral',
+    rank: 2,
+  },
+  NO_USAGE_FOUND: {
+    label: 'No usage found',
+    description: 'No matching usage was found in the inspected code. This is not proof that the consumer is unaffected.',
+    tone: 'neutral',
+    rank: 1,
+  },
+  T0_DETECTED: {
+    label: 'Change detected',
+    description: 'A difference between two specification files. No consumer evidence is attached.',
+    tone: 'neutral',
+    rank: 0,
+  },
+}
+
+export const evidenceMeta = (value: string): ClassMeta => lookup(EVIDENCE, value)
+
+/**
+ * What the consumer code was seen to do. Each has its own label and tone:
+ * a call that is seen to satisfy a new requirement must not look like a call
+ * that reads a changed field, and "unresolved" and "no usage found" are
+ * neutral because neither is a finding and neither is a clean bill of health.
+ */
+const USAGE: Record<string, Omit<ClassMeta, 'value' | 'known'>> = {
+  READS_CHANGED_FIELD: {
+    label: 'Reads changed field',
+    description: 'The code reads the response field whose type changed. Whether it copes with the new type is not known.',
+    tone: 'high',
+    rank: 7,
+  },
+  OMITS_REQUIRED_FIELD: {
+    label: 'Required value not sent',
+    description: 'The request, including the client configuration that could be read, does not contain the newly required value.',
+    tone: 'high',
+    rank: 7,
+  },
+  CALLS_OPERATION: {
+    label: 'Calls removed operation',
+    description: 'The code calls, with a known HTTP method, an operation the newer specification no longer defines.',
+    tone: 'high',
+    rank: 6,
+  },
+  MAY_SEND_REQUIRED_FIELD: {
+    label: 'Required value sent on some paths',
+    description: 'The newly required value is set only under a condition, so a request without it is possible.',
+    tone: 'medium',
+    rank: 5,
+  },
+  FIELD_NOT_READ: {
+    label: 'Operation called',
+    description: 'The operation is called. No read of the changed field was found in the code that was followed; that does not show the field is unused.',
+    tone: 'medium',
+    rank: 4,
+  },
+  NOT_DETERMINED: {
+    label: 'Unresolved',
+    description: 'The analysis could not establish what this code does with the changed element. This is neither a finding nor an all-clear.',
+    tone: 'neutral',
+    rank: 3,
+  },
+  SENDS_REQUIRED_FIELD: {
+    label: 'Sends required value',
+    description: 'The request is seen to include the newly required value. This says nothing about the other changes.',
+    tone: 'neutral',
+    rank: 2,
+  },
+  NO_USAGE_FOUND: {
+    label: 'No usage found',
+    description: 'No matching usage was found in the inspected code. This is not proof that the consumer is unaffected.',
+    tone: 'neutral',
+    rank: 1,
+  },
+}
+
+/**
+ * The badge for one piece of evidence. The usage decides when the backend sent
+ * one this dashboard knows; otherwise the tier does, and an unknown tier is
+ * shown as sent.
+ */
+export function evidenceBadge(tier: string, usage: string): ClassMeta {
+  const byUsage = USAGE[usage]
+  if (byUsage) return { value: usage, known: true, ...byUsage }
+  return evidenceMeta(tier)
+}
+
+/** Plain-language name for a `usage` code; an unknown code is shown as sent. */
+export const usageLabel = (value: string): string => USAGE[value]?.label ?? value
+
+const FIELD_LOCATIONS: Record<string, string> = {
+  response_body: 'response field',
+  request_body: 'request field',
+  query: 'query parameter',
+  header: 'header',
+}
+
+/** "response field customer.legacy_id", or '' when the change has no field (a removed operation). */
+export function changedFieldLabel(field: string, fieldIn: string): string {
+  if (!field && fieldIn === 'request_body') return 'request body'
+  if (!field && fieldIn === 'response_body') return 'response body'
+  if (!field) return ''
+  return `${FIELD_LOCATIONS[fieldIn] ?? 'field'} ${field}`
+}
 
 const SEVERITY_TONES: Record<string, Tone> = {
   CRITICAL: 'critical',

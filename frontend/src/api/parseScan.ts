@@ -3,6 +3,7 @@ import type {
   CodeImpactItem,
   ContractAnalysisEntry,
   ContractFinding,
+  ContractImpactRow,
   DataSource,
   DependencyDrift,
   Explanation,
@@ -206,6 +207,37 @@ function parseFinding(raw: Rec, fallbackSpec: string): ContractFinding {
     json_pointer: str(raw.json_pointer) || str(raw.pointer),
     severity: str(raw.severity),
     impact: str(raw.impact),
+    // Present only when the backend sent them, so records saved before evidence tiers existed read back unchanged.
+    evidence_tier: optional(raw.evidence_tier),
+    field: optional(raw.field),
+    field_in: optional(raw.field_in),
+    usage: optional(raw.usage),
+    explanation: optional(raw.explanation),
+    source_file: optional(raw.source_file),
+    source_line: raw.source_line === undefined ? undefined : num(raw.source_line),
+  }
+}
+
+function optional(value: unknown): string | undefined {
+  return typeof value === 'string' ? value : undefined
+}
+
+function parseImpactRow(raw: Rec): ContractImpactRow {
+  return {
+    change_type: str(raw.change_type),
+    method: str(raw.method).toUpperCase(),
+    path: str(raw.path),
+    field: str(raw.field),
+    field_in: str(raw.field_in),
+    previous_value: text(raw.previous_value),
+    new_value: text(raw.new_value),
+    evidence_tier: str(raw.evidence_tier),
+    usage: str(raw.usage),
+    repository: str(raw.repository),
+    file: str(raw.file),
+    line: num(raw.line),
+    snippet: str(raw.snippet),
+    explanation: str(raw.explanation),
   }
 }
 
@@ -220,6 +252,7 @@ function parseContractAnalysis(raw: unknown): ContractAnalysisEntry[] | null {
       spec_file: specFile,
       message: str(entry.message),
       findings: records(entry.findings).map((finding) => parseFinding(finding, specFile)),
+      consumer_impact: Array.isArray(entry.consumer_impact) ? records(entry.consumer_impact).map(parseImpactRow) : undefined,
     }
   })
 }

@@ -34,6 +34,7 @@ const CONTRACT_ICONS: Record<string, LucideIcon> = {
   SPEC_UNAVAILABLE: FileQuestion,
   MALFORMED_SPEC: FileWarning,
   RELATIONSHIP_UNVERIFIED: CircleHelp,
+  UNRESOLVED: CircleDashed,
   NOT_COMPARED: Minus,
 }
 

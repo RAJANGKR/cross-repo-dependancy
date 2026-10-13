@@ -28,6 +28,9 @@ from urllib.parse import urlparse
 import yaml
 from packaging.version import InvalidVersion, Version
 
+from app.services import consumer_usage
+from app.services.consumer_usage import T1_OPERATION_MATCH, T2_FIELD_MATCH, UNRESOLVED
+
 HTTP_METHODS = ("get", "put", "post", "delete", "patch", "options", "head", "trace")
 SPEC_NAMES = {"openapi.json", "openapi.yaml", "openapi.yml", "swagger.json", "swagger.yaml", "swagger.yml"}
 #: Besides the repository root, specifications are looked for under these top-level folders.
@@ -39,6 +42,11 @@ SPEC_UNAVAILABLE = "SPEC_UNAVAILABLE"
 MALFORMED_SPEC = "MALFORMED_SPEC"
 RELATIONSHIP_UNVERIFIED = "RELATIONSHIP_UNVERIFIED"
 NOT_COMPARED = "NOT_COMPARED"
+
+#: Evidence tiers. T0 is a difference between two files; T1 and T2 add source-code
+#: evidence from a consumer. None of them is a runtime observation.
+T0_DETECTED = "T0_DETECTED"
+NO_USAGE_FOUND = "NO_USAGE_FOUND"
 
 #: Titles that frameworks generate by default. Two services that both kept the
 #: default are not the same API, so these never establish identity on their own.
@@ -322,7 +330,7 @@ def diff_specs(baseline: Spec, candidate: Spec) -> List[dict]:
     findings: List[dict] = []
     seen: Set[Tuple[str, str, str, str, str]] = set()
 
-    def add(change_type: str, path: str, method: str, previous: str, current: str, spec: Spec, pointer: str, description: str) -> None:
+    def add(change_type: str, path: str, method: str, previous: str, current: str, spec: Spec, pointer: str, description: str, field: str = "", field_in: str = "") -> None:
         key = (change_type, path, method, previous, current)
         if key in seen:
             return
@@ -341,6 +349,10 @@ def diff_specs(baseline: Spec, candidate: Spec) -> List[dict]:
             "classification": "POTENTIALLY_BREAKING",
             "description": description,
             "spec_repository": spec.repo,
+            # The changed element, structured: "customer.legacy_id", "[].amount", "status".
+            "field": field,
+            "field_in": field_in,
+            "evidence_tier": T0_DETECTED,
         })
 
     def required_fields(before: _Schema, after: _Schema, prefix: str, path: str, method: str, visited: Set[Tuple[str, str]], depth: int = 0) -> None:
@@ -352,7 +364,8 @@ def diff_specs(baseline: Spec, candidate: Spec) -> List[dict]:
                 continue  # read-only properties are never sent by clients
             was = "optional" if name in before.props else "absent"
             add("NEW_REQUIRED_REQUEST_FIELD", path, method, f"request field {prefix}{name}: {was}", f"request field {prefix}{name}: required",
-                candidate, after.pointer + "/required", f"Request body field '{prefix}{name}' is required in {candidate.version_text} and was {was} in {baseline.version_text}.")
+                candidate, after.pointer + "/required", f"Request body field '{prefix}{name}' is required in {candidate.version_text} and was {was} in {baseline.version_text}.",
+                field=f"{prefix}{name}", field_in="request_body")
         for name in sorted(set(before.props) & set(after.props)):
             required_fields(old.schema(*before.props[name]), new.schema(*after.props[name]), f"{prefix}{name}.", path, method, visited, depth + 1)
         if before.items and after.items:
@@ -365,7 +378,8 @@ def diff_specs(baseline: Spec, candidate: Spec) -> List[dict]:
         if before.types and after.types and not _response_type_compatible(before.types, after.types):
             name = label or "body"
             add("CHANGED_RESPONSE_FIELD_TYPE", path, method, f"{code} response {name}: {_types_text(before.types)}", f"{code} response {name}: {_types_text(after.types)}",
-                candidate, after.pointer + "/type", f"Response {name} of status {code} changed type from {_types_text(before.types)} to {_types_text(after.types)}.")
+                candidate, after.pointer + "/type", f"Response {name} of status {code} changed type from {_types_text(before.types)} to {_types_text(after.types)}.",
+                field=label.removeprefix("field ").removeprefix("body").replace("[]", ".[]").strip("."), field_in="response_body")
             return
         for name in sorted(set(before.props) & set(after.props)):
             child = f"{label}.{name}" if label else f"field {name}"
@@ -401,7 +415,8 @@ def diff_specs(baseline: Spec, candidate: Spec) -> List[dict]:
                     continue
                 was = "absent" if previous is None else "optional"
                 add("NEW_REQUIRED_REQUEST_FIELD", new_path, method, f"{where} parameter {name}: {was}", f"{where} parameter {name}: required",
-                    candidate, pointer, f"{where.capitalize()} parameter '{name}' is required in {candidate.version_text} and was {was} in {baseline.version_text}.")
+                    candidate, pointer, f"{where.capitalize()} parameter '{name}' is required in {candidate.version_text} and was {was} in {baseline.version_text}.",
+                    field=name, field_in=where)
 
             had_body, body_required, old_media = old.body(old_params, op, op_ptr)
             has_body, new_body_required, new_media = new.body(new_params, new_op, new_op_ptr)
@@ -409,7 +424,7 @@ def diff_specs(baseline: Spec, candidate: Spec) -> List[dict]:
                 was = "optional" if had_body else "absent"
                 add("NEW_REQUIRED_REQUEST_FIELD", new_path, method, f"request body: {was}", "request body: required",
                     candidate, new_op_ptr + ("/requestBody" if "requestBody" in new_op else "/parameters"),
-                    f"The request body is required in {candidate.version_text} and was {was} in {baseline.version_text}.")
+                    f"The request body is required in {candidate.version_text} and was {was} in {baseline.version_text}.", field_in="request_body")
             for (before_node, before_ptr), (after_node, after_ptr) in _pair_media(old_media, new_media):
                 required_fields(old.schema(before_node, before_ptr), new.schema(after_node, after_ptr), "", new_path, method, set())
 
@@ -575,11 +590,22 @@ _BLOCKED = "\x00"
 _JOIN_MIDDLE = re.compile(r"""["'`][ \t]*\+[ \t]*[^"'`+\n]{1,80}?[ \t]*\+[ \t]*["'`]""")   # "a/" + x + "/b"
 _JOIN_LITERALS = re.compile(r"""["'`][ \t]*\+[ \t]*["'`]""")                                # "a" + "/b"
 _JOIN_SPLIT = re.compile(r"""(?P<q>["'`])(?=[ \t]*\+\s*["'`])""")                           # "a" +\n "/b": not followed
+_JOINED_BEFORE = re.compile(r"""([A-Za-z_$][\w$.]*(?:\[[^\]\n]{0,40}\])?)[ \t]*\+[ \t]*$""")
 _JOIN_END = re.compile(r"""(?P<q>["'`])(?=[ \t]*\+)""")                                     # "a/" + x
 #: What may stand between the opening quote and the path: nothing, one base-URL
 #: placeholder, or a scheme and host. Never further path segments.
 _PLACEHOLDER = r"""(?:\$\{[^{}"'`\n]*\}|\{[^{}"'`\n]*\}|%s|\$\w+)"""
 _PREFIX_HEAD = re.compile(rf"""(?:{_PLACEHOLDER}|https?://[^/\s]+)?""")
+#: Base URLs joined to a path that is only known at runtime. These are candidates, not matches.
+_DYNAMIC_ADJACENT = re.compile(rf"""(?P<q>["'`])(?P<pre>{_PLACEHOLDER})(?:\$\{{[^{{}}"'`\n]*\}}|\{{[^{{}}"'`\n]*\}}|%s)""")      # f"{BASE}{path}"
+_DYNAMIC_EXPRESSION = re.compile(
+    r"""(?<![\w$.'"`/])(?P<plus>[A-Za-z_$][\w$.]*)[ \t]*\+[ \t]*(?=[A-Za-z_$(])"""                         # BASE + path
+    r"""|\burljoin\(\s*(?P<joined>[A-Za-z_$][\w$.]*)\s*,"""                                               # urljoin(BASE, ...)
+    r"""|\bnew\s+URL\(\s*[^,\n()]+,\s*(?P<base>[A-Za-z_$][\w$.]*)\s*\)"""                               # new URL(path, BASE)
+)
+_URL_HOLDER_WORDS = {"url", "uri", "host", "base", "api", "endpoint", "origin", "server", "root"}
+#: A base URL followed by a path whose first segment is only known at runtime.
+_DYNAMIC_URL = re.compile(rf"""(?P<q>["'`])(?P<pre>{_PLACEHOLDER}|https?://[^/\s"'`]+)/(?:\$\{{[^{{}}"'`\n]*\}}|\{{[^{{}}"'`\n]*\}}|%s)""")
 _COMMENT = ("#", "//", "/*", "*", "<!--")
 #: Lines that declare a server route rather than call one.
 _ROUTE_DEFINITION = re.compile(
@@ -680,8 +706,8 @@ def _join_concatenations(text: str) -> str:
     return _JOIN_END.sub(lambda match: _JOINED + match.group("q"), text)
 
 
-def _path_pattern(path: str) -> Optional[Tuple[re.Pattern, int, str]]:
-    """(pattern, static segment count, prefilter needle) for one path template.
+def _path_pattern(path: str) -> Optional[Tuple[List[re.Pattern], int, str]]:
+    """(patterns, static segment count, prefilter needle) for one path template.
 
     The whole literal must be the path: after it only a trailing slash, a query
     string, a fragment, or a joined-on suffix may follow. "/orders/123/items"
@@ -697,8 +723,12 @@ def _path_pattern(path: str) -> Optional[Tuple[re.Pattern, int, str]]:
         pieces = re.split(r"(\{[^/{}]*\})", segment)
         parts.append("".join(_PARAM if piece.startswith("{") else re.escape(piece) for piece in pieces if piece))
     tail = r"""(?:/?(?:[?#][^\s"'`]*)?|\$\{\+\})(?=["'`])"""
-    pattern = re.compile(r"(?P<q>" + _QUOTE + ")" + _PRE + "(?P<p>/" + "/".join(parts) + ")" + tail)
-    return pattern, len(static), "/" + max(static, key=len)
+    patterns = [re.compile(r"(?P<q>" + _QUOTE + ")" + _PRE + "(?P<p>/" + "/".join(parts) + ")" + tail)]
+    if len(segments) >= 2:
+        # A path relative to a client's base URL, written without the leading slash: request.get('pet/findByStatus').
+        # One-segment words such as 'orders' are far too common to be read as paths.
+        patterns.append(re.compile(r"(?P<q>" + _QUOTE + ")(?P<pre>)(?P<p>" + "/".join(parts) + ")" + tail))
+    return patterns, len(static), max(static, key=len)
 
 
 def _call_index(text: str) -> Tuple[Dict[int, Tuple[int, ...]], Dict[int, int]]:
@@ -812,10 +842,11 @@ def find_references(paths: Iterable[str], bases: List[str], files: Dict[str, str
         text = _join_concatenations(original)
         lines = original.splitlines()
         hits: Dict[int, List[Tuple[int, str, re.Match]]] = {}  # path start -> [(static segments, path, match)]
-        for path, (pattern, static_count, _) in candidates:
-            for match in pattern.finditer(text):
-                if _prefix_ok(match.group("pre"), bases):
-                    hits.setdefault(match.start("p"), []).append((static_count, path, match))
+        for path, (patterns, static_count, _) in candidates:
+            for pattern in patterns:
+                for match in pattern.finditer(text):
+                    if _prefix_ok(match.group("pre"), bases):
+                        hits.setdefault(match.start("p"), []).append((static_count, path, match))
         if not hits:
             continue
         enclosing, closes = _call_index(text)
@@ -829,11 +860,14 @@ def find_references(paths: Iterable[str], bases: List[str], files: Dict[str, str
                 if weight != best:
                     continue
                 methods, callee = _call_context(text, match.start("q"), enclosing, closes)
+                # BASE_URL + "/orders": the base URL stands before the literal, not inside it.
+                before = _JOINED_BEFORE.search(text, max(0, match.start("q") - 120), match.start("q"))
+                prefix = match.group("pre") + (" " + before.group(1) if before else "")
                 found.setdefault(path, []).append({
                     "file": file, "line": number, "snippet": line.strip()[:240],
                     "match": "concatenated" if _JOINED in match.group() else "exact",
                     "methods": methods,
-                    "evidence": _evidence(original, match.group("pre"), callee, hosts, words),
+                    "evidence": _evidence(original, prefix, callee, hosts, words),
                 })
     return found
 
@@ -842,12 +876,115 @@ def _public(consumer: str, ref: dict) -> dict:
     return {"repository": consumer, **{key: ref[key] for key in ("file", "line", "snippet", "match")}}
 
 
-def consumer_entry(comparison: Comparison, consumer: str, files: Optional[Dict[str, str]], not_scanned_reason: str = "") -> dict:
+def _holds_a_url(original: str, name: str) -> bool:
+    """Does `name` look like something that holds a base URL: by its words, or by being assigned one?"""
+    last = name.split(".")[-1]
+    if _words(last) & _URL_HOLDER_WORDS:
+        return True
+    assignment = re.search(rf"(?<![\w$]){re.escape(last)}\s*(?::[^=\n]{{0,40}})?=(?![=>])[^\n]*", original)
+    return bool(assignment and "http" in assignment.group().lower())
+
+
+def find_dynamic_urls(files: Dict[str, str], hosts: Iterable[str], words: Iterable[str]) -> List[dict]:
+    """Requests whose base URL carries a signal for this provider but whose path
+    is only known at runtime: f"{BILLING_URL}/{resource}/{id}", f"{BASE}{path}",
+    BASE + path, urljoin(BASE, ...), new URL(path, BASE).
+
+    Such a request may reach any operation or none, so it is neither a match
+    nor an absence of usage. The signal is returned as a candidate; it does
+    not establish a provider-consumer relationship."""
+    hosts, words = list(hosts), list(words)
+    found: List[dict] = []
+    if not hosts and not words:
+        return found
+    for file in sorted(files):
+        original = files[file]
+        text = _join_concatenations(original)
+        lines = original.splitlines()
+        seen: Set[int] = set()
+        enclosing: Optional[Dict[int, Tuple[int, ...]]] = None
+        closes: Dict[int, int] = {}
+
+        def note(number: int, evidence: List[str]) -> None:
+            line = lines[number - 1] if number <= len(lines) else ""
+            if evidence and number not in seen and not line.strip().startswith(_COMMENT) and not _ROUTE_DEFINITION.search(line):
+                seen.add(number)
+                found.append({"file": file, "line": number, "snippet": line.strip()[:240], "evidence": evidence})
+
+        for pattern in (_DYNAMIC_URL, _DYNAMIC_ADJACENT):
+            for match in pattern.finditer(text):
+                if enclosing is None:
+                    enclosing, closes = _call_index(text)
+                _, callee = _call_context(text, match.start("q"), enclosing, closes)
+                note(text.count("\n", 0, match.start()) + 1, _evidence(original, match.group("pre"), callee, hosts, words))
+        for match in _DYNAMIC_EXPRESSION.finditer(original):
+            name = match.group("plus") or match.group("joined") or match.group("base")
+            if _holds_a_url(original, name):  # `billing_total + tax` is arithmetic, not a URL
+                note(original.count("\n", 0, match.start()) + 1, _evidence(original, name, "", hosts, words))
+    return sorted(found, key=lambda item: (item["file"], item["line"]))
+
+
+def _host_mentions(files: Dict[str, str], hosts: Iterable[str]) -> List[dict]:
+    """Where the provider's server host is written in the repository. On its own
+    this ties no particular call to the provider; it is reported as a candidate."""
+    found: List[dict] = []
+    for host in hosts:
+        for file in sorted(files):
+            position = files[file].lower().find(host)
+            if position >= 0:
+                found.append({"signal": f"server host {host}", "file": file, "line": files[file].count("\n", 0, position) + 1})
+                break
+    return found
+
+
+def _snippet(files: Dict[str, str], file: str, line: int) -> str:
+    lines = files.get(file, "").splitlines()
+    return lines[line - 1].strip()[:240] if 0 < line <= len(lines) else ""
+
+
+def _impact_row(finding: dict, consumer: str, tier: str, usage: str, explanation: str, file: str = "", line: Optional[int] = None, snippet: str = "") -> dict:
+    """One change as seen from one consumer: the evidence tier and where it comes from."""
+    return {
+        "change_type": finding["change_type"], "method": finding["method"], "path": finding["path"],
+        "field": finding.get("field", ""), "field_in": finding.get("field_in", ""),
+        "previous_value": finding["previous_value"], "new_value": finding["new_value"],
+        "evidence_tier": tier, "usage": usage, "repository": consumer,
+        "file": file, "line": line, "snippet": snippet, "explanation": explanation,
+    }
+
+
+_NOT_PROOF = "A matching call in source code is evidence of use, not proof that it reaches this service or fails at runtime."
+_TIER_LABELS = (
+    (T2_FIELD_MATCH, "field-level match(es)"), (T1_OPERATION_MATCH, "operation-level match(es)"),
+    (UNRESOLVED, "unresolved"), (NO_USAGE_FOUND, "with no usage found"),
+)
+
+
+#: Evidence label for a relationship that the request states instead of the code.
+DECLARED_RELATIONSHIP = "relationship declared in the request (not verified from the code)"
+
+
+def consumer_entry(comparison: Comparison, consumer: str, files: Optional[Dict[str, str]], not_scanned_reason: str = "", declared: bool = False) -> dict:
     """How `consumer` relates to the changed API: a provider to consumer entry.
 
-    ANALYZED requires a reference that is tied to this provider by a server
-    host or a naming signal. Path matches without such a signal, no matches,
-    and unscanned source are all RELATIONSHIP_UNVERIFIED, never "not affected"."""
+    `declared` is for callers that are told the relationship explicitly (the
+    rollout planner: the user names the provider and its consumer). Calls that
+    match a path of the API are then attributed without a host or naming
+    signal, and the evidence says the relationship was declared, not verified.
+
+    Entry status:
+      ANALYZED                 at least one call is tied to this provider by a server host or a naming signal;
+      UNRESOLVED               requests are built for a base URL that carries such a signal, but their paths
+                               are only known at runtime, so nothing could be matched or excluded;
+      RELATIONSHIP_UNVERIFIED  no reference, only paths shared with other services, or source not scanned.
+    None of these means "not affected".
+
+    For ANALYZED and UNRESOLVED every change gets one row in `consumer_impact`:
+      T2_FIELD_MATCH      the code reads the changed field, or the request is seen to send, possibly send,
+                          or omit the newly required one (`usage` says which);
+      T1_OPERATION_MATCH  the operation is called, with a known HTTP method; nothing is claimed about the field;
+      UNRESOLVED          the code, the client, the HTTP method or the URL could not be established;
+      NO_USAGE_FOUND      no call was found in the inspected files (not proof of safety)."""
     candidate, baseline = comparison.candidate, comparison.baseline
     api = f'"{candidate.label}"'
     meta = comparison.meta()
@@ -857,12 +994,15 @@ def consumer_entry(comparison: Comparison, consumer: str, files: Optional[Dict[s
 
     old_paths = {path for path, _, _ in _Reader(baseline.doc).paths().values()}
     new_paths = {path for path, _, _ in _Reader(candidate.doc).paths().values()}
-    references = find_references(
-        sorted(old_paths | new_paths), base_paths(baseline.doc, candidate.doc), files,
-        provider_hosts(baseline.doc, candidate.doc),
-        identity_words(baseline.title, candidate.title, baseline.explicit_id, candidate.explicit_id, *sorted(comparison.holders)),
-    )
-    if not references:
+    hosts = provider_hosts(baseline.doc, candidate.doc)
+    words = identity_words(baseline.title, candidate.title, baseline.explicit_id, candidate.explicit_id, *sorted(comparison.holders))
+    references = find_references(sorted(old_paths | new_paths), base_paths(baseline.doc, candidate.doc), files, hosts, words)
+    if declared:
+        for refs in references.values():
+            for ref in refs:
+                ref["evidence"] = ref["evidence"] or [DECLARED_RELATIONSHIP]
+    dynamic = find_dynamic_urls(files, hosts, words)
+    if not references and not dynamic:
         return _entry(candidate.repo, RELATIONSHIP_UNVERIFIED,
                       f"No reference to an endpoint of {api} was found in the {len(files)} source file(s) read from {consumer}. "
                       "A provider-consumer relationship is unverified; it is not ruled out.", **common, **meta)
@@ -870,46 +1010,117 @@ def consumer_entry(comparison: Comparison, consumer: str, files: Optional[Dict[s
     verified = {path: [ref for ref in refs if ref["evidence"]] for path, refs in references.items()}
     verified = {path: refs for path, refs in verified.items() if refs}
     unattributed = [{"path": path, **_public(consumer, ref)} for path in sorted(references) for ref in references[path] if not ref["evidence"]]
-    extra = {"possible_references": unattributed[:_MAX_REFERENCES]} if unattributed else {}
+    extra: Dict[str, Any] = {"possible_references": unattributed[:_MAX_REFERENCES]} if unattributed else {}
+    if dynamic:
+        extra["dynamic_urls"] = [{"repository": consumer, **item} for item in dynamic[:_MAX_REFERENCES]]
 
     def listed(paths: Iterable[str]) -> str:
         paths = sorted(paths)
         return ", ".join(paths[:5]) + (f" and {len(paths) - 5} more" if len(paths) > 5 else "")
 
-    if not verified:
+    if not verified and not dynamic:
         shared = sorted({item["path"] for item in unattributed})
+        mentions = _host_mentions(files, hosts)
+        if mentions:
+            meta["relationship"] = {**meta["relationship"], "candidate_evidence": mentions}
+        hint = (f" The provider's server host does appear at {mentions[0]['file']}:{mentions[0]['line']}, but the matching calls are not tied to it, "
+                "so this is a candidate and not a verified relationship." if mentions else "")
         return _entry(candidate.repo, RELATIONSHIP_UNVERIFIED,
                       f"{consumer} contains {len(unattributed)} string(s) matching path(s) that {api} also defines ({listed(shared)}), but nothing ties them to this API: "
-                      "no server host from the specification and no identifier naming the API was found. Other services expose the same paths, "
-                      "so a shared path does not establish a provider-consumer relationship.", **common, **meta, **extra)
+                      "no server host from the specification and no identifier naming the API was found on those calls. Other services expose the same paths, "
+                      f"so a shared path does not establish a provider-consumer relationship.{hint}", **common, **meta, **extra)
 
-    signals = sorted({signal for refs in verified.values() for ref in refs for signal in ref["evidence"]})
-    meta["relationship"] = {**meta["relationship"], "consumer_evidence": signals}
+    repository = consumer_usage.Repository(files)
     affected: List[dict] = []
+    rows: List[dict] = []
     for finding in comparison.findings:
-        refs = [
-            ref for ref in verified.get(finding["path"], [])
-            if not finding["method"] or not ref["methods"] or finding["method"] in ref["methods"]
-        ]
-        if not refs:
+        operation = f"{finding['method']} {finding['path']}".strip()
+        definite: List[dict] = []
+        uncertain: List[Tuple[dict, str]] = []
+        for ref in verified.get(finding["path"], []):
+            methods = ref["methods"]
+            reason = ""
+            if finding["method"] and not methods:  # the text around the URL does not say; ask the located call
+                facts = repository.call_facts(ref["file"], ref["line"])
+                methods = [facts.method] if facts.method else []
+                reason = facts.method_reason or facts.reason
+            if not finding["method"] or finding["method"] in methods:
+                definite.append(ref)
+            elif not methods:
+                uncertain.append((ref, reason))
+        definite = definite[:_MAX_REFERENCES]
+        if not definite and uncertain:
+            # A URL does not say which operation is called. Unknown is reported as unknown, never as a match.
+            ref, reason = uncertain[0]
+            explanation = (f"A request to this path is built at {ref['file']}:{ref['line']}, but its HTTP method could not be determined"
+                           f"{f' ({reason})' if reason else ''}, so it is not known whether it is {operation}.")
+            rows.append(_impact_row(finding, consumer, UNRESOLVED, consumer_usage.NOT_DETERMINED, explanation, ref["file"], ref["line"], ref["snippet"]))
+            affected.append({
+                **finding, "classification": "CONSUMER_REFERENCE_FOUND", "evidence_tier": UNRESOLVED, "usage": consumer_usage.NOT_DETERMINED,
+                "explanation": explanation, "source_file": ref["file"], "source_line": ref["line"],
+                "impact": f"{consumer} builds a request to this path at {ref['file']}:{ref['line']}. {explanation} {_NOT_PROOF}",
+                "consumer_references": [{**_public(consumer, item), "evidence_tier": UNRESOLVED, "usage": consumer_usage.NOT_DETERMINED} for item, _ in uncertain[:_MAX_REFERENCES]],
+            })
             continue
-        first = refs[0]
+        if not definite:
+            if dynamic:
+                first = dynamic[0]
+                rows.append(_impact_row(finding, consumer, UNRESOLVED, consumer_usage.NOT_DETERMINED,
+                                        f"No call to {operation} was matched, but {consumer} builds request paths to this API at runtime, so such a call cannot be excluded.",
+                                        first["file"], first["line"], first["snippet"]))
+            else:
+                rows.append(_impact_row(finding, consumer, NO_USAGE_FOUND, NO_USAGE_FOUND,
+                                        f"No call to {operation} was found in the {len(files)} source file(s) read from {consumer}. This is not proof that it is unaffected."))
+            continue
+        results = [consumer_usage.assess(finding, repository.call_facts(ref["file"], ref["line"])) for ref in definite]
+        best = consumer_usage.strongest(results)
+        first = definite[results.index(best)]
+        rows.append(_impact_row(finding, consumer, best["evidence_tier"], best["usage"], best["explanation"], best["file"], best["line"], _snippet(files, best["file"], best["line"])))
+        if best["usage"] == consumer_usage.SENDS_REQUIRED_FIELD:
+            continue  # the request is seen to satisfy the new requirement: listed in consumer_impact, not as a finding
         joined = " (the path is built by concatenation)" if first["match"] == "concatenated" else ""
-        more = f" and {len(refs) - 1} more place(s)" if len(refs) > 1 else ""
+        more = f" and {len(definite) - 1} more place(s)" if len(definite) > 1 else ""
+        where = f"{first['file']}:{first['line']}{joined}{more}"
+        lead = {
+            consumer_usage.CALLS_OPERATION: f"{consumer} references this endpoint at {where}.",
+            consumer_usage.READS_CHANGED_FIELD: f"{consumer} calls this operation at {where} and reads the changed field at {best['file']}:{best['line']}.",
+            consumer_usage.OMITS_REQUIRED_FIELD: f"{consumer} calls this operation at {where} without the newly required value.",
+            consumer_usage.MAY_SEND_REQUIRED_FIELD: f"{consumer} calls this operation at {where}; the newly required value is set only on some code paths.",
+            consumer_usage.FIELD_NOT_READ: f"{consumer} calls this operation at {where}. No read of the changed field was found in the code that was followed; a call alone does not show the field is used.",
+            consumer_usage.NOT_DETERMINED: f"{consumer} calls this operation at {where}, but whether it uses the changed field could not be determined.",
+        }[best["usage"]]
         affected.append({
             **finding,
             "classification": "CONSUMER_REFERENCE_FOUND",
-            "impact": (
-                f"{consumer} references this endpoint at {first['file']}:{first['line']}{joined}{more}. {_IMPACT[finding['change_type']]} "
-                "A matching call in source code is evidence of use, not proof that it reaches this service or fails at runtime."
-            ),
-            "consumer_references": [_public(consumer, ref) for ref in refs[:_MAX_REFERENCES]],
+            "evidence_tier": best["evidence_tier"],
+            "usage": best["usage"],
+            "explanation": best["explanation"],
+            "source_file": best["file"],
+            "source_line": best["line"],
+            "impact": f"{lead} {best['explanation']} {_IMPACT[finding['change_type']]} {_NOT_PROOF}",
+            "consumer_references": [{**_public(consumer, ref), "evidence_tier": result["evidence_tier"], "usage": result["usage"]} for ref, result in zip(definite, results)],
         })
+
+    signals = sorted({signal for refs in verified.values() for ref in refs for signal in ref["evidence"]})
+    counts = {tier: sum(1 for row in rows if row["evidence_tier"] == tier) for tier, _ in _TIER_LABELS}
+    summary = "Evidence per change: " + ", ".join(f"{counts[tier]} {label}" for tier, label in _TIER_LABELS if counts[tier]) + "." if rows else ""
+    if not verified:
+        # Only runtime-built URLs. The signal on the base URL is kept as a candidate, not as an established relationship.
+        first = dynamic[0]
+        candidates = sorted({signal for item in dynamic for signal in item["evidence"]})
+        meta["relationship"] = {**meta["relationship"], "candidate_evidence": [
+            {"signal": signal, "file": item["file"], "line": item["line"]} for signal in candidates for item in dynamic if signal in item["evidence"]][:_MAX_REFERENCES]}
+        message = (f"{consumer} builds request URLs at runtime ({first['file']}:{first['line']}) from a base URL that points to {api} "
+                   f"({'; '.join(candidates)}). The path is only known at runtime, so no operation could be matched and no change can be ruled in or out. "
+                   "This is neither a match nor an absence of usage.")
+        return _entry(candidate.repo, UNRESOLVED, message, findings=[], consumer_impact=rows, **common, **meta, **extra)
+
+    meta["relationship"] = {**meta["relationship"], "consumer_evidence": signals}
     basis = f"Tied to this API by: {'; '.join(signals)}."
     if affected:
         message = (f"{consumer} references {len(verified)} endpoint(s) of {api} ({listed(verified)}); {len(affected)} change(s) between "
-                   f"{baseline.version_text} and {candidate.version_text} touch them. {basis}")
+                   f"{baseline.version_text} and {candidate.version_text} touch them. {summary} {basis}")
     else:
         message = (f"{consumer} references {len(verified)} endpoint(s) of {api} ({listed(verified)}). None of the changes between "
-                   f"{baseline.version_text} and {candidate.version_text} touches an endpoint it references. {basis}")
-    return _entry(candidate.repo, ANALYZED, message, findings=affected, **common, **meta, **extra)
+                   f"{baseline.version_text} and {candidate.version_text} touches an endpoint it references. {summary} {basis}")
+    return _entry(candidate.repo, ANALYZED, message, findings=affected, consumer_impact=rows, **common, **meta, **extra)

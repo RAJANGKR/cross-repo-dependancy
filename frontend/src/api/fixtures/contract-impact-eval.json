@@ -1,0 +1,968 @@
+[
+  {
+    "provider_repo": "billing-v2",
+    "consumer_repo": "py_reads_field",
+    "status": "ANALYZED",
+    "spec_file": "openapi.yaml",
+    "message": "py_reads_field references 1 endpoint(s) of \"Billing API\" (/customers/{id}); 1 change(s) between 1.4.0 and 2.0.0 touch them. Evidence per change: 1 field-level match(es), 5 with no usage found. Tied to this API by: identifier naming the API (billing).",
+    "findings": [
+      {
+        "change_type": "CHANGED_RESPONSE_FIELD_TYPE",
+        "path": "/customers/{id}",
+        "method": "GET",
+        "previous_value": "200 response field customer.legacy_id: integer",
+        "new_value": "200 response field customer.legacy_id: string",
+        "spec_file": "openapi.yaml",
+        "json_pointer": "/components/schemas/CustomerEnvelope/properties/customer/properties/legacy_id/type",
+        "severity": "MEDIUM",
+        "impact": "py_reads_field calls this operation at app.py:9 and reads the changed field at app.py:12. The code reads response field 'customer.legacy_id', whose type changed. Potentially breaking for clients that read this value with the previous type. A matching call in source code is evidence of use, not proof that it reaches this service or fails at runtime.",
+        "classification": "CONSUMER_REFERENCE_FOUND",
+        "description": "Response field customer.legacy_id of status 200 changed type from integer to string.",
+        "spec_repository": "billing-v2",
+        "field": "customer.legacy_id",
+        "field_in": "response_body",
+        "evidence_tier": "T2_FIELD_MATCH",
+        "usage": "READS_CHANGED_FIELD",
+        "explanation": "The code reads response field 'customer.legacy_id', whose type changed.",
+        "source_file": "app.py",
+        "source_line": 12,
+        "consumer_references": [
+          {
+            "repository": "py_reads_field",
+            "file": "app.py",
+            "line": 9,
+            "snippet": "response = requests.get(f\"{BILLING_URL}/customers/{customer_id}\")",
+            "match": "exact",
+            "evidence_tier": "T2_FIELD_MATCH",
+            "usage": "READS_CHANGED_FIELD"
+          }
+        ]
+      }
+    ],
+    "consumer_impact": [
+      {
+        "change_type": "CHANGED_RESPONSE_FIELD_TYPE",
+        "method": "GET",
+        "path": "/customers/{id}",
+        "field": "customer.legacy_id",
+        "field_in": "response_body",
+        "previous_value": "200 response field customer.legacy_id: integer",
+        "new_value": "200 response field customer.legacy_id: string",
+        "evidence_tier": "T2_FIELD_MATCH",
+        "usage": "READS_CHANGED_FIELD",
+        "repository": "py_reads_field",
+        "file": "app.py",
+        "line": 12,
+        "snippet": "return response.json()[\"customer\"][\"legacy_id\"], status",
+        "explanation": "The code reads response field 'customer.legacy_id', whose type changed."
+      },
+      {
+        "change_type": "REMOVED_OPERATION",
+        "method": "DELETE",
+        "path": "/customers/{id}/sessions",
+        "field": "",
+        "field_in": "",
+        "previous_value": "operation present",
+        "new_value": "operation not present",
+        "evidence_tier": "NO_USAGE_FOUND",
+        "usage": "NO_USAGE_FOUND",
+        "repository": "py_reads_field",
+        "file": "",
+        "line": null,
+        "snippet": "",
+        "explanation": "No call to DELETE /customers/{id}/sessions was found in the 1 source file(s) read from py_reads_field. This is not proof that it is unaffected."
+      },
+      {
+        "change_type": "CHANGED_RESPONSE_FIELD_TYPE",
+        "method": "GET",
+        "path": "/invoices",
+        "field": "[].amount",
+        "field_in": "response_body",
+        "previous_value": "200 response body[].amount: number",
+        "new_value": "200 response body[].amount: string",
+        "evidence_tier": "NO_USAGE_FOUND",
+        "usage": "NO_USAGE_FOUND",
+        "repository": "py_reads_field",
+        "file": "",
+        "line": null,
+        "snippet": "",
+        "explanation": "No call to GET /invoices was found in the 1 source file(s) read from py_reads_field. This is not proof that it is unaffected."
+      },
+      {
+        "change_type": "NEW_REQUIRED_REQUEST_FIELD",
+        "method": "GET",
+        "path": "/invoices",
+        "field": "status",
+        "field_in": "query",
+        "previous_value": "query parameter status: optional",
+        "new_value": "query parameter status: required",
+        "evidence_tier": "NO_USAGE_FOUND",
+        "usage": "NO_USAGE_FOUND",
+        "repository": "py_reads_field",
+        "file": "",
+        "line": null,
+        "snippet": "",
+        "explanation": "No call to GET /invoices was found in the 1 source file(s) read from py_reads_field. This is not proof that it is unaffected."
+      },
+      {
+        "change_type": "CHANGED_RESPONSE_FIELD_TYPE",
+        "method": "POST",
+        "path": "/invoices",
+        "field": "amount",
+        "field_in": "response_body",
+        "previous_value": "201 response field amount: number",
+        "new_value": "201 response field amount: string",
+        "evidence_tier": "NO_USAGE_FOUND",
+        "usage": "NO_USAGE_FOUND",
+        "repository": "py_reads_field",
+        "file": "",
+        "line": null,
+        "snippet": "",
+        "explanation": "No call to POST /invoices was found in the 1 source file(s) read from py_reads_field. This is not proof that it is unaffected."
+      },
+      {
+        "change_type": "NEW_REQUIRED_REQUEST_FIELD",
+        "method": "POST",
+        "path": "/invoices",
+        "field": "currency",
+        "field_in": "request_body",
+        "previous_value": "request field currency: optional",
+        "new_value": "request field currency: required",
+        "evidence_tier": "NO_USAGE_FOUND",
+        "usage": "NO_USAGE_FOUND",
+        "repository": "py_reads_field",
+        "file": "",
+        "line": null,
+        "snippet": "",
+        "explanation": "No call to POST /invoices was found in the 1 source file(s) read from py_reads_field. This is not proof that it is unaffected."
+      }
+    ],
+    "relationship": {
+      "same_api_basis": "matching x-api-id",
+      "consumer_evidence": [
+        "identifier naming the API (billing)"
+      ]
+    },
+    "baseline": {
+      "repository": "billing-v1",
+      "spec_file": "openapi.yaml",
+      "version": "1.4.0",
+      "title": "Billing API"
+    },
+    "candidate": {
+      "repository": "billing-v2",
+      "spec_file": "openapi.yaml",
+      "version": "2.0.0",
+      "title": "Billing API"
+    }
+  },
+  {
+    "provider_repo": "billing-v2",
+    "consumer_repo": "axios_interceptor",
+    "status": "ANALYZED",
+    "spec_file": "openapi.yaml",
+    "message": "axios_interceptor references 1 endpoint(s) of \"Billing API\" (/invoices); 1 change(s) between 1.4.0 and 2.0.0 touch them. Evidence per change: 1 field-level match(es), 1 operation-level match(es), 4 with no usage found. Tied to this API by: identifier naming the API (billing).",
+    "findings": [
+      {
+        "change_type": "CHANGED_RESPONSE_FIELD_TYPE",
+        "path": "/invoices",
+        "method": "POST",
+        "previous_value": "201 response field amount: number",
+        "new_value": "201 response field amount: string",
+        "spec_file": "openapi.yaml",
+        "json_pointer": "/components/schemas/Invoice/properties/amount/type",
+        "severity": "MEDIUM",
+        "impact": "axios_interceptor calls this operation at src/invoices.js:5. No read of the changed field was found in the code that was followed; a call alone does not show the field is used. This call uses the operation. The response body is not read in the code that was followed; no read of 'amount' was found. Potentially breaking for clients that read this value with the previous type. A matching call in source code is evidence of use, not proof that it reaches this service or fails at runtime.",
+        "classification": "CONSUMER_REFERENCE_FOUND",
+        "description": "Response field amount of status 201 changed type from number to string.",
+        "spec_repository": "billing-v2",
+        "field": "amount",
+        "field_in": "response_body",
+        "evidence_tier": "T1_OPERATION_MATCH",
+        "usage": "FIELD_NOT_READ",
+        "explanation": "This call uses the operation. The response body is not read in the code that was followed; no read of 'amount' was found.",
+        "source_file": "src/invoices.js",
+        "source_line": 5,
+        "consumer_references": [
+          {
+            "repository": "axios_interceptor",
+            "file": "src/invoices.js",
+            "line": 5,
+            "snippet": "export const createInvoice = (amount) => axios.post(`${BILLING_URL}/invoices`, { amount }).then((res) => res.status)",
+            "match": "exact",
+            "evidence_tier": "T1_OPERATION_MATCH",
+            "usage": "FIELD_NOT_READ"
+          }
+        ]
+      }
+    ],
+    "consumer_impact": [
+      {
+        "change_type": "CHANGED_RESPONSE_FIELD_TYPE",
+        "method": "GET",
+        "path": "/customers/{id}",
+        "field": "customer.legacy_id",
+        "field_in": "response_body",
+        "previous_value": "200 response field customer.legacy_id: integer",
+        "new_value": "200 response field customer.legacy_id: string",
+        "evidence_tier": "NO_USAGE_FOUND",
+        "usage": "NO_USAGE_FOUND",
+        "repository": "axios_interceptor",
+        "file": "",
+        "line": null,
+        "snippet": "",
+        "explanation": "No call to GET /customers/{id} was found in the 2 source file(s) read from axios_interceptor. This is not proof that it is unaffected."
+      },
+      {
+        "change_type": "REMOVED_OPERATION",
+        "method": "DELETE",
+        "path": "/customers/{id}/sessions",
+        "field": "",
+        "field_in": "",
+        "previous_value": "operation present",
+        "new_value": "operation not present",
+        "evidence_tier": "NO_USAGE_FOUND",
+        "usage": "NO_USAGE_FOUND",
+        "repository": "axios_interceptor",
+        "file": "",
+        "line": null,
+        "snippet": "",
+        "explanation": "No call to DELETE /customers/{id}/sessions was found in the 2 source file(s) read from axios_interceptor. This is not proof that it is unaffected."
+      },
+      {
+        "change_type": "CHANGED_RESPONSE_FIELD_TYPE",
+        "method": "GET",
+        "path": "/invoices",
+        "field": "[].amount",
+        "field_in": "response_body",
+        "previous_value": "200 response body[].amount: number",
+        "new_value": "200 response body[].amount: string",
+        "evidence_tier": "NO_USAGE_FOUND",
+        "usage": "NO_USAGE_FOUND",
+        "repository": "axios_interceptor",
+        "file": "",
+        "line": null,
+        "snippet": "",
+        "explanation": "No call to GET /invoices was found in the 2 source file(s) read from axios_interceptor. This is not proof that it is unaffected."
+      },
+      {
+        "change_type": "NEW_REQUIRED_REQUEST_FIELD",
+        "method": "GET",
+        "path": "/invoices",
+        "field": "status",
+        "field_in": "query",
+        "previous_value": "query parameter status: optional",
+        "new_value": "query parameter status: required",
+        "evidence_tier": "NO_USAGE_FOUND",
+        "usage": "NO_USAGE_FOUND",
+        "repository": "axios_interceptor",
+        "file": "",
+        "line": null,
+        "snippet": "",
+        "explanation": "No call to GET /invoices was found in the 2 source file(s) read from axios_interceptor. This is not proof that it is unaffected."
+      },
+      {
+        "change_type": "CHANGED_RESPONSE_FIELD_TYPE",
+        "method": "POST",
+        "path": "/invoices",
+        "field": "amount",
+        "field_in": "response_body",
+        "previous_value": "201 response field amount: number",
+        "new_value": "201 response field amount: string",
+        "evidence_tier": "T1_OPERATION_MATCH",
+        "usage": "FIELD_NOT_READ",
+        "repository": "axios_interceptor",
+        "file": "src/invoices.js",
+        "line": 5,
+        "snippet": "export const createInvoice = (amount) => axios.post(`${BILLING_URL}/invoices`, { amount }).then((res) => res.status)",
+        "explanation": "This call uses the operation. The response body is not read in the code that was followed; no read of 'amount' was found."
+      },
+      {
+        "change_type": "NEW_REQUIRED_REQUEST_FIELD",
+        "method": "POST",
+        "path": "/invoices",
+        "field": "currency",
+        "field_in": "request_body",
+        "previous_value": "request field currency: optional",
+        "new_value": "request field currency: required",
+        "evidence_tier": "T2_FIELD_MATCH",
+        "usage": "SENDS_REQUIRED_FIELD",
+        "repository": "axios_interceptor",
+        "file": "src/invoices.js",
+        "line": 5,
+        "snippet": "export const createInvoice = (amount) => axios.post(`${BILLING_URL}/invoices`, { amount }).then((res) => res.status)",
+        "explanation": "The request includes request field 'currency': it is added by a request interceptor at src/setup.js:3."
+      }
+    ],
+    "relationship": {
+      "same_api_basis": "matching x-api-id",
+      "consumer_evidence": [
+        "identifier naming the API (billing)"
+      ]
+    },
+    "baseline": {
+      "repository": "billing-v1",
+      "spec_file": "openapi.yaml",
+      "version": "1.4.0",
+      "title": "Billing API"
+    },
+    "candidate": {
+      "repository": "billing-v2",
+      "spec_file": "openapi.yaml",
+      "version": "2.0.0",
+      "title": "Billing API"
+    }
+  },
+  {
+    "provider_repo": "billing-v2",
+    "consumer_repo": "conditional_field",
+    "status": "ANALYZED",
+    "spec_file": "openapi.yaml",
+    "message": "conditional_field references 1 endpoint(s) of \"Billing API\" (/invoices); 2 change(s) between 1.4.0 and 2.0.0 touch them. Evidence per change: 1 field-level match(es), 1 operation-level match(es), 4 with no usage found. Tied to this API by: identifier naming the API (billing).",
+    "findings": [
+      {
+        "change_type": "CHANGED_RESPONSE_FIELD_TYPE",
+        "path": "/invoices",
+        "method": "POST",
+        "previous_value": "201 response field amount: number",
+        "new_value": "201 response field amount: string",
+        "spec_file": "openapi.yaml",
+        "json_pointer": "/components/schemas/Invoice/properties/amount/type",
+        "severity": "MEDIUM",
+        "impact": "conditional_field calls this operation at billing.py:12. No read of the changed field was found in the code that was followed; a call alone does not show the field is used. This call uses the operation. The response body is not read in the code that was followed; no read of 'amount' was found. Potentially breaking for clients that read this value with the previous type. A matching call in source code is evidence of use, not proof that it reaches this service or fails at runtime.",
+        "classification": "CONSUMER_REFERENCE_FOUND",
+        "description": "Response field amount of status 201 changed type from number to string.",
+        "spec_repository": "billing-v2",
+        "field": "amount",
+        "field_in": "response_body",
+        "evidence_tier": "T1_OPERATION_MATCH",
+        "usage": "FIELD_NOT_READ",
+        "explanation": "This call uses the operation. The response body is not read in the code that was followed; no read of 'amount' was found.",
+        "source_file": "billing.py",
+        "source_line": 12,
+        "consumer_references": [
+          {
+            "repository": "conditional_field",
+            "file": "billing.py",
+            "line": 12,
+            "snippet": "requests.post(f\"{BILLING_API}/invoices\", json=payload)",
+            "match": "exact",
+            "evidence_tier": "T1_OPERATION_MATCH",
+            "usage": "FIELD_NOT_READ"
+          }
+        ]
+      },
+      {
+        "change_type": "NEW_REQUIRED_REQUEST_FIELD",
+        "path": "/invoices",
+        "method": "POST",
+        "previous_value": "request field currency: optional",
+        "new_value": "request field currency: required",
+        "spec_file": "openapi.yaml",
+        "json_pointer": "/components/schemas/NewInvoice/required",
+        "severity": "HIGH",
+        "impact": "conditional_field calls this operation at billing.py:12; the newly required value is set only on some code paths. Request field 'currency' is set only on some paths before this request (line 11), so a request without it is possible. Potentially breaking for clients that do not send this value. A matching call in source code is evidence of use, not proof that it reaches this service or fails at runtime.",
+        "classification": "CONSUMER_REFERENCE_FOUND",
+        "description": "Request body field 'currency' is required in 2.0.0 and was optional in 1.4.0.",
+        "spec_repository": "billing-v2",
+        "field": "currency",
+        "field_in": "request_body",
+        "evidence_tier": "T2_FIELD_MATCH",
+        "usage": "MAY_SEND_REQUIRED_FIELD",
+        "explanation": "Request field 'currency' is set only on some paths before this request (line 11), so a request without it is possible.",
+        "source_file": "billing.py",
+        "source_line": 12,
+        "consumer_references": [
+          {
+            "repository": "conditional_field",
+            "file": "billing.py",
+            "line": 12,
+            "snippet": "requests.post(f\"{BILLING_API}/invoices\", json=payload)",
+            "match": "exact",
+            "evidence_tier": "T2_FIELD_MATCH",
+            "usage": "MAY_SEND_REQUIRED_FIELD"
+          }
+        ]
+      }
+    ],
+    "consumer_impact": [
+      {
+        "change_type": "CHANGED_RESPONSE_FIELD_TYPE",
+        "method": "GET",
+        "path": "/customers/{id}",
+        "field": "customer.legacy_id",
+        "field_in": "response_body",
+        "previous_value": "200 response field customer.legacy_id: integer",
+        "new_value": "200 response field customer.legacy_id: string",
+        "evidence_tier": "NO_USAGE_FOUND",
+        "usage": "NO_USAGE_FOUND",
+        "repository": "conditional_field",
+        "file": "",
+        "line": null,
+        "snippet": "",
+        "explanation": "No call to GET /customers/{id} was found in the 1 source file(s) read from conditional_field. This is not proof that it is unaffected."
+      },
+      {
+        "change_type": "REMOVED_OPERATION",
+        "method": "DELETE",
+        "path": "/customers/{id}/sessions",
+        "field": "",
+        "field_in": "",
+        "previous_value": "operation present",
+        "new_value": "operation not present",
+        "evidence_tier": "NO_USAGE_FOUND",
+        "usage": "NO_USAGE_FOUND",
+        "repository": "conditional_field",
+        "file": "",
+        "line": null,
+        "snippet": "",
+        "explanation": "No call to DELETE /customers/{id}/sessions was found in the 1 source file(s) read from conditional_field. This is not proof that it is unaffected."
+      },
+      {
+        "change_type": "CHANGED_RESPONSE_FIELD_TYPE",
+        "method": "GET",
+        "path": "/invoices",
+        "field": "[].amount",
+        "field_in": "response_body",
+        "previous_value": "200 response body[].amount: number",
+        "new_value": "200 response body[].amount: string",
+        "evidence_tier": "NO_USAGE_FOUND",
+        "usage": "NO_USAGE_FOUND",
+        "repository": "conditional_field",
+        "file": "",
+        "line": null,
+        "snippet": "",
+        "explanation": "No call to GET /invoices was found in the 1 source file(s) read from conditional_field. This is not proof that it is unaffected."
+      },
+      {
+        "change_type": "NEW_REQUIRED_REQUEST_FIELD",
+        "method": "GET",
+        "path": "/invoices",
+        "field": "status",
+        "field_in": "query",
+        "previous_value": "query parameter status: optional",
+        "new_value": "query parameter status: required",
+        "evidence_tier": "NO_USAGE_FOUND",
+        "usage": "NO_USAGE_FOUND",
+        "repository": "conditional_field",
+        "file": "",
+        "line": null,
+        "snippet": "",
+        "explanation": "No call to GET /invoices was found in the 1 source file(s) read from conditional_field. This is not proof that it is unaffected."
+      },
+      {
+        "change_type": "CHANGED_RESPONSE_FIELD_TYPE",
+        "method": "POST",
+        "path": "/invoices",
+        "field": "amount",
+        "field_in": "response_body",
+        "previous_value": "201 response field amount: number",
+        "new_value": "201 response field amount: string",
+        "evidence_tier": "T1_OPERATION_MATCH",
+        "usage": "FIELD_NOT_READ",
+        "repository": "conditional_field",
+        "file": "billing.py",
+        "line": 12,
+        "snippet": "requests.post(f\"{BILLING_API}/invoices\", json=payload)",
+        "explanation": "This call uses the operation. The response body is not read in the code that was followed; no read of 'amount' was found."
+      },
+      {
+        "change_type": "NEW_REQUIRED_REQUEST_FIELD",
+        "method": "POST",
+        "path": "/invoices",
+        "field": "currency",
+        "field_in": "request_body",
+        "previous_value": "request field currency: optional",
+        "new_value": "request field currency: required",
+        "evidence_tier": "T2_FIELD_MATCH",
+        "usage": "MAY_SEND_REQUIRED_FIELD",
+        "repository": "conditional_field",
+        "file": "billing.py",
+        "line": 12,
+        "snippet": "requests.post(f\"{BILLING_API}/invoices\", json=payload)",
+        "explanation": "Request field 'currency' is set only on some paths before this request (line 11), so a request without it is possible."
+      }
+    ],
+    "relationship": {
+      "same_api_basis": "matching x-api-id",
+      "consumer_evidence": [
+        "identifier naming the API (billing)"
+      ]
+    },
+    "baseline": {
+      "repository": "billing-v1",
+      "spec_file": "openapi.yaml",
+      "version": "1.4.0",
+      "title": "Billing API"
+    },
+    "candidate": {
+      "repository": "billing-v2",
+      "spec_file": "openapi.yaml",
+      "version": "2.0.0",
+      "title": "Billing API"
+    }
+  },
+  {
+    "provider_repo": "billing-v2",
+    "consumer_repo": "unknown_method",
+    "status": "ANALYZED",
+    "spec_file": "openapi.yaml",
+    "message": "unknown_method references 1 endpoint(s) of \"Billing API\" (/customers/{id}/sessions); 1 change(s) between 1.4.0 and 2.0.0 touch them. Evidence per change: 1 unresolved, 5 with no usage found. Tied to this API by: identifier naming the API (billing).",
+    "findings": [
+      {
+        "change_type": "REMOVED_OPERATION",
+        "path": "/customers/{id}/sessions",
+        "method": "DELETE",
+        "previous_value": "operation present",
+        "new_value": "operation not present",
+        "spec_file": "openapi.yaml",
+        "json_pointer": "/paths/~1customers~1{id}~1sessions/delete",
+        "severity": "HIGH",
+        "impact": "unknown_method builds a request to this path at src/sessions.js:5. A request to this path is built at src/sessions.js:5, but its HTTP method could not be determined (send() does not state an HTTP method), so it is not known whether it is DELETE /customers/{id}/sessions. A matching call in source code is evidence of use, not proof that it reaches this service or fails at runtime.",
+        "classification": "CONSUMER_REFERENCE_FOUND",
+        "description": "DELETE /customers/{id}/sessions exists in 1.4.0 and is absent from 2.0.0.",
+        "spec_repository": "billing-v1",
+        "field": "",
+        "field_in": "",
+        "evidence_tier": "UNRESOLVED",
+        "usage": "NOT_DETERMINED",
+        "explanation": "A request to this path is built at src/sessions.js:5, but its HTTP method could not be determined (send() does not state an HTTP method), so it is not known whether it is DELETE /customers/{id}/sessions.",
+        "source_file": "src/sessions.js",
+        "source_line": 5,
+        "consumer_references": [
+          {
+            "repository": "unknown_method",
+            "file": "src/sessions.js",
+            "line": 5,
+            "snippet": "const url = `${BILLING_URL}/customers/${id}/sessions`",
+            "match": "exact",
+            "evidence_tier": "UNRESOLVED",
+            "usage": "NOT_DETERMINED"
+          }
+        ]
+      }
+    ],
+    "consumer_impact": [
+      {
+        "change_type": "CHANGED_RESPONSE_FIELD_TYPE",
+        "method": "GET",
+        "path": "/customers/{id}",
+        "field": "customer.legacy_id",
+        "field_in": "response_body",
+        "previous_value": "200 response field customer.legacy_id: integer",
+        "new_value": "200 response field customer.legacy_id: string",
+        "evidence_tier": "NO_USAGE_FOUND",
+        "usage": "NO_USAGE_FOUND",
+        "repository": "unknown_method",
+        "file": "",
+        "line": null,
+        "snippet": "",
+        "explanation": "No call to GET /customers/{id} was found in the 2 source file(s) read from unknown_method. This is not proof that it is unaffected."
+      },
+      {
+        "change_type": "REMOVED_OPERATION",
+        "method": "DELETE",
+        "path": "/customers/{id}/sessions",
+        "field": "",
+        "field_in": "",
+        "previous_value": "operation present",
+        "new_value": "operation not present",
+        "evidence_tier": "UNRESOLVED",
+        "usage": "NOT_DETERMINED",
+        "repository": "unknown_method",
+        "file": "src/sessions.js",
+        "line": 5,
+        "snippet": "const url = `${BILLING_URL}/customers/${id}/sessions`",
+        "explanation": "A request to this path is built at src/sessions.js:5, but its HTTP method could not be determined (send() does not state an HTTP method), so it is not known whether it is DELETE /customers/{id}/sessions."
+      },
+      {
+        "change_type": "CHANGED_RESPONSE_FIELD_TYPE",
+        "method": "GET",
+        "path": "/invoices",
+        "field": "[].amount",
+        "field_in": "response_body",
+        "previous_value": "200 response body[].amount: number",
+        "new_value": "200 response body[].amount: string",
+        "evidence_tier": "NO_USAGE_FOUND",
+        "usage": "NO_USAGE_FOUND",
+        "repository": "unknown_method",
+        "file": "",
+        "line": null,
+        "snippet": "",
+        "explanation": "No call to GET /invoices was found in the 2 source file(s) read from unknown_method. This is not proof that it is unaffected."
+      },
+      {
+        "change_type": "NEW_REQUIRED_REQUEST_FIELD",
+        "method": "GET",
+        "path": "/invoices",
+        "field": "status",
+        "field_in": "query",
+        "previous_value": "query parameter status: optional",
+        "new_value": "query parameter status: required",
+        "evidence_tier": "NO_USAGE_FOUND",
+        "usage": "NO_USAGE_FOUND",
+        "repository": "unknown_method",
+        "file": "",
+        "line": null,
+        "snippet": "",
+        "explanation": "No call to GET /invoices was found in the 2 source file(s) read from unknown_method. This is not proof that it is unaffected."
+      },
+      {
+        "change_type": "CHANGED_RESPONSE_FIELD_TYPE",
+        "method": "POST",
+        "path": "/invoices",
+        "field": "amount",
+        "field_in": "response_body",
+        "previous_value": "201 response field amount: number",
+        "new_value": "201 response field amount: string",
+        "evidence_tier": "NO_USAGE_FOUND",
+        "usage": "NO_USAGE_FOUND",
+        "repository": "unknown_method",
+        "file": "",
+        "line": null,
+        "snippet": "",
+        "explanation": "No call to POST /invoices was found in the 2 source file(s) read from unknown_method. This is not proof that it is unaffected."
+      },
+      {
+        "change_type": "NEW_REQUIRED_REQUEST_FIELD",
+        "method": "POST",
+        "path": "/invoices",
+        "field": "currency",
+        "field_in": "request_body",
+        "previous_value": "request field currency: optional",
+        "new_value": "request field currency: required",
+        "evidence_tier": "NO_USAGE_FOUND",
+        "usage": "NO_USAGE_FOUND",
+        "repository": "unknown_method",
+        "file": "",
+        "line": null,
+        "snippet": "",
+        "explanation": "No call to POST /invoices was found in the 2 source file(s) read from unknown_method. This is not proof that it is unaffected."
+      }
+    ],
+    "relationship": {
+      "same_api_basis": "matching x-api-id",
+      "consumer_evidence": [
+        "identifier naming the API (billing)"
+      ]
+    },
+    "baseline": {
+      "repository": "billing-v1",
+      "spec_file": "openapi.yaml",
+      "version": "1.4.0",
+      "title": "Billing API"
+    },
+    "candidate": {
+      "repository": "billing-v2",
+      "spec_file": "openapi.yaml",
+      "version": "2.0.0",
+      "title": "Billing API"
+    }
+  },
+  {
+    "provider_repo": "billing-v2",
+    "consumer_repo": "dynamic_url_concat",
+    "status": "UNRESOLVED",
+    "spec_file": "openapi.yaml",
+    "message": "dynamic_url_concat builds request URLs at runtime (client.py:9) from a base URL that points to \"Billing API\" (identifier naming the API (billing)). The path is only known at runtime, so no operation could be matched and no change can be ruled in or out. This is neither a match nor an absence of usage.",
+    "findings": [],
+    "consumer_impact": [
+      {
+        "change_type": "CHANGED_RESPONSE_FIELD_TYPE",
+        "method": "GET",
+        "path": "/customers/{id}",
+        "field": "customer.legacy_id",
+        "field_in": "response_body",
+        "previous_value": "200 response field customer.legacy_id: integer",
+        "new_value": "200 response field customer.legacy_id: string",
+        "evidence_tier": "UNRESOLVED",
+        "usage": "NOT_DETERMINED",
+        "repository": "dynamic_url_concat",
+        "file": "client.py",
+        "line": 9,
+        "snippet": "return requests.get(BILLING_URL + path).json()",
+        "explanation": "No call to GET /customers/{id} was matched, but dynamic_url_concat builds request paths to this API at runtime, so such a call cannot be excluded."
+      },
+      {
+        "change_type": "REMOVED_OPERATION",
+        "method": "DELETE",
+        "path": "/customers/{id}/sessions",
+        "field": "",
+        "field_in": "",
+        "previous_value": "operation present",
+        "new_value": "operation not present",
+        "evidence_tier": "UNRESOLVED",
+        "usage": "NOT_DETERMINED",
+        "repository": "dynamic_url_concat",
+        "file": "client.py",
+        "line": 9,
+        "snippet": "return requests.get(BILLING_URL + path).json()",
+        "explanation": "No call to DELETE /customers/{id}/sessions was matched, but dynamic_url_concat builds request paths to this API at runtime, so such a call cannot be excluded."
+      },
+      {
+        "change_type": "CHANGED_RESPONSE_FIELD_TYPE",
+        "method": "GET",
+        "path": "/invoices",
+        "field": "[].amount",
+        "field_in": "response_body",
+        "previous_value": "200 response body[].amount: number",
+        "new_value": "200 response body[].amount: string",
+        "evidence_tier": "UNRESOLVED",
+        "usage": "NOT_DETERMINED",
+        "repository": "dynamic_url_concat",
+        "file": "client.py",
+        "line": 9,
+        "snippet": "return requests.get(BILLING_URL + path).json()",
+        "explanation": "No call to GET /invoices was matched, but dynamic_url_concat builds request paths to this API at runtime, so such a call cannot be excluded."
+      },
+      {
+        "change_type": "NEW_REQUIRED_REQUEST_FIELD",
+        "method": "GET",
+        "path": "/invoices",
+        "field": "status",
+        "field_in": "query",
+        "previous_value": "query parameter status: optional",
+        "new_value": "query parameter status: required",
+        "evidence_tier": "UNRESOLVED",
+        "usage": "NOT_DETERMINED",
+        "repository": "dynamic_url_concat",
+        "file": "client.py",
+        "line": 9,
+        "snippet": "return requests.get(BILLING_URL + path).json()",
+        "explanation": "No call to GET /invoices was matched, but dynamic_url_concat builds request paths to this API at runtime, so such a call cannot be excluded."
+      },
+      {
+        "change_type": "CHANGED_RESPONSE_FIELD_TYPE",
+        "method": "POST",
+        "path": "/invoices",
+        "field": "amount",
+        "field_in": "response_body",
+        "previous_value": "201 response field amount: number",
+        "new_value": "201 response field amount: string",
+        "evidence_tier": "UNRESOLVED",
+        "usage": "NOT_DETERMINED",
+        "repository": "dynamic_url_concat",
+        "file": "client.py",
+        "line": 9,
+        "snippet": "return requests.get(BILLING_URL + path).json()",
+        "explanation": "No call to POST /invoices was matched, but dynamic_url_concat builds request paths to this API at runtime, so such a call cannot be excluded."
+      },
+      {
+        "change_type": "NEW_REQUIRED_REQUEST_FIELD",
+        "method": "POST",
+        "path": "/invoices",
+        "field": "currency",
+        "field_in": "request_body",
+        "previous_value": "request field currency: optional",
+        "new_value": "request field currency: required",
+        "evidence_tier": "UNRESOLVED",
+        "usage": "NOT_DETERMINED",
+        "repository": "dynamic_url_concat",
+        "file": "client.py",
+        "line": 9,
+        "snippet": "return requests.get(BILLING_URL + path).json()",
+        "explanation": "No call to POST /invoices was matched, but dynamic_url_concat builds request paths to this API at runtime, so such a call cannot be excluded."
+      }
+    ],
+    "relationship": {
+      "same_api_basis": "matching x-api-id",
+      "candidate_evidence": [
+        {
+          "signal": "identifier naming the API (billing)",
+          "file": "client.py",
+          "line": 9
+        }
+      ]
+    },
+    "baseline": {
+      "repository": "billing-v1",
+      "spec_file": "openapi.yaml",
+      "version": "1.4.0",
+      "title": "Billing API"
+    },
+    "candidate": {
+      "repository": "billing-v2",
+      "spec_file": "openapi.yaml",
+      "version": "2.0.0",
+      "title": "Billing API"
+    },
+    "possible_references": [
+      {
+        "path": "/customers/{id}",
+        "repository": "dynamic_url_concat",
+        "file": "client.py",
+        "line": 13,
+        "snippet": "print(get_json(\"/customers/\" + customer_id)[\"customer\"][\"legacy_id\"])",
+        "match": "concatenated"
+      }
+    ],
+    "dynamic_urls": [
+      {
+        "repository": "dynamic_url_concat",
+        "file": "client.py",
+        "line": 9,
+        "snippet": "return requests.get(BILLING_URL + path).json()",
+        "evidence": [
+          "identifier naming the API (billing)"
+        ]
+      }
+    ]
+  },
+  {
+    "provider_repo": "billing-v2",
+    "consumer_repo": "js_calls_only",
+    "status": "ANALYZED",
+    "spec_file": "openapi.yaml",
+    "message": "js_calls_only references 1 endpoint(s) of \"Billing API\" (/customers/{id}); 1 change(s) between 1.4.0 and 2.0.0 touch them. Evidence per change: 1 operation-level match(es), 5 with no usage found. Tied to this API by: identifier naming the API (billing).",
+    "findings": [
+      {
+        "change_type": "CHANGED_RESPONSE_FIELD_TYPE",
+        "path": "/customers/{id}",
+        "method": "GET",
+        "previous_value": "200 response field customer.legacy_id: integer",
+        "new_value": "200 response field customer.legacy_id: string",
+        "spec_file": "openapi.yaml",
+        "json_pointer": "/components/schemas/CustomerEnvelope/properties/customer/properties/legacy_id/type",
+        "severity": "MEDIUM",
+        "impact": "js_calls_only calls this operation at src/name.js:7. No read of the changed field was found in the code that was followed; a call alone does not show the field is used. This call uses the operation. It reads customer, customer.name in the code that was followed; no read of 'customer.legacy_id' was found. Potentially breaking for clients that read this value with the previous type. A matching call in source code is evidence of use, not proof that it reaches this service or fails at runtime.",
+        "classification": "CONSUMER_REFERENCE_FOUND",
+        "description": "Response field customer.legacy_id of status 200 changed type from integer to string.",
+        "spec_repository": "billing-v2",
+        "field": "customer.legacy_id",
+        "field_in": "response_body",
+        "evidence_tier": "T1_OPERATION_MATCH",
+        "usage": "FIELD_NOT_READ",
+        "explanation": "This call uses the operation. It reads customer, customer.name in the code that was followed; no read of 'customer.legacy_id' was found.",
+        "source_file": "src/name.js",
+        "source_line": 7,
+        "consumer_references": [
+          {
+            "repository": "js_calls_only",
+            "file": "src/name.js",
+            "line": 7,
+            "snippet": "const { data } = await axios.get(`${BILLING_API}/customers/${id}`)",
+            "match": "exact",
+            "evidence_tier": "T1_OPERATION_MATCH",
+            "usage": "FIELD_NOT_READ"
+          }
+        ]
+      }
+    ],
+    "consumer_impact": [
+      {
+        "change_type": "CHANGED_RESPONSE_FIELD_TYPE",
+        "method": "GET",
+        "path": "/customers/{id}",
+        "field": "customer.legacy_id",
+        "field_in": "response_body",
+        "previous_value": "200 response field customer.legacy_id: integer",
+        "new_value": "200 response field customer.legacy_id: string",
+        "evidence_tier": "T1_OPERATION_MATCH",
+        "usage": "FIELD_NOT_READ",
+        "repository": "js_calls_only",
+        "file": "src/name.js",
+        "line": 7,
+        "snippet": "const { data } = await axios.get(`${BILLING_API}/customers/${id}`)",
+        "explanation": "This call uses the operation. It reads customer, customer.name in the code that was followed; no read of 'customer.legacy_id' was found."
+      },
+      {
+        "change_type": "REMOVED_OPERATION",
+        "method": "DELETE",
+        "path": "/customers/{id}/sessions",
+        "field": "",
+        "field_in": "",
+        "previous_value": "operation present",
+        "new_value": "operation not present",
+        "evidence_tier": "NO_USAGE_FOUND",
+        "usage": "NO_USAGE_FOUND",
+        "repository": "js_calls_only",
+        "file": "",
+        "line": null,
+        "snippet": "",
+        "explanation": "No call to DELETE /customers/{id}/sessions was found in the 1 source file(s) read from js_calls_only. This is not proof that it is unaffected."
+      },
+      {
+        "change_type": "CHANGED_RESPONSE_FIELD_TYPE",
+        "method": "GET",
+        "path": "/invoices",
+        "field": "[].amount",
+        "field_in": "response_body",
+        "previous_value": "200 response body[].amount: number",
+        "new_value": "200 response body[].amount: string",
+        "evidence_tier": "NO_USAGE_FOUND",
+        "usage": "NO_USAGE_FOUND",
+        "repository": "js_calls_only",
+        "file": "",
+        "line": null,
+        "snippet": "",
+        "explanation": "No call to GET /invoices was found in the 1 source file(s) read from js_calls_only. This is not proof that it is unaffected."
+      },
+      {
+        "change_type": "NEW_REQUIRED_REQUEST_FIELD",
+        "method": "GET",
+        "path": "/invoices",
+        "field": "status",
+        "field_in": "query",
+        "previous_value": "query parameter status: optional",
+        "new_value": "query parameter status: required",
+        "evidence_tier": "NO_USAGE_FOUND",
+        "usage": "NO_USAGE_FOUND",
+        "repository": "js_calls_only",
+        "file": "",
+        "line": null,
+        "snippet": "",
+        "explanation": "No call to GET /invoices was found in the 1 source file(s) read from js_calls_only. This is not proof that it is unaffected."
+      },
+      {
+        "change_type": "CHANGED_RESPONSE_FIELD_TYPE",
+        "method": "POST",
+        "path": "/invoices",
+        "field": "amount",
+        "field_in": "response_body",
+        "previous_value": "201 response field amount: number",
+        "new_value": "201 response field amount: string",
+        "evidence_tier": "NO_USAGE_FOUND",
+        "usage": "NO_USAGE_FOUND",
+        "repository": "js_calls_only",
+        "file": "",
+        "line": null,
+        "snippet": "",
+        "explanation": "No call to POST /invoices was found in the 1 source file(s) read from js_calls_only. This is not proof that it is unaffected."
+      },
+      {
+        "change_type": "NEW_REQUIRED_REQUEST_FIELD",
+        "method": "POST",
+        "path": "/invoices",
+        "field": "currency",
+        "field_in": "request_body",
+        "previous_value": "request field currency: optional",
+        "new_value": "request field currency: required",
+        "evidence_tier": "NO_USAGE_FOUND",
+        "usage": "NO_USAGE_FOUND",
+        "repository": "js_calls_only",
+        "file": "",
+        "line": null,
+        "snippet": "",
+        "explanation": "No call to POST /invoices was found in the 1 source file(s) read from js_calls_only. This is not proof that it is unaffected."
+      }
+    ],
+    "relationship": {
+      "same_api_basis": "matching x-api-id",
+      "consumer_evidence": [
+        "identifier naming the API (billing)"
+      ]
+    },
+    "baseline": {
+      "repository": "billing-v1",
+      "spec_file": "openapi.yaml",
+      "version": "1.4.0",
+      "title": "Billing API"
+    },
+    "candidate": {
+      "repository": "billing-v2",
+      "spec_file": "openapi.yaml",
+      "version": "2.0.0",
+      "title": "Billing API"
+    }
+  }
+]
