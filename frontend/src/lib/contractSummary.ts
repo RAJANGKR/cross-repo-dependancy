@@ -241,11 +241,15 @@ export function entryRank(entry: ContractAnalysisEntry): number {
 /** One sentence for the whole section: how much changed and how many consumers need a look. */
 export function sectionSummary(entries: readonly ContractAnalysisEntry[]): string {
   const compared = entries.filter((entry) => entry.status === 'ANALYZED' && !entry.consumer_repo)
+  const consumers = entries.filter((entry) => entry.consumer_repo)
   if (compared.length === 0) {
-    return 'No two versions of the same API were found in this scan, so no contract was compared.'
+    // A record that reports no comparison of its own can still carry analyzed consumers, and those were compared.
+    const analyzed = consumers.filter((entry) => entry.status === 'ANALYZED')
+    if (analyzed.length === 0) return 'No two versions of the same API were found in this scan, so no contract was compared.'
+    const pending = analyzed.filter((entry) => entryRank(entry) === 1).length
+    return `Contract changes were analyzed for ${plural(analyzed.length, 'provider and consumer pair')}; ${pending} ${pending === 1 ? 'needs' : 'need'} review.`
   }
   const changes = compared.reduce((sum, entry) => sum + entry.findings.length, 0)
-  const consumers = entries.filter((entry) => entry.consumer_repo)
   const review = consumers.filter((entry) => entry.status === 'ANALYZED' && entryRank(entry) === 1).length
   const unknown = consumers.filter((entry) => entry.status !== 'ANALYZED' || entryRank(entry) === 2).length
   const head = `${plural(changes, 'potentially breaking change')} found in ${plural(compared.length, 'API comparison')}.`

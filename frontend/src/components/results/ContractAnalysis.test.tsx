@@ -440,6 +440,14 @@ describe('contract changes at a glance', () => {
     expect(cards()).toHaveLength(entries.length)                                // sorting hides nothing
   })
 
+  it('does not say nothing was compared when a record only carries analyzed consumers', () => {
+    const finding = { change_type: 'REMOVED_OPERATION', path: '/v1/sessions', method: 'DELETE', previous_value: 'operation present', new_value: 'operation removed', spec_file: 'openapi.yaml', json_pointer: '/paths/~1v1~1sessions/delete', severity: 'HIGH', impact: '' }
+    const pair = { provider_repo: 'core', consumer_repo: 'payments', status: 'ANALYZED', spec_file: 'openapi.yaml', message: '', findings: [finding] }
+    const missing = { provider_repo: 'customers', consumer_repo: '', status: 'SPEC_UNAVAILABLE', spec_file: '', message: '', findings: [] }
+    expect(sectionSummary([pair, missing])).toBe('Contract changes were analyzed for 1 provider and consumer pair; 1 needs review.')
+    expect(sectionSummary([missing])).toBe('No two versions of the same API were found in this scan, so no contract was compared.')
+  })
+
   it('derives summaries only from what the backend sent', () => {
     const change = { change_type: 'NEW_REQUIRED_REQUEST_FIELD', method: 'GET', path: '/pets', field: 'status', field_in: 'query', previous_value: 'query parameter status: optional', new_value: 'query parameter status: required' }
     expect(summarizeChange(change)).toEqual({ endpoint: 'GET /pets', subject: 'status', change: 'changed from optional to required', location: 'query parameter' })
