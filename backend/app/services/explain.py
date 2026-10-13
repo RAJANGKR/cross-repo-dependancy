@@ -44,7 +44,8 @@ async def ai_notes(http: Http, name: str, versions: List[str], reasons: List[str
 
     payload = {
         "contents": [{"parts": [{"text": prompt}]}],
-        "generationConfig": {"temperature": 0.2, "maxOutputTokens": 220},
+        # Room for the model's own reasoning tokens as well as three short sentences.
+        "generationConfig": {"temperature": 0.2, "maxOutputTokens": 2048},
     }
 
     for idx, model in enumerate(models_to_try):
@@ -59,6 +60,10 @@ async def ai_notes(http: Http, name: str, versions: List[str], reasons: List[str
             )
             candidate_list = data.get("candidates", [])
             if not candidate_list:
+                continue
+            # A reply cut off by the token limit is half a sentence. Showing it would
+            # look like a finished explanation, so it is dropped in favor of the template.
+            if candidate_list[0].get("finishReason") == "MAX_TOKENS":
                 continue
             parts = candidate_list[0].get("content", {}).get("parts", [])
             text_parts = [

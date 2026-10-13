@@ -9,7 +9,12 @@ from app.services import github_fetcher, range_service
 from app.services.http import FetchError, Http
 
 #: Markers that count as a stated breaking change.
-BREAKING = re.compile(r"\bBREAKING\b|breaking change|\bremoved?\b|no longer", re.IGNORECASE)
+#: "removed" must be past tense ("remove upper bound" in a commit title is not a
+#: stated break) and not negated ("moved, not removed" says the opposite).
+BREAKING = re.compile(r"\bBREAKING\b|breaking change|(?<!\bnot )(?<!\bnever )\bremoved\b|no longer", re.IGNORECASE)
+#: A section heading such as "### Breaking Changes" or "**Breaking changes**".
+_SECTION = re.compile(r"^\s{0,3}(?:#{1,6}\s+\S|\*\*[^*]+\*\*:?\s*$|__[^_]+__:?\s*$)")
+_BREAKING_SECTION = re.compile(r"breaking", re.IGNORECASE)
 #: Markers worth showing, but not proof of a break on their own.
 NOTABLE = re.compile(r"deprecat|migrat", re.IGNORECASE)
 
@@ -58,13 +63,20 @@ def _in_range(eco: str, version: str, older: str, newer: str) -> bool:
 
 def _scan(result: Changelog, version: str, body: str, url: Optional[str]) -> None:
     result.text += " " + normalize(body)
+    # A heading is never quoted as evidence: it names a section, it does not
+    # state a change. The entries under a "Breaking changes" heading are the
+    # evidence, and each of those is quoted literally.
+    in_breaking_section = False
     for raw in body.splitlines():
         if len(result.lines) >= _MAX_LINES:
             return
+        if _SECTION.match(raw):
+            in_breaking_section = bool(_BREAKING_SECTION.search(raw))
+            continue
         line = _clean_line(raw)
         if len(line) < 8:
             continue
-        breaking = bool(BREAKING.search(line))
+        breaking = in_breaking_section or bool(BREAKING.search(line))
         if breaking or NOTABLE.search(line):
             result.lines.append(MatchedLine(version, line, breaking, url if url and url.startswith("https://") else None))
 

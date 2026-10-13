@@ -343,3 +343,50 @@ def test_gemini_ai_notes_succeeds_with_fallback_and_multi_parts(monkeypatch):
     assert notes is not None
     assert "Validator was replaced" in notes
     assert "thinking" not in notes
+
+
+# ---- Evidence quality ---------------------------------------------------------
+
+def _scan_body(body: str) -> changelog_service.Changelog:
+    log = changelog_service.Changelog(fetched=True)
+    changelog_service._scan(log, "2.0.0", body, "https://github.com/o/r/releases/tag/v2.0.0")
+    return log
+
+
+def test_a_heading_is_never_quoted_and_its_entries_are():
+    log = _scan_body("## What's new\n- Faster startup everywhere\n\n### Breaking Changes\n\n* The `proxies` argument is gone, use `proxy`\n- Dropped Python 3.8 support\n\n### Fixes\n- Fixed a typo in the docs page\n")
+    assert [(line.line, line.breaking) for line in log.lines] == [
+        ("The `proxies` argument is gone, use `proxy`", True),
+        ("Dropped Python 3.8 support", True),
+    ]
+    evidence = changelog_service.to_evidence(log)
+    assert evidence["cited_excerpt"] == "The `proxies` argument is gone, use `proxy`" and evidence["verified_breaking"] is True
+    assert all("Breaking Changes" not in line.line for line in log.lines)
+    assert _scan_body("**Breaking changes**\n- Renamed the client class to Client2\n").lines[0].breaking is True
+
+
+def test_an_imperative_remove_in_a_commit_title_is_not_a_stated_break():
+    log = _scan_body("* setup: remove upper bound from python_requires by @someone\n* build: remove unused dev dependency\n")
+    assert log.lines == [] and changelog_service.to_evidence(log) is None
+    assert _scan_body("- The deprecated `proxies` argument has now been removed.\n").lines[0].breaking is True
+    # A negated "removed" says the opposite of a removal.
+    assert _scan_body("* BaseSettings moved, not removed by @someone in https://github.com/o/r/pull/1\n").lines == []
+
+
+def test_a_truncated_ai_reply_is_dropped_not_shown(monkeypatch):
+    import httpx
+    from app.core.config import settings
+    from app.services import explain
+
+    monkeypatch.setattr(settings, "GEMINI_API_KEY", "test-key")
+    monkeypatch.setattr(settings, "GEMINI_MODEL", "model-a")
+
+    def reply(finish: str, text: str):
+        return lambda request: httpx.Response(200, json={"candidates": [{"finishReason": finish, "content": {"parts": [{"text": text}]}}]}) if request.url.host.startswith("generativelanguage") else None
+
+    cut = asyncio.run(explain.ai_notes(fake_http(reply("MAX_TOKENS", "Different parts of our codebase are")), "x", ["1", "2"], ["Major version gap"], ["BREAKING: y"]))
+    assert cut is None
+    whole = asyncio.run(explain.ai_notes(fake_http(reply("STOP", "It may break.  Test first.")), "x", ["1", "2"], ["Major version gap"], ["BREAKING: y"]))
+    assert whole == "It may break. Test first."
+    odd = lambda request: httpx.Response(200, json=["not", "an", "object"]) if request.url.host.startswith("generativelanguage") else None
+    assert asyncio.run(explain.ai_notes(fake_http(odd), "x", ["1", "2"], ["r"], ["BREAKING: y"])) is None
