@@ -1,0 +1,212 @@
+@import 'tailwindcss';
+
+/*
+ * DriftLock theme. Every color, font, radius and motion value used by the app
+ * is defined here; components only reference these tokens.
+ * Palette and type follow the reference design: warm off-white surfaces,
+ * near-black ink, Instrument Sans for text and display, JetBrains Mono for
+ * labels, code and versions.
+ */
+@theme {
+  --color-background: #fafaf9;
+  --color-foreground: #080503;
+  --color-card: #ffffff;
+  --color-card-foreground: #080503;
+  --color-primary: #080503;
+  --color-primary-foreground: #fafaf9;
+  --color-secondary: #f3f2ee;
+  --color-secondary-foreground: #080503;
+  --color-muted: #ecebe7;
+  --color-muted-foreground: #5e534a;
+  --color-accent: #e7e4dd;
+  --color-accent-foreground: #080503;
+  --color-border: #dad7d0;
+  --color-input: #e7e4dd;
+  --color-ring: #080503;
+  --color-destructive: #c20011;
+
+  /* Status colors. Each level has an ink color (text, icons, strokes) and a
+     tint (badge and row backgrounds). Ink on tint and ink on background both
+     meet WCAG AA for text. Risk is never shown by color alone. */
+  --color-risk-low: #2a6548;
+  --color-risk-low-tint: #e3efe8;
+  --color-risk-medium: #7d5200;
+  --color-risk-medium-tint: #f7ebcf;
+  --color-risk-high: #a83f06;
+  --color-risk-high-tint: #fae4d4;
+  --color-risk-critical: #c20011;
+  --color-risk-critical-tint: #fbdfe1;
+
+  --color-success: #2a6548;
+  --color-success-tint: #e3efe8;
+  --color-warning: #7d5200;
+  --color-warning-tint: #f7ebcf;
+  --color-info: #433830;
+  --color-info-tint: #f3f2ee;
+
+  --font-sans: 'Instrument Sans Variable', 'Instrument Sans', system-ui, sans-serif;
+  --font-display: 'Instrument Sans Variable', 'Instrument Sans', system-ui, sans-serif;
+  --font-mono: 'JetBrains Mono Variable', 'JetBrains Mono', ui-monospace, 'Cascadia Mono', monospace;
+
+  --radius-sm: 0.25rem;
+  --radius-md: 0.5rem;
+  --radius-lg: 0.75rem;
+  --radius-xl: 1rem;
+
+  --shadow-nav: 0 1px 2px rgb(8 5 3 / 0.04), 0 8px 24px -12px rgb(8 5 3 / 0.12);
+  --shadow-panel: -24px 0 48px -24px rgb(8 5 3 / 0.18);
+  --shadow-pop: 0 1px 2px rgb(8 5 3 / 0.06), 0 12px 32px -12px rgb(8 5 3 / 0.2);
+
+  --ease-out-expo: cubic-bezier(0.22, 1, 0.36, 1);
+
+  --animate-char-in: char-in 0.5s var(--ease-out-expo) forwards;
+  --animate-rise-in: rise-in 0.7s var(--ease-out-expo) both;
+  --animate-fade-in: fade-in 0.3s ease-out both;
+  --animate-slide-in: slide-in 0.35s var(--ease-out-expo) both;
+  --animate-marquee: marquee 40s linear infinite;
+  --animate-indeterminate: indeterminate 1.6s ease-in-out infinite;
+
+  @keyframes char-in {
+    from {
+      opacity: 0;
+      filter: blur(40px);
+      transform: translateY(100%);
+    }
+    to {
+      opacity: 1;
+      filter: blur(0);
+      transform: translateY(0);
+    }
+  }
+  @keyframes rise-in {
+    from {
+      opacity: 0;
+      transform: translateY(1.5rem);
+    }
+    to {
+      opacity: 1;
+      transform: translateY(0);
+    }
+  }
+  @keyframes fade-in {
+    from {
+      opacity: 0;
+    }
+    to {
+      opacity: 1;
+    }
+  }
+  @keyframes slide-in {
+    from {
+      transform: translateX(100%);
+    }
+    to {
+      transform: translateX(0);
+    }
+  }
+  @keyframes marquee {
+    from {
+      transform: translateX(0);
+    }
+    to {
+      transform: translateX(-50%);
+    }
+  }
+  @keyframes indeterminate {
+    0% {
+      transform: translateX(-100%);
+    }
+    100% {
+      transform: translateX(350%);
+    }
+  }
+}
+
+@layer base {
+  html {
+    scroll-behavior: smooth;
+  }
+
+  body {
+    background-color: var(--color-background);
+    color: var(--color-foreground);
+    font-family: var(--font-sans);
+    -webkit-font-smoothing: antialiased;
+    -moz-osx-font-smoothing: grayscale;
+    text-rendering: optimizeLegibility;
+  }
+
+  ::selection {
+    background-color: var(--color-primary);
+    color: var(--color-primary-foreground);
+  }
+
+  :focus-visible {
+    outline: 2px solid var(--color-ring);
+    outline-offset: 2px;
+  }
+
+  button,
+  [role='button'],
+  [role='tab'],
+  summary {
+    cursor: pointer;
+  }
+
+  button:disabled {
+    cursor: not-allowed;
+  }
+
+  @media (prefers-reduced-motion: reduce) {
+    html {
+      scroll-behavior: auto;
+    }
+
+    *,
+    *::before,
+    *::after {
+      animation-duration: 0.01ms !important;
+      animation-iteration-count: 1 !important;
+      animation-delay: 0ms !important;
+      transition-duration: 0.01ms !important;
+    }
+  }
+}
+
+/* Mono label with a short rule before it, used above section headings. */
+@utility eyebrow {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.75rem;
+  font-family: var(--font-mono);
+  font-size: 0.875rem;
+  color: var(--color-muted-foreground);
+
+  &::before {
+    content: '';
+    width: 2rem;
+    height: 1px;
+    background-color: rgb(8 5 3 / 0.3);
+  }
+}
+
+/* Faint vertical guide lines behind page sections. */
+@utility guide-lines {
+  background-image: linear-gradient(to right, rgb(8 5 3 / 0.04) 1px, transparent 1px);
+  background-size: 10rem 100%;
+}
+
+/* Grain layered over large surfaces. */
+@utility noise-overlay {
+  position: relative;
+
+  &::after {
+    content: '';
+    position: absolute;
+    inset: 0;
+    z-index: 1;
+    opacity: 0.03;
+    pointer-events: none;
+    background-image: url("data:image/svg+xml,%3Csvg viewBox='0 0 256 256' xmlns='http://www.w3.org/2000/svg'%3E%3Cfilter id='noise'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='0.9' numOctaves='4' stitchTiles='stitch'/%3E%3C/filter%3E%3Crect width='100%25' height='100%25' filter='url(%23noise)'/%3E%3C/svg%3E");
+  }
+}

@@ -1,97 +1,35 @@
-# DriftLock Frontend (React + Vite + TypeScript)
+# DriftLock Frontend
 
-Welcome! This folder is designated for the **DriftLock React + Vite + TypeScript** frontend dashboard.
+DriftLock is a React, TypeScript, and Vite dashboard for analyzing dependency drift across projects.
 
-For complete specifications, see:
-- [API Contract Specification](file:///Users/rjn_g/Documents/%20Tech/Hactopia/docs/API_CONTRACT.md)
-- [Data Model & Schemas](file:///Users/rjn_g/Documents/%20Tech/Hactopia/docs/DATA_MODEL.md)
-- [Project Architecture](file:///Users/rjn_g/Documents/%20Tech/Hactopia/docs/ARCHITECTURE.md)
+## Getting started
 
----
+Requirements: Node.js and npm.
 
-## 🚀 Quick Setup for React + Vite
-
-To initialize the Vite project here, run:
-
-```bash
+```powershell
 cd frontend
-npm create vite@latest . -- --template react-ts
-npm install
-npm install lucide-react clsx tailwindcss
+npm ci
+Copy-Item .env.example .env.local
 npm run dev
 ```
 
-The Vite dev server will run on `http://localhost:5173`.
+The development server runs at `http://localhost:5173`.
 
----
+Mock mode is enabled by default and uses the bundled demo report, so the frontend can be explored without a running backend. To use the API, set `VITE_USE_MOCK=false` in `.env.local` and set `VITE_API_URL` to the backend base URL.
 
-## 🔗 Backend API Integration (Phase 0 Baseline)
+## Scripts
 
-The FastAPI backend runs on **`http://localhost:8000`**.  
-Interactive Swagger docs: **`http://localhost:8000/docs`**
-
-CORS is pre-configured to accept requests from `http://localhost:5173`.
-
-### 1. Health & Capability Check
-- **Endpoint**: `GET /health` (or `GET /api/v1/health`)
-- **Response**: Returns backend status, active parsers, and GitHub/Gemini configuration state.
-
-### 2. Multi-Repository Scan Lifecycle (`POST /api/v1/scans`)
-- **Endpoint**: `POST /api/v1/scans`
-- **Headers**: `Content-Type: application/json`
-
-#### Request Payload (Up to 3 GitHub Repositories):
-```json
-{
-  "repository_targets": [
-    {
-      "type": "github",
-      "url": "https://github.com/my-org/user-service",
-      "ref": "main"
-    },
-    {
-      "type": "github",
-      "url": "https://github.com/my-org/billing-service",
-      "ref": "main"
-    },
-    {
-      "type": "github",
-      "url": "https://github.com/my-org/notification-service",
-      "ref": "main"
-    }
-  ],
-  "options": {
-    "check_changelogs": true,
-    "ecosystems": ["npm", "python"]
-  }
-}
+```powershell
+npm test
+npm run typecheck
+npm run build
 ```
 
-#### Response: `202 Accepted`
-```json
-{
-  "scan_id": "scn_a1b2c3d4e5f6",
-  "status": "QUEUED",
-  "created_at": "2026-10-13T12:01:00.000Z",
-  "poll_url": "/api/v1/scans/scn_a1b2c3d4e5f6"
-}
-```
+## Frontend flow
 
-### 3. Polling Results (`GET /api/v1/scans/{scan_id}`)
-Poll every 1.5 seconds until `status === "COMPLETED"` or `"FAILED"`.
+- Add public GitHub repository URLs or paste supported manifests (`package.json`, `requirements.txt`, or `pom.xml`).
+- Review dependency drift, risk, evidence, and project status.
+- Filter, sort, and select drifts; view project and dependency relationships in the graph.
+- Export the visible report as Markdown.
 
-```typescript
-// Example React polling hook pattern:
-async function pollScan(scanId: string) {
-  const res = await fetch(`http://localhost:8000/api/v1/scans/${scanId}`);
-  const data = await res.json();
-  if (data.status === "COMPLETED") {
-    return data.result; // Full drift matrix, graph summary, evidence
-  } else if (data.status === "FAILED") {
-    throw new Error(data.error?.message || "Scan failed");
-  }
-  // Continue polling if QUEUED, FETCHING, PARSING, or ANALYZING
-}
-```
-
-Refer to [`docs/API_CONTRACT.md`](file:///Users/rjn_g/Documents/%20Tech/Hactopia/docs/API_CONTRACT.md) for full response schema examples.
+The frontend API client uses `POST /api/analyze`, `GET /api/demo`, and `GET /api/health`. Backend implementation and API contract details are maintained separately.
