@@ -1,0 +1,65 @@
+name: DriftLock drift check
+description: Fail a pull request that introduces risky dependency drift against your other repositories.
+branding:
+  icon: shield
+  color: gray-dark
+
+inputs:
+  against:
+    description: Other public GitHub repository URLs to compare with, one per line.
+    required: true
+  fail-on:
+    description: 'What blocks the pull request: confirmed, suspected or major.'
+    required: false
+    default: confirmed
+  fail-on-existing:
+    description: Also fail for blocking drift that was already present on the base branch.
+    required: false
+    default: 'false'
+  code-scan:
+    description: Scan source code for usages of changed APIs.
+    required: false
+    default: 'true'
+  github-token:
+    description: Token used to read public repositories. Raises the API rate limit.
+    required: false
+    default: ${{ github.token }}
+
+runs:
+  using: composite
+  steps:
+    - uses: actions/setup-python@v5
+      with:
+        python-version: '3.11'
+
+    - name: Install DriftLock
+      shell: bash
+      run: python -m pip install --quiet -r "${{ github.action_path }}/backend/requirements.txt"
+
+    - name: Check for dependency drift
+      shell: bash
+      env:
+        GITHUB_TOKEN: ${{ inputs.github-token }}
+        CACHE_ENABLED: 'false'
+        # Values from the event are passed through the environment, never
+        # interpolated into the script, so a branch name cannot inject commands.
+        DRIFTLOCK_AGAINST: ${{ inputs.against }}
+        DRIFTLOCK_FAIL_ON: ${{ inputs.fail-on }}
+        DRIFTLOCK_FAIL_ON_EXISTING: ${{ inputs.fail-on-existing }}
+        DRIFTLOCK_CODE_SCAN: ${{ inputs.code-scan }}
+        DRIFTLOCK_HEAD_REPO: ${{ github.event.pull_request.head.repo.full_name || github.repository }}
+        DRIFTLOCK_HEAD_REF: ${{ github.event.pull_request.head.ref || github.ref_name }}
+        DRIFTLOCK_BASE_REPO: ${{ github.repository }}
+        DRIFTLOCK_BASE_REF: ${{ github.event.pull_request.base.ref }}
+      run: |
+        args=(--head "https://github.com/${DRIFTLOCK_HEAD_REPO}/tree/${DRIFTLOCK_HEAD_REF}" --fail-on "${DRIFTLOCK_FAIL_ON}")
+        if [ -n "${DRIFTLOCK_BASE_REF}" ]; then
+          args+=(--base "https://github.com/${DRIFTLOCK_BASE_REPO}/tree/${DRIFTLOCK_BASE_REF}")
+        fi
+        while IFS= read -r url; do
+          url="$(echo "${url}" | tr -d '[:space:]')"
+          if [ -n "${url}" ]; then args+=(--against "${url}"); fi
+        done <<< "${DRIFTLOCK_AGAINST}"
+        if [ "${DRIFTLOCK_FAIL_ON_EXISTING}" = "true" ]; then args+=(--fail-on-existing); fi
+        if [ "${DRIFTLOCK_CODE_SCAN}" != "true" ]; then args+=(--no-code-scan); fi
+        python "${{ github.action_path }}/backend/scripts/driftlock_ci.py" "${args[@]}"

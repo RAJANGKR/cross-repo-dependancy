@@ -8,6 +8,7 @@ import { formatDateTime } from '../../lib/formatters'
 import { diffScans, fixKey, fixPlan, fixPlanText, prDescription } from '../../lib/insights'
 import { activeReview, clearStore, DEFAULT_SETTINGS, getStore, log, sanitize, setReview, setStore, updateStore, useStore, type HistoryEntry, type ReviewStatus } from '../../lib/localStore'
 import { DriftBadge, RiskBadge } from '../common/Badges'
+import { ApplyFixButton } from '../common/ApplyFixButton'
 import { Button } from '../common/Button'
 import { ConfirmButton, Switch, useCopy, useToast } from '../common/Controls'
 import { setSetting, VIEW_META, VIEWS } from './Shell'
@@ -139,7 +140,13 @@ export function ReviewQueue({ rows, onOpen }: ListProps) {
 
 // ---- Fix plans ---------------------------------------------------------------
 
-export function FixPlans({ rows, repos, repoLabel, onOpen }: ListProps & { repos: readonly string[] }) {
+interface FixPlansProps extends ListProps {
+  repos: readonly string[]
+  editUrlFor: (repo: string, sourceFile: string) => string | null
+  editUnavailableReason?: string
+}
+
+export function FixPlans({ rows, repos, repoLabel, onOpen, editUrlFor, editUnavailableReason }: FixPlansProps) {
   const { fixesDone } = useStore()
   const copy = useCopy()
   const plan = useMemo(() => fixPlan(rows, repos), [rows, repos])
@@ -190,6 +197,12 @@ export function FixPlans({ rows, repos, repoLabel, onOpen }: ListProps & { repos
                         </div>
                         <pre className="overflow-x-auto rounded-md bg-secondary p-3 font-mono text-xs">{fix.line}</pre>
                         <div className="flex flex-wrap items-center gap-2">
+                          <ApplyFixButton
+                            url={editUrlFor(fix.repo, fix.file)}
+                            line={fix.line}
+                            packageName={`${row.dependency_name} in ${repoLabel(fix.repo)}`}
+                            unavailableReason={editUnavailableReason}
+                          />
                           <Button size="sm" onClick={() => void copy(fix.line, `Fix for ${row.dependency_name}`)}>
                             <Copy aria-hidden="true" />
                             Copy fix

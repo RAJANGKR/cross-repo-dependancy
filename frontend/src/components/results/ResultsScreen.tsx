@@ -6,7 +6,7 @@ import { navigate, ROUTE_PATHS } from '../../hooks/useRoute'
 import { isDrifted } from '../../lib/classify'
 import { buildMarkdown, downloadText, exportFileName, type DataSource } from '../../lib/exportMarkdown'
 import { DEFAULT_FILTERS, filterDrifts, sortDrifts, valuesIn, viewStateFromSearch, viewStateToSearch, type DriftFilters, type SortKey } from '../../lib/filterSort'
-import { fixesFor, fixPlan, fixPlanText, needsReview } from '../../lib/insights'
+import { fixesFor, fixPlan, fixPlanText, githubEditUrl, needsReview } from '../../lib/insights'
 import { log, setReview, updateStore, useStore, type HistoryEntry } from '../../lib/localStore'
 import { computeOverview, repoNamesOf } from '../../lib/overview'
 import { Button } from '../common/Button'
@@ -85,6 +85,13 @@ export function ResultsScreen({ record, result, source, submitted, search, onNew
     (name: string) => submitted.find((repo) => repo.name.toLowerCase() === name.toLowerCase())?.label ?? name,
     [submitted],
   )
+
+  // Demo data is hand-written, so its files do not exist on GitHub to edit.
+  const editUrlFor = useCallback(
+    (repo: string, sourceFile: string) => (source === 'demo' ? null : githubEditUrl(result, repo, sourceFile)),
+    [source, result],
+  )
+  const editUnavailableReason = source === 'demo' ? 'Not available for demo data' : 'Only available for GitHub repositories whose branch the scan reported'
 
   const go = useCallback((next: string) => navigate(`${ROUTE_PATHS.results}${next}`, { replace: true }), [])
   const setView = useCallback(
@@ -416,7 +423,9 @@ export function ResultsScreen({ record, result, source, submitted, search, onNew
       )}
 
       {view === 'review' && <ReviewQueue rows={rows} repoLabel={repoLabel} onOpen={select} />}
-      {view === 'fixes' && <FixPlans rows={rows} repos={repos} repoLabel={repoLabel} onOpen={select} />}
+      {view === 'fixes' && (
+        <FixPlans rows={rows} repos={repos} repoLabel={repoLabel} onOpen={select} editUrlFor={editUrlFor} editUnavailableReason={editUnavailableReason} />
+      )}
       {view === 'activity' && <ActivityView onRunAgain={onRunAgain} />}
       {view === 'repos' && (
         <section id="repositories" aria-labelledby="repositories-title">
@@ -437,6 +446,8 @@ export function ResultsScreen({ record, result, source, submitted, search, onNew
           repoLabel={repoLabel}
           codeImpact={result.code_impact}
           executive={executive}
+          editUrlFor={editUrlFor}
+          editUnavailableReason={editUnavailableReason}
           position={selectedIndex === -1 ? null : { index: selectedIndex, total: visible.length }}
           onPrevious={() => step(-1)}
           onNext={() => step(1)}

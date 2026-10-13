@@ -92,13 +92,13 @@ async function recordFor(variant: DemoVariant | null): Promise<ScanRecord> {
 
 const onScanAgain = vi.fn()
 
-function Results({ record, submitted = SUBMITTED }: { record: ScanRecord; submitted?: SubmittedRepo[] }) {
+function Results({ record, submitted = SUBMITTED, source = 'demo' }: { record: ScanRecord; submitted?: SubmittedRepo[]; source?: 'demo' | 'live' }) {
   const route = useRoute()
   if (!record.result) throw new Error('record has no result')
   return (
     <AnnouncerProvider>
       <ToastProvider>
-        <ResultsScreen record={record} result={record.result} source="demo" submitted={submitted} search={route.search} onNewScan={() => undefined} onScanAgain={onScanAgain} onRunAgain={() => undefined} />
+        <ResultsScreen record={record} result={record.result} source={source} submitted={submitted} search={route.search} onNewScan={() => undefined} onScanAgain={onScanAgain} onRunAgain={() => undefined} />
       </ToastProvider>
     </AnnouncerProvider>
   )
@@ -358,6 +358,37 @@ describe('console', () => {
 
     fireEvent.keyDown(dialog, { key: 'Escape' })
     expect(screen.queryByRole('dialog')).toBeNull()
+  })
+
+  it('opens GitHub\'s editor with the fix copied, for a live scan', async () => {
+    const open = vi.spyOn(window, 'open').mockImplementation(() => null)
+    render(<Results record={demoRecord()} source="live" />)
+    openView('Fix plans')
+    const button = screen.getAllByRole('button', { name: /Open pull request on GitHub for fastapi in Payments/ })[0] as HTMLButtonElement
+    expect(button.disabled).toBe(false)
+    await act(async () => {
+      fireEvent.click(button)
+    })
+    expect(clipboard.writeText).toHaveBeenCalledWith('"fastapi>=0.110.0",')
+    expect(open).toHaveBeenCalledWith(
+      'https://github.com/GoogleCloudPlatform/microservices-demo/edit/main/pyproject.toml',
+      '_blank',
+      'noopener,noreferrer',
+    )
+    expect(screen.getByText(/Paste it over the old line on GitHub, then choose Propose changes/)).toBeTruthy()
+    open.mockRestore()
+  })
+
+  it('does not offer the GitHub editor for demo data', () => {
+    const open = vi.spyOn(window, 'open').mockImplementation(() => null)
+    render(<Results record={demoRecord()} />)
+    openView('Fix plans')
+    const button = screen.getAllByRole('button', { name: /Open pull request on GitHub for/ })[0] as HTMLButtonElement
+    expect(button.disabled).toBe(true)
+    expect(button.title).toBe('Not available for demo data')
+    fireEvent.click(button)
+    expect(open).not.toHaveBeenCalled()
+    open.mockRestore()
   })
 
   it('hides source code in Executive view', () => {

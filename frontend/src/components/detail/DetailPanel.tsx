@@ -9,6 +9,7 @@ import { alreadyOnRecommended, fixKey, fixLine, prDescription } from '../../lib/
 import { activeReview, log, setReview, updateStore, useStore, type Review } from '../../lib/localStore'
 import { nextStepFor, registryUrl } from '../../lib/nextStep'
 import { DriftBadge, RiskBadge, ToneBadge } from '../common/Badges'
+import { ApplyFixButton } from '../common/ApplyFixButton'
 import { Button } from '../common/Button'
 import { useCopy, useToast } from '../common/Controls'
 import { Dialog } from '../common/Dialog'
@@ -66,12 +67,16 @@ interface DetailPanelProps {
   position: { index: number; total: number } | null
   /** Executive view hides source-code evidence. */
   executive: boolean
+  /** GitHub edit page for a repository's manifest, or null when there is none. */
+  editUrlFor: (repo: string, sourceFile: string) => string | null
+  /** Shown on the disabled button when no edit page exists. */
+  editUnavailableReason?: string
   onPrevious: () => void
   onNext: () => void
   onClose: () => void
 }
 
-export function DetailPanel({ row, repos, repoLabel, codeImpact, position, executive, onPrevious, onNext, onClose }: DetailPanelProps) {
+export function DetailPanel({ row, repos, repoLabel, codeImpact, position, executive, editUrlFor, editUnavailableReason, onPrevious, onNext, onClose }: DetailPanelProps) {
   const titleId = useId()
   const baseId = useId()
   const [tab, setTab] = useState<Tab>('Overview')
@@ -373,6 +378,14 @@ export function DetailPanel({ row, repos, repoLabel, codeImpact, position, execu
                             <div className="mt-1.5">
                               <CodeBlock code={line} label={`Copy fix for ${repoLabel(repo)}`} />
                             </div>
+                            <div className="mt-2">
+                              <ApplyFixButton
+                                url={editUrlFor(repo, row.declarations_by_repo[repo]?.source_file ?? '')}
+                                line={line}
+                                packageName={`${row.dependency_name} in ${repoLabel(repo)}`}
+                                unavailableReason={editUnavailableReason}
+                              />
+                            </div>
                             <label className="mt-2 inline-flex cursor-pointer items-center gap-2 text-sm">
                               <input
                                 type="checkbox"
@@ -390,7 +403,11 @@ export function DetailPanel({ row, repos, repoLabel, codeImpact, position, execu
                     )
                   })}
                 </ul>
-                <p className="mt-4 text-xs text-muted-foreground">Each line pins the recommended version exactly. Adjust the range operator to your team's convention.</p>
+                <p className="mt-4 text-xs text-muted-foreground">
+                  Open pull request on GitHub copies the line and opens GitHub's editor for that file. Paste it over the
+                  old line and choose Propose changes; GitHub creates the branch and the pull request. DriftLock never
+                  writes to your repository. If the project has a lockfile, update it in the same pull request.
+                </p>
               </>
             )}
             <Button className="mt-4" onClick={() => void copy(prDescription(row, repoLabel), 'PR description')}>
