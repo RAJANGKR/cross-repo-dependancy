@@ -1,0 +1,27 @@
+# Example: copy this file to .github/workflows/driftlock.yml in a service's
+# repository. On every pull request it compares that pull request's branch
+# with your other repositories, and fails the check if the change introduces
+# confirmed-breaking dependency drift.
+
+name: DriftLock
+
+on:
+  pull_request:
+
+permissions:
+  contents: read
+
+jobs:
+  drift:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: RAJANGKR/cross-repo-dependancy@main
+        with:
+          # The other repositories this service has to stay compatible with.
+          against: |
+            https://github.com/your-org/service-b
+            https://github.com/your-org/service-c
+          # confirmed (default): block only when release notes or a verified rule state a break.
+          # suspected: also block major gaps that nothing confirms.
+          # major: block any major version gap.
+          fail-on: confirmed
