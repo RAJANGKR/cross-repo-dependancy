@@ -5,6 +5,7 @@ import asyncio
 import hashlib
 import json
 import logging
+import re
 from typing import Any, Dict, Optional
 from urllib.parse import urlparse
 
@@ -13,6 +14,16 @@ import httpx
 from app.services.cache import Cache
 
 logger = logging.getLogger("driftlock.http")
+
+_CHANGELOG_PROBE_RE = re.compile(
+    r"/(?:CHANGELOG|CHANGES|HISTORY|RELEASE|RELEASES)(?:\.(?:md|markdown|rst|txt))?(?:\?.*)?$",
+    re.IGNORECASE,
+)
+
+
+def _is_expected_probe_404(url: str) -> bool:
+    """True for speculative probe requests (such as root changelog files) where a 404 is an expected normal miss."""
+    return bool(_CHANGELOG_PROBE_RE.search(url))
 
 
 class FetchError(Exception):
@@ -50,7 +61,9 @@ class Http:
     async def aclose(self) -> None:
         await self._client.aclose()
 
-    async def _send(self, method: str, url: str, headers: Dict[str, str], body: Any, max_bytes: int) -> bytes:
+    async def _send(
+        self, method: str, url: str, headers: Dict[str, str], body: Any, max_bytes: int, ignore_404_failure: bool = False
+    ) -> bytes:
         host = urlparse(url).netloc
         self.calls[host] = self.calls.get(host, 0) + 1
         if self._token and host == "api.github.com":
@@ -84,7 +97,8 @@ class Http:
                         return b"".join(chunks)
             except FetchError as error:
                 if error.kind != "http" or (error.status or 0) < 500:
-                    self.failures[host] = self.failures.get(host, 0) + 1
+                    if not (error.kind == "not_found" and (ignore_404_failure or _is_expected_probe_404(url))):
+                        self.failures[host] = self.failures.get(host, 0) + 1
                     raise
                 last = error
             except httpx.TimeoutException:
@@ -93,11 +107,19 @@ class Http:
                 last = FetchError("network")
             if attempt < self._retries:
                 await asyncio.sleep(self._backoff * (2**attempt))
-        self.failures[host] = self.failures.get(host, 0) + 1
+        if not (last.kind == "not_found" and (ignore_404_failure or _is_expected_probe_404(url))):
+            self.failures[host] = self.failures.get(host, 0) + 1
         raise last
 
     async def _cached(
-        self, method: str, url: str, headers: Dict[str, str], body: Any, max_bytes: int, ttl: Optional[int]
+        self,
+        method: str,
+        url: str,
+        headers: Dict[str, str],
+        body: Any,
+        max_bytes: int,
+        ttl: Optional[int],
+        ignore_404_failure: bool = False,
     ) -> str:
         key = None
         if self._cache and ttl:
@@ -107,7 +129,9 @@ class Http:
             if hit is not None:
                 return hit
         try:
-            text = (await self._send(method, url, headers, body, max_bytes)).decode("utf-8", errors="replace")
+            text = (await self._send(method, url, headers, body, max_bytes, ignore_404_failure=ignore_404_failure)).decode(
+                "utf-8", errors="replace"
+            )
         except FetchError as error:
             # A permanent "not found" is an answer; anything else may be served stale.
             stale = self._cache.get(key, allow_stale=True) if (key and self._cache and error.kind != "not_found") else None
@@ -119,17 +143,42 @@ class Http:
             self._cache.set(key, text, ttl)
         return text
 
-    async def get_text(self, url: str, *, headers: Optional[Dict[str, str]] = None, max_bytes: int = 2_000_000, ttl: Optional[int] = None) -> str:
-        return await self._cached("GET", url, headers or {}, None, max_bytes, ttl)
+    async def get_text(
+        self,
+        url: str,
+        *,
+        headers: Optional[Dict[str, str]] = None,
+        max_bytes: int = 2_000_000,
+        ttl: Optional[int] = None,
+        ignore_404_failure: bool = False,
+    ) -> str:
+        return await self._cached("GET", url, headers or {}, None, max_bytes, ttl, ignore_404_failure=ignore_404_failure)
 
-    async def get_json(self, url: str, *, headers: Optional[Dict[str, str]] = None, max_bytes: int = 20_000_000, ttl: Optional[int] = None) -> Any:
-        return self._json(await self._cached("GET", url, headers or {}, None, max_bytes, ttl))
+    async def get_json(
+        self,
+        url: str,
+        *,
+        headers: Optional[Dict[str, str]] = None,
+        max_bytes: int = 20_000_000,
+        ttl: Optional[int] = None,
+        ignore_404_failure: bool = False,
+    ) -> Any:
+        return self._json(await self._cached("GET", url, headers or {}, None, max_bytes, ttl, ignore_404_failure=ignore_404_failure))
 
-    async def post_json(self, url: str, body: Any, *, headers: Optional[Dict[str, str]] = None, max_bytes: int = 5_000_000, ttl: Optional[int] = None) -> Any:
-        return self._json(await self._cached("POST", url, headers or {}, body, max_bytes, ttl))
+    async def post_json(
+        self,
+        url: str,
+        body: Any,
+        *,
+        headers: Optional[Dict[str, str]] = None,
+        max_bytes: int = 5_000_000,
+        ttl: Optional[int] = None,
+        ignore_404_failure: bool = False,
+    ) -> Any:
+        return self._json(await self._cached("POST", url, headers or {}, body, max_bytes, ttl, ignore_404_failure=ignore_404_failure))
 
-    async def get_bytes(self, url: str, *, max_bytes: int) -> bytes:
-        return await self._send("GET", url, {}, None, max_bytes)
+    async def get_bytes(self, url: str, *, max_bytes: int, ignore_404_failure: bool = False) -> bytes:
+        return await self._send("GET", url, {}, None, max_bytes, ignore_404_failure=ignore_404_failure)
 
     @staticmethod
     def _json(text: str) -> Any:

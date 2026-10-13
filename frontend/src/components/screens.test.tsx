@@ -250,6 +250,9 @@ describe('console', () => {
     render(<Results record={demoRecord()} />)
     expect(screen.getByRole('heading', { name: 'Command center' })).toBeTruthy()
     expect(screen.getByText('Scan completed with warnings.')).toBeTruthy()
+    fireEvent.click(screen.getByRole('button', { name: /See what was and was not analyzed/ }))
+    expect(screen.getByRole('heading', { name: 'Repositories' })).toBeTruthy()
+    openView('Command center')
     expect(screen.getAllByText('Demo data').length).toBeGreaterThan(0)
     for (const kpi of ['Active drifts', 'Shared libraries', 'Vulnerable versions', 'Pending review']) {
       expect(screen.getByRole('button', { name: new RegExp(`^(\\d+|Not available)${kpi}`) })).toBeTruthy()
@@ -432,8 +435,8 @@ describe('console', () => {
 
   it('shows data sources, notifications and a team message that is copied, not sent', async () => {
     render(<Results record={demoRecord()} />)
-    click(/Data sources \(4 connected\)/)
-    expect(within(screen.getByRole('dialog', { name: 'Data sources' })).getByText('Partly failed')).toBeTruthy()
+    click(/Data sources \(5 connected\)/)
+    expect(within(screen.getByRole('dialog', { name: 'Data sources' })).getAllByText('Connected').length).toBeGreaterThan(0)
     click(/Notifications, 4 unread/)
     click('Mark all read')
     expect(screen.getByRole('button', { name: 'Notifications, 0 unread' })).toBeTruthy()

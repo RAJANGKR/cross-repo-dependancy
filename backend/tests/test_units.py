@@ -2,6 +2,7 @@
 import asyncio
 import json
 
+import httpx
 import pytest
 
 from app.core.security import InvalidTarget, manifest_kind, parse_github_url
@@ -10,6 +11,7 @@ from app.parsers.registry import default_registry
 from app.services import changelog_service, graph_service, usage_scanner
 from app.services import range_service as ranges
 from app.services.classifier import Declaration, classify
+from app.services.http import FetchError
 from app.services.scoring import level_for, score_drift
 from tests.fakes import USER_PY, fake_http, zip_of
 
@@ -294,3 +296,50 @@ def test_graph_summary_uses_real_counts():
     summary = graph_service.summarize([row("a", "MINOR_DRIFT", ["x", "y"]), row("b", "MAJOR_DRIFT", ["x", "y", "z"]), row("c", "INFO", ["z"])])
     assert summary["total_nodes"] == 6 and summary["total_edges"] == 6
     assert summary["highest_drift_nodes"] == ["b", "a"] and 0 < summary["density"] < 1
+
+
+# ---- HTTP & Gemini ----------------------------------------------------------
+
+def test_changelog_probe_404_does_not_count_as_source_failure():
+    http = fake_http()
+    # Query a changelog probe that 404s
+    with pytest.raises(FetchError) as exc:
+        asyncio.run(http.get_text("https://api.github.com/repos/acme/empty/contents/CHANGELOG.md?ref=HEAD"))
+    assert exc.value.kind == "not_found"
+    assert http.calls.get("api.github.com", 0) == 1
+    assert http.failures.get("api.github.com", 0) == 0
+
+    # A non-probe missing endpoint DOES count towards failures
+    with pytest.raises(FetchError) as exc2:
+        asyncio.run(http.get_text("https://api.github.com/repos/acme/empty/contents/nonexistent_file.py?ref=HEAD"))
+    assert exc2.value.kind == "not_found"
+    assert http.failures.get("api.github.com", 0) == 1
+
+
+def test_gemini_ai_notes_succeeds_with_fallback_and_multi_parts(monkeypatch):
+    from app.core.config import settings
+    from app.services import explain
+    monkeypatch.setattr(settings, "GEMINI_API_KEY", "test-key")
+    monkeypatch.setattr(settings, "GEMINI_MODEL", "gemini-2.5-flash")  # deprecated model name triggers fallback
+
+    def mock_gemini(request):
+        if "gemini-2.5-flash" in request.url.path:
+            return httpx.Response(404, json={"error": {"message": "model no longer available"}})
+        if "gemini-3.1-flash-lite" in request.url.path:
+            return httpx.Response(200, json={
+                "candidates": [{
+                    "content": {
+                        "parts": [
+                            {"thought": True, "text": "thinking..."},
+                            {"text": "Validator was replaced by field_validator. Migrate model validators."}
+                        ]
+                    }
+                }]
+            })
+        return None
+
+    http = fake_http(overrides=mock_gemini)
+    notes = asyncio.run(explain.ai_notes(http, "pydantic", ["1.10.13", "2.5.0"], ["major drift"], ["BREAKING: validator replaced"]))
+    assert notes is not None
+    assert "Validator was replaced" in notes
+    assert "thinking" not in notes

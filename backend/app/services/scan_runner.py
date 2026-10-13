@@ -416,6 +416,10 @@ async def _run(scan_id: str, targets: List[Target], options: ScanOptions, store:
         warnings.append(f"Registry lookup failed for {len(failed)} package(s): {', '.join(failed[:8])}. They were compared on declared versions only.")
     if http.rate_limit_remaining is not None and http.rate_limit_remaining < 10:
         warnings.append(f"GitHub rate limit is low ({http.rate_limit_remaining} requests left). Set GITHUB_TOKEN on the backend to raise it.")
+    gemini_failures = http.failures.get("generativelanguage.googleapis.com", 0)
+    gemini_calls = http.calls.get("generativelanguage.googleapis.com", 0)
+    if settings.GEMINI_API_KEY and gemini_calls > 0 and gemini_failures >= gemini_calls:
+        warnings.append("Gemini API request failed; falling back to deterministic explanation templates.")
 
     def source(name: str) -> dict:
         hosts = _HOSTS[name]

@@ -11,7 +11,11 @@ import type { DependencyDrift, RepoDeclaration, ScanRecord, ScanResult } from '.
  * from scanTypes.ts; the real backend does not return those sections yet.
  */
 
-const ORG = 'https://github.com/example-org'
+export const DEMO_REPO_URLS: Record<string, string> = {
+  'payment-service': 'https://github.com/GoogleCloudPlatform/microservices-demo/tree/main/src/paymentservice',
+  'core-service': 'https://github.com/GoogleCloudPlatform/microservices-demo/tree/main/src/currencyservice',
+  'customer-service': 'https://github.com/GoogleCloudPlatform/microservices-demo/tree/main/src/frontend',
+}
 const REPOS = ['payment-service', 'core-service', 'customer-service'] as const
 
 function decl(
@@ -265,7 +269,7 @@ function repositories(rows: DependencyDrift[]): ScanResult['scanned_repositories
   const manifests: Record<string, number> = { 'payment-service': 3, 'core-service': 1, 'customer-service': 1 }
   return REPOS.map((name) => ({
     name,
-    url: `${ORG}/${name}`,
+    url: DEMO_REPO_URLS[name] ?? `https://github.com/GoogleCloudPlatform/microservices-demo/tree/main/src/${name}`,
     manifest_count: manifests[name] ?? null,
     total_dependencies: rows.filter((row) => name in row.declarations_by_repo).length,
   }))
@@ -381,7 +385,7 @@ const demoResult: ScanResult = {
     { name: 'PyPI', status: 'ok' },
     { name: 'Maven Central', status: 'not_used' },
     { name: 'OSV', status: 'ok' },
-    { name: 'Gemini', status: 'degraded' },
+    { name: 'Gemini', status: 'ok' },
   ],
   repository_details: REPOS.map((name) => ({
     name,

@@ -130,6 +130,14 @@ def handler(request: httpx.Request, overrides: Optional[Callable[[httpx.Request]
         body = json.loads(request.content)
         vulns = OSV.get((body["package"]["ecosystem"], body["package"]["name"], body["version"]), [])
         return httpx.Response(200, json={"vulns": vulns} if vulns else {})
+    if host == "generativelanguage.googleapis.com":
+        return httpx.Response(200, json={
+            "candidates": [{
+                "content": {
+                    "parts": [{"text": "Pydantic validator changed to field_validator. Update validation methods."}]
+                }
+            }]
+        })
     return httpx.Response(404)
 
 
