@@ -1,0 +1,824 @@
+{
+  "either": {
+    "recommendation": "EITHER",
+    "summary": "Both intermediate states are supported by the evidence, so either order can be used.",
+    "refs": [
+      {
+        "label": "P0",
+        "repository": "acme/billing",
+        "url": "https://github.com/acme/billing",
+        "ref": "v1",
+        "commit": "11aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+        "spec_file": "openapi.json",
+        "api_title": "Billing API",
+        "api_version": "1.0.0",
+        "files_read": null,
+        "problem": ""
+      },
+      {
+        "label": "P1",
+        "repository": "acme/billing",
+        "url": "https://github.com/acme/billing",
+        "ref": "v2",
+        "commit": "12aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+        "spec_file": "openapi.json",
+        "api_title": "Billing API",
+        "api_version": "1.0.1",
+        "files_read": null,
+        "problem": ""
+      },
+      {
+        "label": "C0",
+        "repository": "acme/shop",
+        "url": "https://github.com/acme/shop",
+        "ref": "main",
+        "commit": "21aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+        "spec_file": "",
+        "api_title": "",
+        "api_version": "",
+        "files_read": 1,
+        "problem": ""
+      },
+      {
+        "label": "C1",
+        "repository": "acme/shop",
+        "url": "https://github.com/acme/shop",
+        "ref": "next",
+        "commit": "22aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+        "spec_file": "",
+        "api_title": "",
+        "api_version": "",
+        "files_read": 1,
+        "problem": ""
+      }
+    ],
+    "provider_first": {
+      "key": "provider_first",
+      "title": "Provider first",
+      "description": "P1 is deployed while the consumer is still C0.",
+      "provider": "P1",
+      "consumer": "C0",
+      "status": "COMPATIBLE",
+      "reason": "The two provider specifications are identical apart from their info block.",
+      "evidence": [],
+      "unresolved": []
+    },
+    "consumer_first": {
+      "key": "consumer_first",
+      "title": "Consumer first",
+      "description": "C1 is deployed while the provider is still P0.",
+      "provider": "P0",
+      "consumer": "C1",
+      "status": "COMPATIBLE",
+      "reason": "The two provider specifications are identical apart from their info block.",
+      "evidence": [],
+      "unresolved": []
+    },
+    "final": {
+      "key": "final",
+      "title": "Both deployed",
+      "description": "P1 and C1 are both live: the end of either rollout order.",
+      "provider": "P1",
+      "consumer": "C1",
+      "status": "COMPATIBLE",
+      "reason": "The two provider specifications are identical apart from their info block.",
+      "evidence": [],
+      "unresolved": []
+    },
+    "contract_changes": [],
+    "unresolved": [],
+    "limitations": [
+      "Only three kinds of contract change are detected: a removed path or operation, a newly required request value, and a changed response field type. Other differences between the two specifications (removed response fields, enum values, formats, status codes) are not analyzed, so \"compatible\" means compatible with respect to those three kinds.",
+      "Consumer evidence comes from reading source code at the given refs. A call that was not found, or could not be followed, never counts as evidence of compatibility.",
+      "The consumer is taken to call this provider because the request says so. Calls are matched by path; which host a call really reaches is not verified.",
+      "Reading a response field whose type changed is reported as unknown: whether the code copes with the new type cannot be told statically.",
+      "Nothing is executed and nothing is observed at runtime. Data migrations, feature flags, caches and gateways are outside this analysis."
+    ]
+  },
+  "consumer_first": {
+    "recommendation": "CONSUMER_FIRST",
+    "summary": "Deploy the consumer first. That intermediate state is supported by the evidence; deploying the provider first is not.",
+    "refs": [
+      {
+        "label": "P0",
+        "repository": "acme/billing",
+        "url": "https://github.com/acme/billing",
+        "ref": "v1",
+        "commit": "11aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+        "spec_file": "openapi.json",
+        "api_title": "Billing API",
+        "api_version": "1.0.0",
+        "files_read": null,
+        "problem": ""
+      },
+      {
+        "label": "P1",
+        "repository": "acme/billing",
+        "url": "https://github.com/acme/billing",
+        "ref": "v2",
+        "commit": "12aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+        "spec_file": "openapi.json",
+        "api_title": "Billing API",
+        "api_version": "2.0.0",
+        "files_read": null,
+        "problem": ""
+      },
+      {
+        "label": "C0",
+        "repository": "acme/shop",
+        "url": "https://github.com/acme/shop",
+        "ref": "main",
+        "commit": "21aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+        "spec_file": "",
+        "api_title": "",
+        "api_version": "",
+        "files_read": 1,
+        "problem": ""
+      },
+      {
+        "label": "C1",
+        "repository": "acme/shop",
+        "url": "https://github.com/acme/shop",
+        "ref": "next",
+        "commit": "22aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+        "spec_file": "",
+        "api_title": "",
+        "api_version": "",
+        "files_read": 1,
+        "problem": ""
+      }
+    ],
+    "provider_first": {
+      "key": "provider_first",
+      "title": "Provider first",
+      "description": "P1 is deployed while the consumer is still C0.",
+      "provider": "P1",
+      "consumer": "C0",
+      "status": "INCOMPATIBLE",
+      "reason": "1 of 1 contract change(s) is shown to break the consumer code at C0 against P1.",
+      "evidence": [
+        {
+          "verdict": "INCOMPATIBLE",
+          "change_type": "NEW_REQUIRED_REQUEST_FIELD",
+          "method": "POST",
+          "path": "/invoices",
+          "field": "currency",
+          "field_in": "request_body",
+          "evidence_tier": "T2_FIELD_MATCH",
+          "usage": "OMITS_REQUIRED_FIELD",
+          "file": "src/api.js",
+          "line": 5,
+          "snippet": "export const createInvoice = (amount) => axios.post(`${API}/invoices`, { amount }).then((res) => res.status)",
+          "explanation": "This call does not send request field 'currency': it sends amount."
+        }
+      ],
+      "unresolved": []
+    },
+    "consumer_first": {
+      "key": "consumer_first",
+      "title": "Consumer first",
+      "description": "C1 is deployed while the provider is still P0.",
+      "provider": "P0",
+      "consumer": "C1",
+      "status": "COMPATIBLE",
+      "reason": "P1 defines no operation, required value or response type that P0 lacks among the kinds that are checked, so nothing detected can break a consumer written for P1.",
+      "evidence": [],
+      "unresolved": []
+    },
+    "final": {
+      "key": "final",
+      "title": "Both deployed",
+      "description": "P1 and C1 are both live: the end of either rollout order.",
+      "provider": "P1",
+      "consumer": "C1",
+      "status": "COMPATIBLE",
+      "reason": "All 1 contract change(s) are seen to be satisfied by the consumer code at C1.",
+      "evidence": [
+        {
+          "verdict": "COMPATIBLE",
+          "change_type": "NEW_REQUIRED_REQUEST_FIELD",
+          "method": "POST",
+          "path": "/invoices",
+          "field": "currency",
+          "field_in": "request_body",
+          "evidence_tier": "T2_FIELD_MATCH",
+          "usage": "SENDS_REQUIRED_FIELD",
+          "file": "src/api.js",
+          "line": 5,
+          "snippet": "export const createInvoice = (amount, currency) => axios.post(`${API}/invoices`, { amount, currency }).then((res) => res.status)",
+          "explanation": "This call already sends request field 'currency'."
+        }
+      ],
+      "unresolved": []
+    },
+    "contract_changes": [
+      {
+        "direction": "P0_TO_P1",
+        "change_type": "NEW_REQUIRED_REQUEST_FIELD",
+        "method": "POST",
+        "path": "/invoices",
+        "field": "currency",
+        "field_in": "request_body",
+        "previous_value": "request field currency: optional",
+        "new_value": "request field currency: required",
+        "spec_file": "openapi.json",
+        "json_pointer": "/paths/~1invoices/post/requestBody/content/application~1json/schema/required",
+        "description": "Request body field 'currency' is required in 2.0.0 and was optional in 1.0.0."
+      }
+    ],
+    "unresolved": [],
+    "limitations": [
+      "Only three kinds of contract change are detected: a removed path or operation, a newly required request value, and a changed response field type. Other differences between the two specifications (removed response fields, enum values, formats, status codes) are not analyzed, so \"compatible\" means compatible with respect to those three kinds.",
+      "Consumer evidence comes from reading source code at the given refs. A call that was not found, or could not be followed, never counts as evidence of compatibility.",
+      "The consumer is taken to call this provider because the request says so. Calls are matched by path; which host a call really reaches is not verified.",
+      "Reading a response field whose type changed is reported as unknown: whether the code copes with the new type cannot be told statically.",
+      "Nothing is executed and nothing is observed at runtime. Data migrations, feature flags, caches and gateways are outside this analysis."
+    ]
+  },
+  "provider_first": {
+    "recommendation": "PROVIDER_FIRST",
+    "summary": "Deploy the provider first. That intermediate state is supported by the evidence; deploying the consumer first is not.",
+    "refs": [
+      {
+        "label": "P0",
+        "repository": "acme/billing",
+        "url": "https://github.com/acme/billing",
+        "ref": "v1",
+        "commit": "11aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+        "spec_file": "openapi.json",
+        "api_title": "Billing API",
+        "api_version": "1.0.0",
+        "files_read": null,
+        "problem": ""
+      },
+      {
+        "label": "P1",
+        "repository": "acme/billing",
+        "url": "https://github.com/acme/billing",
+        "ref": "v2",
+        "commit": "12aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+        "spec_file": "openapi.json",
+        "api_title": "Billing API",
+        "api_version": "1.1.0",
+        "files_read": null,
+        "problem": ""
+      },
+      {
+        "label": "C0",
+        "repository": "acme/shop",
+        "url": "https://github.com/acme/shop",
+        "ref": "main",
+        "commit": "21aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+        "spec_file": "",
+        "api_title": "",
+        "api_version": "",
+        "files_read": 1,
+        "problem": ""
+      },
+      {
+        "label": "C1",
+        "repository": "acme/shop",
+        "url": "https://github.com/acme/shop",
+        "ref": "next",
+        "commit": "22aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+        "spec_file": "",
+        "api_title": "",
+        "api_version": "",
+        "files_read": 1,
+        "problem": ""
+      }
+    ],
+    "provider_first": {
+      "key": "provider_first",
+      "title": "Provider first",
+      "description": "P1 is deployed while the consumer is still C0.",
+      "provider": "P1",
+      "consumer": "C0",
+      "status": "COMPATIBLE",
+      "reason": "No removed operation, newly required request value or changed response type was detected from P0 to P1, so nothing detected can break a consumer written for P0.",
+      "evidence": [],
+      "unresolved": []
+    },
+    "consumer_first": {
+      "key": "consumer_first",
+      "title": "Consumer first",
+      "description": "C1 is deployed while the provider is still P0.",
+      "provider": "P0",
+      "consumer": "C1",
+      "status": "INCOMPATIBLE",
+      "reason": "1 of 1 contract change(s) is shown to break the consumer code at C1 against P0.",
+      "evidence": [
+        {
+          "verdict": "INCOMPATIBLE",
+          "change_type": "REMOVED_PATH",
+          "method": "",
+          "path": "/refunds",
+          "field": "",
+          "field_in": "",
+          "evidence_tier": "T1_OPERATION_MATCH",
+          "usage": "CALLS_OPERATION",
+          "file": "src/api.js",
+          "line": 6,
+          "snippet": "export const refund = (id) => axios.post(`${API}/refunds`, { invoice: id }).then((res) => res.status)",
+          "explanation": "This call targets an operation that the newer specification no longer defines."
+        }
+      ],
+      "unresolved": []
+    },
+    "final": {
+      "key": "final",
+      "title": "Both deployed",
+      "description": "P1 and C1 are both live: the end of either rollout order.",
+      "provider": "P1",
+      "consumer": "C1",
+      "status": "COMPATIBLE",
+      "reason": "No removed operation, newly required request value or changed response type was detected from P0 to P1, so nothing detected can break a consumer written for P0.",
+      "evidence": [],
+      "unresolved": []
+    },
+    "contract_changes": [
+      {
+        "direction": "P1_TO_P0",
+        "change_type": "REMOVED_PATH",
+        "method": "",
+        "path": "/refunds",
+        "field": "",
+        "field_in": "",
+        "previous_value": "operations: POST",
+        "new_value": "path not present",
+        "spec_file": "openapi.json",
+        "json_pointer": "/paths/~1refunds",
+        "description": "Path /refunds exists in 1.1.0 and is absent from 1.0.0."
+      }
+    ],
+    "unresolved": [],
+    "limitations": [
+      "Only three kinds of contract change are detected: a removed path or operation, a newly required request value, and a changed response field type. Other differences between the two specifications (removed response fields, enum values, formats, status codes) are not analyzed, so \"compatible\" means compatible with respect to those three kinds.",
+      "Consumer evidence comes from reading source code at the given refs. A call that was not found, or could not be followed, never counts as evidence of compatibility.",
+      "The consumer is taken to call this provider because the request says so. Calls are matched by path; which host a call really reaches is not verified.",
+      "Reading a response field whose type changed is reported as unknown: whether the code copes with the new type cannot be told statically.",
+      "Nothing is executed and nothing is observed at runtime. Data migrations, feature flags, caches and gateways are outside this analysis."
+    ]
+  },
+  "neither": {
+    "recommendation": "NEITHER",
+    "summary": "Both orders have a demonstrated incompatibility in their intermediate state. Neither order can be rolled out as is.",
+    "refs": [
+      {
+        "label": "P0",
+        "repository": "acme/billing",
+        "url": "https://github.com/acme/billing",
+        "ref": "v1",
+        "commit": "11aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+        "spec_file": "openapi.json",
+        "api_title": "Billing API",
+        "api_version": "1.0.0",
+        "files_read": null,
+        "problem": ""
+      },
+      {
+        "label": "P1",
+        "repository": "acme/billing",
+        "url": "https://github.com/acme/billing",
+        "ref": "v2",
+        "commit": "12aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+        "spec_file": "openapi.json",
+        "api_title": "Billing API",
+        "api_version": "2.0.0",
+        "files_read": null,
+        "problem": ""
+      },
+      {
+        "label": "C0",
+        "repository": "acme/shop",
+        "url": "https://github.com/acme/shop",
+        "ref": "main",
+        "commit": "21aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+        "spec_file": "",
+        "api_title": "",
+        "api_version": "",
+        "files_read": 1,
+        "problem": ""
+      },
+      {
+        "label": "C1",
+        "repository": "acme/shop",
+        "url": "https://github.com/acme/shop",
+        "ref": "next",
+        "commit": "22aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+        "spec_file": "",
+        "api_title": "",
+        "api_version": "",
+        "files_read": 1,
+        "problem": ""
+      }
+    ],
+    "provider_first": {
+      "key": "provider_first",
+      "title": "Provider first",
+      "description": "P1 is deployed while the consumer is still C0.",
+      "provider": "P1",
+      "consumer": "C0",
+      "status": "INCOMPATIBLE",
+      "reason": "1 of 1 contract change(s) is shown to break the consumer code at C0 against P1.",
+      "evidence": [
+        {
+          "verdict": "INCOMPATIBLE",
+          "change_type": "REMOVED_PATH",
+          "method": "",
+          "path": "/invoices/{id}/void",
+          "field": "",
+          "field_in": "",
+          "evidence_tier": "T1_OPERATION_MATCH",
+          "usage": "CALLS_OPERATION",
+          "file": "src/api.js",
+          "line": 5,
+          "snippet": "export const cancel = (id) => axios.post(`${API}/invoices/${id}/void`).then((res) => res.status)",
+          "explanation": "This call targets an operation that the newer specification no longer defines."
+        }
+      ],
+      "unresolved": []
+    },
+    "consumer_first": {
+      "key": "consumer_first",
+      "title": "Consumer first",
+      "description": "C1 is deployed while the provider is still P0.",
+      "provider": "P0",
+      "consumer": "C1",
+      "status": "INCOMPATIBLE",
+      "reason": "1 of 1 contract change(s) is shown to break the consumer code at C1 against P0.",
+      "evidence": [
+        {
+          "verdict": "INCOMPATIBLE",
+          "change_type": "REMOVED_PATH",
+          "method": "",
+          "path": "/invoices/{id}/cancel",
+          "field": "",
+          "field_in": "",
+          "evidence_tier": "T1_OPERATION_MATCH",
+          "usage": "CALLS_OPERATION",
+          "file": "src/api.js",
+          "line": 5,
+          "snippet": "export const cancel = (id) => axios.post(`${API}/invoices/${id}/cancel`).then((res) => res.status)",
+          "explanation": "This call targets an operation that the newer specification no longer defines."
+        }
+      ],
+      "unresolved": []
+    },
+    "final": {
+      "key": "final",
+      "title": "Both deployed",
+      "description": "P1 and C1 are both live: the end of either rollout order.",
+      "provider": "P1",
+      "consumer": "C1",
+      "status": "UNKNOWN",
+      "reason": "The effect of 1 of 1 contract change(s) on the consumer code at C1 could not be established. Unknown is not compatible.",
+      "evidence": [
+        {
+          "verdict": "UNKNOWN",
+          "change_type": "REMOVED_PATH",
+          "method": "",
+          "path": "/invoices/{id}/void",
+          "field": "",
+          "field_in": "",
+          "evidence_tier": "NO_USAGE_FOUND",
+          "usage": "NO_USAGE_FOUND",
+          "file": "",
+          "line": null,
+          "snippet": "",
+          "explanation": "No call to /invoices/{id}/void was found in the 1 source file(s) read from acme/shop@next. This is not proof that it is unaffected."
+        }
+      ],
+      "unresolved": [
+        "/invoices/{id}/void: No call to /invoices/{id}/void was found in the 1 source file(s) read from acme/shop@next. This is not proof that it is unaffected."
+      ]
+    },
+    "contract_changes": [
+      {
+        "direction": "P0_TO_P1",
+        "change_type": "REMOVED_PATH",
+        "method": "",
+        "path": "/invoices/{id}/void",
+        "field": "",
+        "field_in": "",
+        "previous_value": "operations: POST",
+        "new_value": "path not present",
+        "spec_file": "openapi.json",
+        "json_pointer": "/paths/~1invoices~1{id}~1void",
+        "description": "Path /invoices/{id}/void exists in 1.0.0 and is absent from 2.0.0."
+      },
+      {
+        "direction": "P1_TO_P0",
+        "change_type": "REMOVED_PATH",
+        "method": "",
+        "path": "/invoices/{id}/cancel",
+        "field": "",
+        "field_in": "",
+        "previous_value": "operations: POST",
+        "new_value": "path not present",
+        "spec_file": "openapi.json",
+        "json_pointer": "/paths/~1invoices~1{id}~1cancel",
+        "description": "Path /invoices/{id}/cancel exists in 2.0.0 and is absent from 1.0.0."
+      }
+    ],
+    "unresolved": [
+      {
+        "scope": "Both deployed",
+        "reason": "/invoices/{id}/void: No call to /invoices/{id}/void was found in the 1 source file(s) read from acme/shop@next. This is not proof that it is unaffected."
+      }
+    ],
+    "limitations": [
+      "Only three kinds of contract change are detected: a removed path or operation, a newly required request value, and a changed response field type. Other differences between the two specifications (removed response fields, enum values, formats, status codes) are not analyzed, so \"compatible\" means compatible with respect to those three kinds.",
+      "Consumer evidence comes from reading source code at the given refs. A call that was not found, or could not be followed, never counts as evidence of compatibility.",
+      "The consumer is taken to call this provider because the request says so. Calls are matched by path; which host a call really reaches is not verified.",
+      "Reading a response field whose type changed is reported as unknown: whether the code copes with the new type cannot be told statically.",
+      "Nothing is executed and nothing is observed at runtime. Data migrations, feature flags, caches and gateways are outside this analysis."
+    ]
+  },
+  "unresolved": {
+    "recommendation": "UNRESOLVED",
+    "summary": "No order could be shown to be compatible with the evidence available. This is not a statement that the rollout is unsafe.",
+    "refs": [
+      {
+        "label": "P0",
+        "repository": "acme/billing",
+        "url": "https://github.com/acme/billing",
+        "ref": "v1",
+        "commit": "11aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+        "spec_file": "openapi.json",
+        "api_title": "Billing API",
+        "api_version": "1.0.0",
+        "files_read": null,
+        "problem": ""
+      },
+      {
+        "label": "P1",
+        "repository": "acme/billing",
+        "url": "https://github.com/acme/billing",
+        "ref": "v2",
+        "commit": "12aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+        "spec_file": "openapi.json",
+        "api_title": "Billing API",
+        "api_version": "2.0.0",
+        "files_read": null,
+        "problem": ""
+      },
+      {
+        "label": "C0",
+        "repository": "acme/shop",
+        "url": "https://github.com/acme/shop",
+        "ref": "main",
+        "commit": "21aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+        "spec_file": "",
+        "api_title": "",
+        "api_version": "",
+        "files_read": 1,
+        "problem": ""
+      },
+      {
+        "label": "C1",
+        "repository": "acme/shop",
+        "url": "https://github.com/acme/shop",
+        "ref": "next",
+        "commit": "22aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+        "spec_file": "",
+        "api_title": "",
+        "api_version": "",
+        "files_read": 1,
+        "problem": ""
+      }
+    ],
+    "provider_first": {
+      "key": "provider_first",
+      "title": "Provider first",
+      "description": "P1 is deployed while the consumer is still C0.",
+      "provider": "P1",
+      "consumer": "C0",
+      "status": "UNKNOWN",
+      "reason": "The effect of 1 of 1 contract change(s) on the consumer code at C0 could not be established. Unknown is not compatible.",
+      "evidence": [
+        {
+          "verdict": "UNKNOWN",
+          "change_type": "CHANGED_RESPONSE_FIELD_TYPE",
+          "method": "GET",
+          "path": "/customers/{id}",
+          "field": "customer.legacy_id",
+          "field_in": "response_body",
+          "evidence_tier": "T2_FIELD_MATCH",
+          "usage": "READS_CHANGED_FIELD",
+          "file": "src/api.js",
+          "line": 7,
+          "snippet": "console.log(res.data.customer.legacy_id)",
+          "explanation": "The code reads response field 'customer.legacy_id', whose type changed."
+        }
+      ],
+      "unresolved": [
+        "GET /customers/{id} (customer.legacy_id): The code reads response field 'customer.legacy_id', whose type changed."
+      ]
+    },
+    "consumer_first": {
+      "key": "consumer_first",
+      "title": "Consumer first",
+      "description": "C1 is deployed while the provider is still P0.",
+      "provider": "P0",
+      "consumer": "C1",
+      "status": "UNKNOWN",
+      "reason": "The effect of 1 of 1 contract change(s) on the consumer code at C1 could not be established. Unknown is not compatible.",
+      "evidence": [
+        {
+          "verdict": "UNKNOWN",
+          "change_type": "CHANGED_RESPONSE_FIELD_TYPE",
+          "method": "GET",
+          "path": "/customers/{id}",
+          "field": "customer.legacy_id",
+          "field_in": "response_body",
+          "evidence_tier": "T2_FIELD_MATCH",
+          "usage": "READS_CHANGED_FIELD",
+          "file": "src/api.js",
+          "line": 7,
+          "snippet": "console.log(res.data.customer.legacy_id)",
+          "explanation": "The code reads response field 'customer.legacy_id', whose type changed."
+        }
+      ],
+      "unresolved": [
+        "GET /customers/{id} (customer.legacy_id): The code reads response field 'customer.legacy_id', whose type changed."
+      ]
+    },
+    "final": {
+      "key": "final",
+      "title": "Both deployed",
+      "description": "P1 and C1 are both live: the end of either rollout order.",
+      "provider": "P1",
+      "consumer": "C1",
+      "status": "UNKNOWN",
+      "reason": "The effect of 1 of 1 contract change(s) on the consumer code at C1 could not be established. Unknown is not compatible.",
+      "evidence": [
+        {
+          "verdict": "UNKNOWN",
+          "change_type": "CHANGED_RESPONSE_FIELD_TYPE",
+          "method": "GET",
+          "path": "/customers/{id}",
+          "field": "customer.legacy_id",
+          "field_in": "response_body",
+          "evidence_tier": "T2_FIELD_MATCH",
+          "usage": "READS_CHANGED_FIELD",
+          "file": "src/api.js",
+          "line": 7,
+          "snippet": "console.log(res.data.customer.legacy_id)",
+          "explanation": "The code reads response field 'customer.legacy_id', whose type changed."
+        }
+      ],
+      "unresolved": [
+        "GET /customers/{id} (customer.legacy_id): The code reads response field 'customer.legacy_id', whose type changed."
+      ]
+    },
+    "contract_changes": [
+      {
+        "direction": "P0_TO_P1",
+        "change_type": "CHANGED_RESPONSE_FIELD_TYPE",
+        "method": "GET",
+        "path": "/customers/{id}",
+        "field": "customer.legacy_id",
+        "field_in": "response_body",
+        "previous_value": "200 response field customer.legacy_id: integer",
+        "new_value": "200 response field customer.legacy_id: string",
+        "spec_file": "openapi.json",
+        "json_pointer": "/paths/~1customers~1{id}/get/responses/200/content/application~1json/schema/properties/customer/properties/legacy_id/type",
+        "description": "Response field customer.legacy_id of status 200 changed type from integer to string."
+      },
+      {
+        "direction": "P1_TO_P0",
+        "change_type": "CHANGED_RESPONSE_FIELD_TYPE",
+        "method": "GET",
+        "path": "/customers/{id}",
+        "field": "customer.legacy_id",
+        "field_in": "response_body",
+        "previous_value": "200 response field customer.legacy_id: string",
+        "new_value": "200 response field customer.legacy_id: integer",
+        "spec_file": "openapi.json",
+        "json_pointer": "/paths/~1customers~1{id}/get/responses/200/content/application~1json/schema/properties/customer/properties/legacy_id/type",
+        "description": "Response field customer.legacy_id of status 200 changed type from string to integer."
+      }
+    ],
+    "unresolved": [
+      {
+        "scope": "Provider first",
+        "reason": "GET /customers/{id} (customer.legacy_id): The code reads response field 'customer.legacy_id', whose type changed."
+      }
+    ],
+    "limitations": [
+      "Only three kinds of contract change are detected: a removed path or operation, a newly required request value, and a changed response field type. Other differences between the two specifications (removed response fields, enum values, formats, status codes) are not analyzed, so \"compatible\" means compatible with respect to those three kinds.",
+      "Consumer evidence comes from reading source code at the given refs. A call that was not found, or could not be followed, never counts as evidence of compatibility.",
+      "The consumer is taken to call this provider because the request says so. Calls are matched by path; which host a call really reaches is not verified.",
+      "Reading a response field whose type changed is reported as unknown: whether the code copes with the new type cannot be told statically.",
+      "Nothing is executed and nothing is observed at runtime. Data migrations, feature flags, caches and gateways are outside this analysis."
+    ]
+  },
+  "fetch_failure": {
+    "recommendation": "UNRESOLVED",
+    "summary": "No order could be shown to be compatible with the evidence available. This is not a statement that the rollout is unsafe.",
+    "refs": [
+      {
+        "label": "P0",
+        "repository": "acme/billing",
+        "url": "https://github.com/acme/billing",
+        "ref": "v1",
+        "commit": "11aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+        "spec_file": "",
+        "api_title": "",
+        "api_version": "",
+        "files_read": null,
+        "problem": ""
+      },
+      {
+        "label": "P1",
+        "repository": "acme/billing",
+        "url": "https://github.com/acme/billing",
+        "ref": "v2",
+        "commit": "12aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+        "spec_file": "",
+        "api_title": "",
+        "api_version": "",
+        "files_read": null,
+        "problem": "No OpenAPI or Swagger file was found at the repository root or under docs/, api/, spec/, specs/, src/."
+      },
+      {
+        "label": "C0",
+        "repository": "acme/shop",
+        "url": "https://github.com/acme/shop",
+        "ref": "main",
+        "commit": "21aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+        "spec_file": "",
+        "api_title": "",
+        "api_version": "",
+        "files_read": 1,
+        "problem": ""
+      },
+      {
+        "label": "C1",
+        "repository": "acme/shop",
+        "url": "https://github.com/acme/shop",
+        "ref": "next",
+        "commit": "22aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+        "spec_file": "",
+        "api_title": "",
+        "api_version": "",
+        "files_read": 1,
+        "problem": ""
+      }
+    ],
+    "provider_first": {
+      "key": "provider_first",
+      "title": "Provider first",
+      "description": "P1 is deployed while the consumer is still C0.",
+      "provider": "P1",
+      "consumer": "C0",
+      "status": "UNKNOWN",
+      "reason": "This state could not be evaluated: P1: No OpenAPI or Swagger file was found at the repository root or under docs/, api/, spec/, specs/, src/.",
+      "evidence": [],
+      "unresolved": [
+        "P1: No OpenAPI or Swagger file was found at the repository root or under docs/, api/, spec/, specs/, src/."
+      ]
+    },
+    "consumer_first": {
+      "key": "consumer_first",
+      "title": "Consumer first",
+      "description": "C1 is deployed while the provider is still P0.",
+      "provider": "P0",
+      "consumer": "C1",
+      "status": "UNKNOWN",
+      "reason": "This state could not be evaluated: P1: No OpenAPI or Swagger file was found at the repository root or under docs/, api/, spec/, specs/, src/.",
+      "evidence": [],
+      "unresolved": [
+        "P1: No OpenAPI or Swagger file was found at the repository root or under docs/, api/, spec/, specs/, src/."
+      ]
+    },
+    "final": {
+      "key": "final",
+      "title": "Both deployed",
+      "description": "P1 and C1 are both live: the end of either rollout order.",
+      "provider": "P1",
+      "consumer": "C1",
+      "status": "UNKNOWN",
+      "reason": "This state could not be evaluated: P1: No OpenAPI or Swagger file was found at the repository root or under docs/, api/, spec/, specs/, src/.",
+      "evidence": [],
+      "unresolved": [
+        "P1: No OpenAPI or Swagger file was found at the repository root or under docs/, api/, spec/, specs/, src/."
+      ]
+    },
+    "contract_changes": [],
+    "unresolved": [
+      {
+        "scope": "P1",
+        "reason": "No OpenAPI or Swagger file was found at the repository root or under docs/, api/, spec/, specs/, src/."
+      }
+    ],
+    "limitations": [
+      "Only three kinds of contract change are detected: a removed path or operation, a newly required request value, and a changed response field type. Other differences between the two specifications (removed response fields, enum values, formats, status codes) are not analyzed, so \"compatible\" means compatible with respect to those three kinds.",
+      "Consumer evidence comes from reading source code at the given refs. A call that was not found, or could not be followed, never counts as evidence of compatibility.",
+      "The consumer is taken to call this provider because the request says so. Calls are matched by path; which host a call really reaches is not verified.",
+      "Reading a response field whose type changed is reported as unknown: whether the code copes with the new type cannot be told statically.",
+      "Nothing is executed and nothing is observed at runtime. Data migrations, feature flags, caches and gateways are outside this analysis."
+    ]
+  }
+}

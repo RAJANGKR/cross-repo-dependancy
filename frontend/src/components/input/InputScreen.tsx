@@ -45,9 +45,11 @@ interface InputScreenProps {
   onDismissError: () => void
   onSubmit: (targets: ScanTarget[]) => void
   onLoadDemo: () => void
+  /** Opens the rollout planner. The link is hidden when no handler is given. */
+  onOpenRollout?: () => void
 }
 
-export function InputScreen({ form, onFormChange, busy, error, onDismissError, onSubmit, onLoadDemo }: InputScreenProps) {
+export function InputScreen({ form, onFormChange, busy, error, onDismissError, onSubmit, onLoadDemo, onOpenRollout }: InputScreenProps) {
   const [limitationsOpen, setLimitationsOpen] = useState(false)
   const health = useBackendHealth()
 
@@ -65,6 +67,11 @@ export function InputScreen({ form, onFormChange, busy, error, onDismissError, o
             <a href="#how-it-works" className="hidden text-foreground/70 transition-colors hover:text-foreground sm:inline">
               How it works
             </a>
+            {onOpenRollout && (
+              <button type="button" onClick={onOpenRollout} className="text-foreground/70 transition-colors hover:text-foreground">
+                Rollout planner
+              </button>
+            )}
             <button
               type="button"
               onClick={() => setLimitationsOpen(true)}

@@ -6,6 +6,7 @@ import { useTheme } from './components/console/Shell'
 import { InputScreen } from './components/input/InputScreen'
 import type { FormState } from './components/input/RepoForm'
 import { ResultsScreen } from './components/results/ResultsScreen'
+import { RolloutPlanner } from './components/rollout/RolloutPlanner'
 import { ErrorState, NoResults } from './components/states/ErrorState'
 import { SignInScreen } from './components/states/SignInScreen'
 import { INITIAL_REPO_ROWS, USE_MOCK } from './config'
@@ -46,7 +47,7 @@ function AppShell() {
   const [form, setForm] = useState<FormState>(emptyForm)
 
   const goTo = useCallback(
-    (name: 'input' | 'results', keepQuery = false) =>
+    (name: 'input' | 'results' | 'rollout', keepQuery = false) =>
       navigate(`${ROUTE_PATHS[name]}${keepQuery ? route.search : carrySearch(route.search)}`),
     [route.search],
   )
@@ -93,6 +94,9 @@ function AppShell() {
   // Sign-in is optional. The sign-in screen appears only when a backend has
   // been configured to demand it (AUTH_REQUIRED=true).
   if (!USE_MOCK && auth.required && !auth.user) return <SignInScreen />
+
+  // The rollout planner is its own page with its own request; it does not share the scan's state.
+  if (route.name === 'rollout') return <RolloutPlanner onBack={() => goTo('input')} />
 
   if (state.phase === 'running') {
     return (
@@ -156,6 +160,7 @@ function AppShell() {
       onDismissError={reset}
       onSubmit={submit}
       onLoadDemo={demo}
+      onOpenRollout={() => goTo('rollout')}
     />
   )
 }

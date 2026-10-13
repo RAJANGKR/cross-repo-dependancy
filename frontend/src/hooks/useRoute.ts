@@ -1,11 +1,11 @@
 import { useMemo, useSyncExternalStore } from 'react'
 
 /**
- * Minimal history-based routing for the two screens (`/` and `/results`).
- * The project has no routing library and two routes do not justify one.
+ * Minimal history-based routing for the three screens (`/`, `/results` and
+ * `/rollout`). The project has no routing library and three routes do not justify one.
  */
 
-export type RouteName = 'input' | 'results'
+export type RouteName = 'input' | 'results' | 'rollout'
 
 const listeners = new Set<() => void>()
 
@@ -30,10 +30,11 @@ export function navigate(to: string, options: { replace?: boolean } = {}): void 
 }
 
 export function routeNameOf(pathname: string): RouteName {
-  return pathname.replace(/\/+$/, '') === '/results' ? 'results' : 'input'
+  const path = pathname.replace(/\/+$/, '')
+  return path === '/results' ? 'results' : path === '/rollout' ? 'rollout' : 'input'
 }
 
-export const ROUTE_PATHS: Record<RouteName, string> = { input: '/', results: '/results' }
+export const ROUTE_PATHS: Record<RouteName, string> = { input: '/', results: '/results', rollout: '/rollout' }
 
 export interface Route {
   name: RouteName

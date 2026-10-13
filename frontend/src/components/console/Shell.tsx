@@ -24,6 +24,7 @@ import { useEffect, useId, useMemo, useRef, useState, type KeyboardEvent, type R
 import type { ScanResult } from '../../api/scanTypes'
 import { isDrifted } from '../../lib/classify'
 import { cx } from '../../lib/cx'
+import { navigate, ROUTE_PATHS } from '../../hooks/useRoute'
 import type { DataSource as ScanSource } from '../../lib/exportMarkdown'
 import { teamMessage } from '../../lib/insights'
 import { updateStore, useStore, type Settings } from '../../lib/localStore'
@@ -266,6 +267,9 @@ export function Shell({ view, onView, source, result, badges, scanning, onScanAg
             <IconButton label="Scan again" disabled={scanning} disabledReason="A scan is already running" onClick={onScanAgain}>
               <RefreshCw aria-hidden="true" />
             </IconButton>
+            <Button size="sm" variant="ghost" onClick={() => navigate(ROUTE_PATHS.rollout)}>
+              Rollout planner
+            </Button>
             <Button size="sm" variant="primary" onClick={onNewScan}>
               New scan
             </Button>
