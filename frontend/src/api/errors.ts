@@ -161,6 +161,16 @@ export function toUiError(error: unknown): UiError {
     }
   }
 
+  if (status === 401 || code === 'SIGN_IN_REQUIRED') {
+    return {
+      kind: 'bad-request',
+      title: 'Sign in required',
+      message: serverMessage || 'Sign in with GitHub to start a scan.',
+      code,
+      actions: ['edit-input'],
+    }
+  }
+
   if (status === 400 || status === 422) {
     return {
       kind: 'bad-request',

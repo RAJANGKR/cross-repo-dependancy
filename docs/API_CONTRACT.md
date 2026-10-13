@@ -13,6 +13,10 @@ This describes what the backend serves today. The frontend's types in `frontend/
 | `GET /health`, `GET /api/v1/health` | Liveness and which optional services are configured. |
 | `POST /api/v1/scans` | Queue a scan. Returns `202` with a receipt. |
 | `GET /api/v1/scans/{scan_id}` | Scan status, progress and (when finished) the result. |
+| `GET /api/v1/auth/me` | `{ configured, required, user }`. `user` is `null` when signed out, else `{ id, login, name, avatar_url }`. |
+| `GET /api/v1/auth/github/login?return_to=` | Starts Sign in with GitHub. `return_to` must be a configured frontend origin. |
+| `GET /api/v1/auth/github/callback` | GitHub returns here. Sets the session cookie and redirects to the frontend, with `?auth_error=` on failure. |
+| `POST /api/v1/auth/logout` | Clears the session cookie. |
 | `GET /api/v1/demo` | A saved real run, as a completed scan record. `404 DEMO_NOT_AVAILABLE` if none is saved. |
 | `POST /api/v1/scan/compare`, `/parse-file`, `/upload-repo` | Earlier manifest-only endpoints, still served. |
 
@@ -64,6 +68,8 @@ Rules:
 ```json
 { "scan_id": "scn_a75b33111781", "status": "QUEUED", "created_at": "2026-10-13T10:14:08.144Z", "poll_url": "/api/v1/scans/scn_a75b33111781", "message": "Scan job initiated. Poll the poll_url for progress updates." }
 ```
+
+`401` with `error_code` `SIGN_IN_REQUIRED` only when the backend is started with `AUTH_REQUIRED=true` and the caller is signed out; the same then applies to `GET /api/v1/scans/{scan_id}`. By default sign-in is optional.
 
 `400` with `error_code` `INVALID_TARGETS` (bad count, URL, duplicate, unsupported or oversized file) or `INVALID_REQUEST` (malformed body).
 

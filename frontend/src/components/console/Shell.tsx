@@ -27,6 +27,7 @@ import { cx } from '../../lib/cx'
 import type { DataSource as ScanSource } from '../../lib/exportMarkdown'
 import { teamMessage } from '../../lib/insights'
 import { updateStore, useStore, type Settings } from '../../lib/localStore'
+import { AuthButton } from '../common/AuthButton'
 import { Button } from '../common/Button'
 import { IconButton, Menu, useCopy } from '../common/Controls'
 import { Dialog } from '../common/Dialog'
@@ -135,7 +136,7 @@ export function Shell({ view, onView, source, result, badges, scanning, onScanAg
   const ThemeIcon = settings.theme === 'dark' ? Moon : Sun
 
   const nav = (
-    <nav aria-label="Views" className="flex flex-col gap-1">
+    <nav aria-label="Views" className="flex flex-col gap-1.5">
       {VIEWS.map((name, index) => {
         const { label, icon: Icon } = VIEW_META[name]
         const badge = badges[name]
@@ -150,14 +151,14 @@ export function Shell({ view, onView, source, result, badges, scanning, onScanAg
               setDrawer(false)
             }}
             className={cx(
-              'flex items-center gap-3 rounded-md px-3 py-2 text-left text-sm transition-colors',
+              'flex min-h-12 items-center gap-3.5 rounded-lg px-4 py-3 text-left text-base transition-colors',
               view === name ? 'bg-foreground text-background' : 'text-foreground/70 hover:bg-secondary hover:text-foreground',
             )}
           >
-            <Icon aria-hidden="true" className="size-4 shrink-0" />
+            <Icon aria-hidden="true" className="size-5 shrink-0" />
             <span className={cx('flex-1 truncate', collapsed && 'lg:sr-only')}>{label}</span>
             {badge !== undefined && badge > 0 && (
-              <span className={cx('rounded-full px-1.5 font-mono text-xs tabular-nums', view === name ? 'bg-background/20' : 'bg-secondary', collapsed && 'lg:hidden')}>
+              <span className={cx('rounded-full px-2 py-0.5 font-mono text-sm tabular-nums', view === name ? 'bg-background/20' : 'bg-secondary', collapsed && 'lg:hidden')}>
                 {badge}
                 <span className="sr-only"> items</span>
               </span>
@@ -268,14 +269,15 @@ export function Shell({ view, onView, source, result, badges, scanning, onScanAg
             <Button size="sm" variant="primary" onClick={onNewScan}>
               New scan
             </Button>
+            <AuthButton size="sm" />
           </div>
         </div>
       </header>
 
       <div className="flex">
-        <aside className={cx('sticky top-[3.25rem] hidden h-[calc(100vh-3.25rem)] shrink-0 flex-col border-r border-border bg-card p-3 lg:flex print:hidden', collapsed ? 'w-16' : 'w-60')}>
+        <aside className={cx('sticky top-[3.25rem] hidden h-[calc(100vh-3.25rem)] shrink-0 flex-col border-r border-border bg-card p-3 lg:flex print:hidden', collapsed ? 'w-20' : 'w-72')}>
           {nav}
-          <IconButton label={collapsed ? 'Expand sidebar' : 'Collapse sidebar'} className="mt-auto" onClick={() => setSetting('sidebarCollapsed', !collapsed)}>
+          <IconButton label={collapsed ? 'Expand sidebar' : 'Collapse sidebar'} className="mt-auto size-10 [&_svg]:size-5" onClick={() => setSetting('sidebarCollapsed', !collapsed)}>
             {collapsed ? <PanelLeftOpen aria-hidden="true" /> : <PanelLeftClose aria-hidden="true" />}
           </IconButton>
         </aside>
@@ -285,7 +287,7 @@ export function Shell({ view, onView, source, result, badges, scanning, onScanAg
       {drawer && (
         <div className="fixed inset-0 z-50 lg:hidden">
           <div aria-hidden="true" className="absolute inset-0 bg-foreground/30" onClick={() => setDrawer(false)} />
-          <div role="dialog" aria-modal="true" aria-label="Views" className="relative h-full w-64 animate-fade-in bg-card p-3 shadow-panel" onKeyDown={(event) => event.key === 'Escape' && setDrawer(false)}>
+          <div role="dialog" aria-modal="true" aria-label="Views" className="relative h-full w-72 animate-fade-in bg-card p-3 shadow-panel" onKeyDown={(event) => event.key === 'Escape' && setDrawer(false)}>
             {nav}
           </div>
         </div>

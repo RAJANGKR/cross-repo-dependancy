@@ -162,7 +162,8 @@ export function ScanProvider({ children }: { children: ReactNode }) {
                 createScanClient({
                   baseUrl: API_BASE_URL,
                   timeoutMs: REQUEST_TIMEOUT_MS,
-                  fetchImpl: (input, init) => fetch(input, init),
+                  // The session cookie goes along, so a backend that requires sign-in recognizes the user.
+                  fetchImpl: (input, init) => fetch(input, { ...init, credentials: 'include' }),
                 }),
               pollIntervalMs: POLL_INTERVAL_MS,
             },

@@ -15,6 +15,14 @@ class Settings(BaseSettings):
     GEMINI_API_KEY: str = ""
     GEMINI_MODEL: str = "gemini-3.1-flash-lite"
 
+    # Sign in with GitHub (OAuth app). Optional: leave empty to run without sign-in.
+    GITHUB_OAUTH_CLIENT_ID: str = ""
+    GITHUB_OAUTH_CLIENT_SECRET: str = ""
+    # Signs session cookies. If empty, a random one is used and sessions end on restart.
+    SESSION_SECRET: str = ""
+    # Sign-in is optional by default. Set to true to refuse scans from signed-out callers.
+    AUTH_REQUIRED: bool = False
+
     # SQLite cache for public upstream data only (never pasted content).
     CACHE_ENABLED: bool = True
     CACHE_PATH: str = "driftlock_cache.db"

@@ -41,6 +41,8 @@ def no_live_network(monkeypatch):
     # Tests must behave the same whether or not a developer has keys in backend/.env.
     monkeypatch.setattr(settings, "GITHUB_TOKEN", "")
     monkeypatch.setattr(settings, "GEMINI_API_KEY", "")
+    # These tests are about scanning; sign-in is covered in test_auth.py.
+    monkeypatch.setattr(settings, "AUTH_REQUIRED", False)
 
 
 def test_full_scan_of_three_repositories():

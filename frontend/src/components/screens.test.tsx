@@ -69,6 +69,7 @@ afterEach(() => {
   cleanup()
   vi.useRealTimers()
   window.history.replaceState(null, '', '/')
+  vi.stubGlobal('fetch', () => Promise.reject(new TypeError('no network in tests')))
 })
 
 const SUBMITTED: SubmittedRepo[] = ['payment-service', 'core-service', 'customer-service'].map((name, index) => ({
@@ -514,10 +515,63 @@ describe('error state', () => {
   })
 })
 
+/** Answers GET /auth/me as the backend would; every other request fails, as with no network. */
+function stubAuth(reply: { configured: boolean; user: { login: string } | null; required?: boolean } | null) {
+  vi.stubGlobal('fetch', (input: RequestInfo | URL) =>
+    reply && String(input).endsWith('/auth/me')
+      ? Promise.resolve(new Response(JSON.stringify({ required: true, ...reply }), { status: 200 }))
+      : Promise.reject(new TypeError('no network in tests')),
+  )
+}
+
+describe('sign-in is optional', () => {
+  it('lets a signed-out visitor use the app and offers sign-in in the top bar', async () => {
+    stubAuth({ configured: true, user: null, required: false })
+    render(<App />)
+    expect(await screen.findByRole('button', { name: 'Sign in with GitHub' })).toBeTruthy()
+    expect(screen.getByRole('button', { name: /Analyze repositories/ })).toBeTruthy()
+    expect(screen.getByRole('button', { name: 'Load demo run' })).toBeTruthy()
+    expect(screen.queryByRole('heading', { name: 'Sign in to continue' })).toBeNull()
+  })
+
+  it('works with no backend at all', () => {
+    render(<App />)
+    expect(screen.getByRole('button', { name: /Analyze repositories/ })).toBeTruthy()
+    expect(screen.getByRole('button', { name: 'Load demo run' })).toBeTruthy()
+  })
+})
+
+describe('a backend that requires sign-in', () => {
+  it('shows only the sign-in screen to a signed-out visitor', async () => {
+    stubAuth({ configured: true, user: null })
+    render(<App />)
+    expect(await screen.findByRole('heading', { name: 'Sign in to continue' })).toBeTruthy()
+    expect(((await screen.findByRole('button', { name: 'Sign in with GitHub' })) as HTMLButtonElement).disabled).toBe(false)
+    // No way around it: no form, no demo.
+    expect(screen.queryByRole('button', { name: /Analyze repositories/ })).toBeNull()
+    expect(screen.queryByRole('button', { name: 'Load demo run' })).toBeNull()
+  })
+
+  it('also guards a direct link to the results', async () => {
+    window.history.replaceState(null, '', '/results?view=drifts')
+    stubAuth({ configured: true, user: null })
+    render(<App />)
+    expect(await screen.findByRole('heading', { name: 'Sign in to continue' })).toBeTruthy()
+  })
+
+  it('says why sign-in is impossible when the backend has no GitHub app', async () => {
+    stubAuth({ configured: false, user: null })
+    render(<App />)
+    expect(((await screen.findByRole('button', { name: 'Sign in with GitHub' })) as HTMLButtonElement).disabled).toBe(true)
+    expect(screen.getByText(/GitHub sign-in is not set up on the backend yet/)).toBeTruthy()
+  })
+
+})
+
 describe('app', () => {
   it('plays the demo scan through polling to the console, records history and applies the theme', async () => {
     vi.useFakeTimers()
-    render(<App />)
+    render(<App />) // signed out, with no backend: the demo still works
     expect(document.documentElement.dataset.theme).toBeDefined()
     click('Load demo run')
     await act(async () => {

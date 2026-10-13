@@ -1,9 +1,11 @@
 import json
 from pathlib import Path
 
-from fastapi import APIRouter, BackgroundTasks, Query
+from fastapi import APIRouter, BackgroundTasks, Query, Request
 from fastapi.responses import JSONResponse
 
+from app.api.v1.endpoints.auth import current_user
+from app.core.config import settings
 from app.core.security import InvalidTarget
 from app.schemas.scan import ScanAccepted, ScanCreateRequest, ScanRecord
 from app.services.scan_runner import run_scan, validate_request
@@ -18,8 +20,10 @@ def error(status: int, code: str, message: str, details: dict | None = None) -> 
 
 
 @router.post("/scans", tags=["Scans"], status_code=202, response_model=None)
-async def create_scan(request: ScanCreateRequest, background_tasks: BackgroundTasks, wait: bool = Query(False)):
+async def create_scan(request: ScanCreateRequest, background_tasks: BackgroundTasks, http_request: Request, wait: bool = Query(False)):
     """Queue a scan of 2 to 10 targets (GitHub URLs and pasted manifests can be mixed)."""
+    if settings.AUTH_REQUIRED and current_user(http_request) is None:
+        return error(401, "SIGN_IN_REQUIRED", "Sign in with GitHub to start a scan.")
     try:
         targets = validate_request(request)
     except InvalidTarget as invalid:
@@ -39,7 +43,9 @@ async def create_scan(request: ScanCreateRequest, background_tasks: BackgroundTa
 
 
 @router.get("/scans/{scan_id}", tags=["Scans"], response_model=None)
-async def get_scan(scan_id: str):
+async def get_scan(scan_id: str, http_request: Request):
+    if settings.AUTH_REQUIRED and current_user(http_request) is None:
+        return error(401, "SIGN_IN_REQUIRED", "Sign in with GitHub to read scan results.")
     record = scan_store.get(scan_id)
     if record is None:
         return error(404, "SCAN_NOT_FOUND", f"Scan with id '{scan_id[:40]}' does not exist or has expired.", {"scan_id": scan_id[:40]})

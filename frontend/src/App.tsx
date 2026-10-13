@@ -1,14 +1,16 @@
 import { useCallback, useEffect, useRef, useState } from 'react'
 import type { UiErrorAction } from './api/errors'
 import { AnalyzingState } from './components/analyzing/AnalyzingState'
-import { ToastProvider } from './components/common/Controls'
+import { ToastProvider, useToast } from './components/common/Controls'
 import { useTheme } from './components/console/Shell'
 import { InputScreen } from './components/input/InputScreen'
 import type { FormState } from './components/input/RepoForm'
 import { ResultsScreen } from './components/results/ResultsScreen'
 import { ErrorState, NoResults } from './components/states/ErrorState'
-import { INITIAL_REPO_ROWS } from './config'
+import { SignInScreen } from './components/states/SignInScreen'
+import { INITIAL_REPO_ROWS, USE_MOCK } from './config'
 import { AnnouncerProvider, useAnnounce } from './hooks/useAnnouncer'
+import { AUTH_ERRORS, AuthProvider, useAuth } from './hooks/useAuth'
 import { carrySearch, navigate, ROUTE_PATHS, useRoute } from './hooks/useRoute'
 import { ScanProvider, useScan } from './hooks/useScan'
 import { isDrifted } from './lib/classify'
@@ -25,7 +27,20 @@ function AppShell() {
   const route = useRoute()
   const { state, startScan, loadDemo, retry, cancel, reset } = useScan()
   const announce = useAnnounce()
+  const toast = useToast()
+  const auth = useAuth()
   useTheme()
+
+  // GitHub sends the browser back with ?auth_error=... when sign-in did not finish.
+  useEffect(() => {
+    const params = new URLSearchParams(window.location.search)
+    const problem = params.get('auth_error')
+    if (!problem) return
+    params.delete('auth_error')
+    const rest = params.toString()
+    navigate(`${window.location.pathname}${rest ? `?${rest}` : ''}`, { replace: true })
+    toast(AUTH_ERRORS[problem] ?? 'Sign-in did not complete. Try again.')
+  }, [toast])
   // Held here, above the screens, so the form survives a cancel or a new scan.
   // It is React state only: pasted content is never written to storage.
   const [form, setForm] = useState<FormState>(emptyForm)
@@ -74,6 +89,10 @@ function AppShell() {
       announce(`Scan complete: ${drifted} drifted ${drifted === 1 ? 'package' : 'packages'} found`)
     }
   }, [state, announce])
+
+  // Sign-in is optional. The sign-in screen appears only when a backend has
+  // been configured to demand it (AUTH_REQUIRED=true).
+  if (!USE_MOCK && auth.required && !auth.user) return <SignInScreen />
 
   if (state.phase === 'running') {
     return (
@@ -145,9 +164,11 @@ export default function App() {
   return (
     <AnnouncerProvider>
       <ToastProvider>
-        <ScanProvider>
-          <AppShell />
-        </ScanProvider>
+        <AuthProvider>
+          <ScanProvider>
+            <AppShell />
+          </ScanProvider>
+        </AuthProvider>
       </ToastProvider>
     </AnnouncerProvider>
   )

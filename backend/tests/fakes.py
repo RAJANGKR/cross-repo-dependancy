@@ -87,6 +87,14 @@ def handler(request: httpx.Request, overrides: Optional[Callable[[httpx.Request]
     host, path = request.url.host, request.url.path
     limit = {"x-ratelimit-remaining": "57"}
 
+    if host == "github.com" and path == "/login/oauth/access_token":
+        body = json.loads(request.content)
+        good = body.get("code") == "good-code"
+        return httpx.Response(200, json={"access_token": "gho_test_token"} if good else {"error": "bad_verification_code"})
+    if host == "api.github.com" and path == "/user":
+        if request.headers.get("authorization") != "Bearer gho_test_token":
+            return httpx.Response(401)
+        return httpx.Response(200, json={"id": 42, "login": "octocat", "name": "The Octocat", "avatar_url": "https://avatars.githubusercontent.com/u/42"})
     if host == "api.github.com":
         parts = path.strip("/").split("/")
         key = "/".join(parts[1:3])

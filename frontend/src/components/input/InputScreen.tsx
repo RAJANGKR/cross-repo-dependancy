@@ -4,6 +4,7 @@ import { API_BASE_URL } from '../../config'
 import { useBackendHealth, type BackendHealth } from '../../hooks/useBackendHealth'
 import { cx } from '../../lib/cx'
 import type { ScanTarget } from '../../lib/targets'
+import { AuthButton } from '../common/AuthButton'
 import { GlyphField } from '../common/GlyphField'
 import { Wordmark } from '../common/Tags'
 import { LimitationsDialog } from '../states/LimitationsDialog'
@@ -79,6 +80,7 @@ export function InputScreen({ form, onFormChange, busy, error, onDismissError, o
               <span aria-hidden="true" className={cx('size-2 rounded-full', HEALTH[health].dot)} />
               {HEALTH[health].label}
             </span>
+            <AuthButton />
           </div>
         </nav>
       </header>
