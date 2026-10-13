@@ -76,6 +76,11 @@ describe('contract analysis from the real backend', () => {
     expect(within(card('orders-v2', 'reports')).getByText(/None of the changes between 1\.0\.0 and 2\.0\.0 touches an endpoint it references/)).toBeTruthy()
     // Unverified, not-compared, malformed and missing are each named, never shown as compatible.
     expect(within(card('orders-v2', 'inventory')).getByText(/unverified; it is not ruled out/)).toBeTruthy()
+    // Shared paths without a host or naming signal are not presented as a consumer relationship.
+    const ambiguous = within(card('orders-v2', 'catalog'))
+    expect(ambiguous.getByText(/a shared path does not establish a provider-consumer relationship/)).toBeTruthy()
+    expect(ambiguous.queryByText(/finding/)).toBeNull()
+    expect(within(card('orders-v2', 'mobile-bff')).getByText(/Tied to this API by: .*server host orders\.acme\.example/)).toBeTruthy()
     expect(within(card('inventory')).getByText(/No other version of this API was found/)).toBeTruthy()
     expect(within(card('broken-spec')).getByText(/could not be parsed: not valid YAML/)).toBeTruthy()
     expect(within(card('service-a')).getByText(/No OpenAPI or Swagger file/)).toBeTruthy()

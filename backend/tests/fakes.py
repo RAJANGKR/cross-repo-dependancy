@@ -124,6 +124,7 @@ components:
 ORDERS_V2 = json.dumps({
     "openapi": "3.0.3",
     "info": {"title": "Orders API v2", "version": "2.0.0"},
+    "servers": [{"url": "https://orders.acme.example/v2"}],
     "paths": {
         "/health": {"get": {"responses": {"200": {"description": "ok"}}}},
         "/items": {"get": {"responses": {"200": {"description": "ok"}}}},
@@ -185,8 +186,22 @@ REPOS.update({
         "export const refund = (id) => fetch(`${BASE}/orders/${id}/refunds`, {\n  method: 'POST',\n})\n"
         "export const health = () => fetch(`${BASE}/health`)\n"
     )}),
-    # Calls the API, but only an endpoint that did not change.
-    "acme/reports": _repo("5", {"report.py": 'import requests\n\ndef items(base):\n    return requests.get(f"{base}/items").json()\n'}),
+    # Calls the API (the base URL names it), but only an endpoint that did not change.
+    "acme/reports": _repo("5", {"report.py": (
+        'import os\nimport requests\n\nORDERS_API = os.environ["ORDERS_API_URL"]\n\n'
+        'def items():\n    return requests.get(f"{ORDERS_API}/items").json()\n'
+    )}),
+    # Uses /items and /orders of some other shop service: shared paths, nothing naming the Orders API.
+    "acme/catalog": _repo("a", {"src/client.js": (
+        "const API = process.env.SHOP_API\n"
+        "export const items = () => fetch(`${API}/items`)\n"
+        "export const orders = () => fetch('https://shop.other.example/orders')\n"
+    )}),
+    # Calls the provider by the host its specification declares, building the path by concatenation.
+    "acme/mobile-bff": _repo("b", {"bff.py": (
+        'import requests\n\n\ndef cancel(order_id):\n'
+        '    return requests.delete("https://orders.acme.example/v2/orders/" + str(order_id))\n'
+    )}),
     # Serves its own /orders routes and calls nothing of the Orders API.
     "acme/gateway": _repo("6", {"server.js": "app.get('/orders', list)\nrouter.post('/orders', create)\nconst url = '/internal/admin/orders'\n"}),
     "acme/broken-spec": _repo("7", {"api/openapi.yaml": "openapi: 3.0.0\npaths: [unclosed\n"}),

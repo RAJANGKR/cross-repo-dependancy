@@ -172,14 +172,14 @@ Implemented in `backend/app/services/openapi_diff_engine.py`. Request option: `o
 | `status` | `consumer_repo` | Meaning |
 | --- | --- | --- |
 | `ANALYZED` | empty | Two versions of the same API were compared. `provider_repo` holds the newer one; `baseline` and `candidate` name both files. `findings` lists every change. |
-| `ANALYZED` | set | That repository's source code references endpoints of the changed API. `findings` holds only the changes on endpoints it references, and may be empty. |
+| `ANALYZED` | set | That repository's source code calls endpoints of the changed API, and the calls are tied to this API by a server host or a naming signal (`relationship.consumer_evidence`). `findings` holds only the changes on endpoints it references, and may be empty. |
 | `RELATIONSHIP_UNVERIFIED` | empty | The specification is the same API as another one, or might be, but identity or version order could not be established. Nothing was compared. |
-| `RELATIONSHIP_UNVERIFIED` | set | No reference to the API was found in that repository, or its source could not be scanned. It is not known to be a consumer and not ruled out. |
+| `RELATIONSHIP_UNVERIFIED` | set | No reference to the API was found in that repository, its source could not be scanned, or it only contains paths the API shares with other services and nothing ties them to this API (listed in `possible_references`). It is not known to be a consumer and not ruled out. |
 | `NOT_COMPARED` | empty | A valid specification with no other version of the same API in this scan. |
 | `SPEC_UNAVAILABLE` | empty | No specification was found, or it could not be downloaded. |
 | `MALFORMED_SPEC` | empty | A specification file was found and could not be parsed. |
 
-**Findings.** `change_type` is `REMOVED_PATH`, `REMOVED_OPERATION`, `NEW_REQUIRED_REQUEST_FIELD` or `CHANGED_RESPONSE_FIELD_TYPE`. `previous_value` and `new_value` are the before and after evidence. `spec_file` and `json_pointer` (RFC 6901) locate that evidence; for a removal they point into the baseline file, named by `spec_repository`. `severity` is `HIGH` or `MEDIUM`, a fixed value per change type. Additive fields: `classification` and, on consumer entries, `consumer_references` (`repository`, `file`, `line`, `snippet`, `match`).
+**Findings.** `change_type` is `REMOVED_PATH`, `REMOVED_OPERATION`, `NEW_REQUIRED_REQUEST_FIELD` or `CHANGED_RESPONSE_FIELD_TYPE`. `previous_value` and `new_value` are the before and after evidence. `spec_file` and `json_pointer` (RFC 6901) locate that evidence; for a removal they point into the baseline file, named by `spec_repository`. `severity` is `HIGH` or `MEDIUM`, a fixed value per change type. Additive fields: `classification` and, on consumer entries, `consumer_references` (`repository`, `file`, `line`, `snippet`, `match`), where `match` is `exact` or `concatenated`.
 
 **Four levels of claim, kept apart.**
 
@@ -195,7 +195,11 @@ Implemented in `backend/app/services/openapi_diff_engine.py`. Request option: `o
 
 Anything else is reported as `RELATIONSHIP_UNVERIFIED` or `NOT_COMPARED` with the reason in `message`.
 
-**Consumer references.** Only when a comparison found changes, the other GitHub repositories' source archives are searched (reusing the code-scan download) for quoted string literals that match a path template of the API, for example `` `${BASE}/orders/${id}` ``. Comment lines and server route declarations (`app.get(...)`, `@router.get(...)`, `@GetMapping`) are skipped. The text before the path may only be a placeholder, a scheme and host, or a base path the specification declares.
+**Consumer references.** Only when a comparison found changes, the other GitHub repositories' source archives are searched (reusing the code-scan download). Three questions are answered separately:
+
+1. *Is a string literal a path of the API?* The whole literal must be the path. `/orders/123/items` matches `/orders/{id}/items` and never `/orders` or `/orders/{id}`. A trailing slash, a query string and template placeholders (`${id}`, `{id}`, `%s`, `:id`) are accepted. String concatenation is read as one path, so `"/orders/" + id + "/items"` is `/orders/{id}/items`. Before the path only a base-URL placeholder, a scheme and host, or a base path the specification declares may appear; `/internal/${tenant}/orders` is not `/orders`. Comment lines and server route declarations (`app.get(...)`, `@router.get(...)`, `@GetMapping`) are skipped.
+2. *Which HTTP method does the call send?* Only the invocation that receives the literal is read: its name (`axios.post(...)`, `requests.delete(...)`, `postForObject(...)`) or a method named inside its own parentheses (`fetch(url, { method: 'POST' })`, `requests.request("PUT", url)`). `fetch(url)` with no options is a GET. Neighbouring statements, comments and log messages are never read. When the method cannot be determined, the reference counts for every method of that path.
+3. *Is the call addressed to this provider?* A path match alone never is. A reference is attributed only with a signal: a server host from the specification (`servers[].url`, Swagger `host`) in the URL, or a name containing a distinctive word of the API's title, id or repository (`ORDERS_API_URL`, `ordersClient.get(...)`). Names are followed one assignment back in the same file. The signals found are returned in `relationship.consumer_evidence`. References without a signal produce no finding and are listed in `possible_references`; if a repository has only those, the entry is `RELATIONSHIP_UNVERIFIED`.
 
 **Known limitations.**
 
@@ -203,6 +207,6 @@ Anything else is reported as `RELATIONSHIP_UNVERIFIED` or `NOT_COMPARED` with th
 - Only the default branch (or the requested ref) of each repository is read. Two versions of an API in the history of one repository are not compared; two specification files in one repository are.
 - A specification outside the listed folders or with another file name is not found. External `$ref` targets are not fetched, and `oneOf` / `anyOf` schemas are not compared; both produce no finding rather than a guess.
 - Not reported: removed response fields, enum changes, format changes, status code changes, security scheme changes, media type changes.
-- Consumer matching is textual. It cannot tell which host a call goes to, so a repository that calls a different service with the same path is reported as referencing the endpoint. `/health`, `/status` and similar universal paths are never counted. URLs built in ways other than a literal or a simple concatenation, calls under an undeclared base path, and languages outside `.py`, `.js`, `.ts`, `.jsx`, `.tsx`, `.mjs`, `.cjs`, `.java` are missed.
+- Consumer matching is textual and conservative. A genuine consumer whose base URL comes from an unnamed variable (`${API}/orders`), from another file, or from more than one assignment away is reported as unverified, not as a consumer. A naming signal is a heuristic: a variable named after a different service with the same word would be accepted. URLs built in ways other than a literal or a `+` concatenation on one line, calls under an undeclared base path, and languages outside `.py`, `.js`, `.ts`, `.jsx`, `.tsx`, `.mjs`, `.cjs`, `.java` are missed. `/health`, `/status` and similar universal paths are never counted.
 - A repository that holds a specification of the API is not checked as its consumer.
 - A consumer with no finding is not proven unaffected, and a consumer with a finding is not proven broken.

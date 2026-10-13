@@ -25,6 +25,7 @@ SCAN_TYPES = ROOT / "frontend" / "src" / "api" / "scanTypes.ts"
 def no_keys(monkeypatch):
     monkeypatch.setattr(settings, "GITHUB_TOKEN", "")
     monkeypatch.setattr(settings, "GEMINI_API_KEY", "")
+    monkeypatch.setattr(settings, "AUTH_REQUIRED", False)  # sign-in is covered separately below and in test_auth.py
 
 
 def spec(doc, repo="r", file="openapi.json"):
@@ -244,7 +245,7 @@ def refs(path, source, bases=("",), name="client.js"):
 
 def test_reference_matching_is_conservative():
     assert refs("/users/{id}", "axios.get(`${API}/users/${id}`)\nrequests.get(f\"{base}/users/{user_id}\")\nfetch('/users/42?full=1')\n") == [(1, "exact"), (2, "exact"), (3, "exact")]
-    assert refs("/users/{id}", 'url = base + "/users/" + str(uid)\n') == [(1, "prefix")]
+    assert refs("/users/{id}", 'url = base + "/users/" + str(uid)\n') == [(1, "concatenated")]
     assert refs("/users", "fetch('https://api.example.com/users')\n") == [(1, "exact")]
     # Not references: a longer path, a different prefix, a comment, a server route, an unquoted word.
     assert refs("/users", "fetch('/users/42')\nfetch('/internal/admin/users')\nfetch('/superusers')\n// fetch('/users')\napp.get('/users', handler)\n@router.get(\"/users\")\nlet users = 1\n") == []
@@ -395,7 +396,7 @@ def test_response_matches_the_frontend_contract_types():
     """Field names and types are read from frontend/src/api/scanTypes.ts itself."""
     entry_fields, finding_fields = interface_fields("ContractAnalysisEntry"), interface_fields("ContractFinding")
     assert set(entry_fields) == {"provider_repo", "consumer_repo", "status", "spec_file", "message", "findings"}
-    record = scan(github("orders-v1", "orders-v2", "storefront", "reports", "inventory", "broken-spec", "service-a"))
+    record = scan(github("orders-v1", "orders-v2", "storefront", "reports", "catalog", "mobile-bff", "inventory", "broken-spec", "service-a"))
     result = record.result["contract_analysis"]
     known = set(re.search(r"CONTRACT_STATES = \[(.*?)\]", SCAN_TYPES.read_text(encoding="utf-8")).group(1).replace("'", "").replace(" ", "").split(","))
     assert {e["status"] for e in result} == {"ANALYZED", "NOT_COMPARED", "MALFORMED_SPEC", "SPEC_UNAVAILABLE", "RELATIONSHIP_UNVERIFIED"} <= known
@@ -428,3 +429,209 @@ def test_api_returns_contract_analysis_through_the_async_lifecycle(monkeypatch):
     assert record["status"] == "COMPLETED"
     assert [(e["provider_repo"], e["consumer_repo"], e["status"], len(e["findings"])) for e in record["result"]["contract_analysis"]] == [
         ("orders-v2", "", "ANALYZED", 6), ("storefront", "", "SPEC_UNAVAILABLE", 0), ("orders-v2", "storefront", "ANALYZED", 2)]
+
+
+# ---- Regression: nested paths (defect A) -------------------------------------------
+
+ORDER_PATHS = ["/orders", "/orders/{id}", "/orders/{id}/items"]
+
+
+def attributed(source, paths=ORDER_PATHS, name="client.js", **signals):
+    """{spec path: [(line, match kind, methods)]} for one source file."""
+    found = find_references(paths, [""], {name: source}, **signals)
+    return {path: [(r["line"], r["match"], r["methods"]) for r in refs] for path, refs in found.items()}
+
+
+@pytest.mark.parametrize("source, expected", [
+    # Exact and nested routes are told apart in both directions.
+    ("x = '/orders'\n", "/orders"),
+    ("x = '/orders/'\n", "/orders"),                                        # trailing slash
+    ("x = '/orders?status=open'\n", "/orders"),
+    ("x = '/orders/123'\n", "/orders/{id}"),
+    ("x = '/orders/123/'\n", "/orders/{id}"),
+    ("x = '/orders/123/items'\n", "/orders/{id}/items"),                    # not /orders, not /orders/{id}
+    ("x = '/orders/123/items/9'\n", None),                                  # a deeper route the API does not define
+    # Template placeholders.
+    ("x = `${BASE}/orders`\n", "/orders"),
+    ("x = `${BASE}/orders/${id}`\n", "/orders/{id}"),
+    ("x = `${BASE}/orders/${id}/items`\n", "/orders/{id}/items"),
+    ('x = f"{base}/orders/{order_id}/items"\n', "/orders/{id}/items"),
+    ('x = "%s/orders/%s" % (base, oid)\n', "/orders/{id}"),
+    ("x = `https://shop.example.com/orders/${id}`\n", "/orders/{id}"),
+    # A path nested under other segments is a different route.
+    ("x = `/internal/${tenant}/orders`\n", None),
+    ("x = `${BASE}/admin/orders/${id}`\n", None),
+    ("x = `/v9/${region}/orders/${id}/items`\n", None),
+    ("x = '/internal/admin/orders'\n", None),
+])
+def test_exact_and_nested_routes_are_attributed_to_the_right_template(source, expected):
+    assert set(attributed(source)) == ({expected} if expected else set())
+
+
+@pytest.mark.parametrize("source, expected", [
+    ('u = base + "/orders"\n', "/orders"),
+    ('u = base + "/orders" + query\n', "/orders"),
+    ('u = base + "/orders/" + oid\n', "/orders/{id}"),
+    ('u = base + "/orders/" + str(oid)\n', "/orders/{id}"),
+    ('u = base + "/orders/" + oid + "/items"\n', "/orders/{id}/items"),      # previously reported as /orders
+    ("u = base + '/orders/' + order.id + '/items/'\n", "/orders/{id}/items"),
+    ('u = base + "/orders" + "/" + oid\n', "/orders/{id}"),                  # adjacent literals are one path
+    ('u = base + "/orders/" + a + b\n', "/orders/{id}"),
+    ('u = base + "/orders" +\n    "/items"\n', None),                         # split over lines: not attributed at all
+])
+def test_concatenated_paths_are_read_as_one_path(source, expected):
+    found = attributed(source)
+    assert set(found) == ({expected} if expected else set())
+    if expected and '" + ' in source.replace("'", '"').split("/orders", 1)[1][:6]:
+        assert found[expected][0][1] == "concatenated"
+
+
+def test_line_numbers_survive_concatenation_rewriting():
+    source = 'a = base + "/orders/" + x + "/items"\n\nb = base + "/orders/" + y\nc = "/orders"\n'
+    assert attributed(source) == {"/orders/{id}/items": [(1, "concatenated", [])], "/orders/{id}": [(3, "concatenated", [])], "/orders": [(4, "exact", [])]}
+
+
+# ---- Regression: HTTP method isolation (defect B) ----------------------------------
+
+AB = ["/a/items", "/a/other"]
+
+
+@pytest.mark.parametrize("source, name, expected", [
+    # Two calls on one line keep their own methods.
+    ("const a = axios.get(`${B}/a/items`); const b = axios.post(`${B}/a/other`)\n", "c.js", {"/a/items": ["GET"], "/a/other": ["POST"]}),
+    ("await Promise.all([fetch(`${B}/a/items`), fetch(`${B}/a/other`, { method: 'PATCH' })])\n", "c.js", {"/a/items": ["GET"], "/a/other": ["PATCH"]}),
+    ('requests.post(cfg.get("base") + "/a/items"); requests.delete(base + "/a/other")\n', "c.py", {"/a/items": ["POST"], "/a/other": ["DELETE"]}),
+    # Adjacent lines: an options object belongs to its own call only.
+    ("fetch(`${B}/a/items`)\nfetch(`${B}/a/other`, { method: 'DELETE' })\n", "c.js", {"/a/items": ["GET"], "/a/other": ["DELETE"]}),
+    ("fetch(`${B}/a/other`, { method: 'DELETE' })\nfetch(`${B}/a/items`)\n", "c.js", {"/a/items": ["GET"], "/a/other": ["DELETE"]}),
+    ("fetch(`${B}/a/items`, {\n  headers,\n  method: 'PUT',\n})\naxios.delete(`${B}/a/other`)\n", "c.js", {"/a/items": ["PUT"], "/a/other": ["DELETE"]}),
+    # Words in comments, logs and unrelated statements are not methods.
+    ("// DELETE is handled elsewhere\nconsole.log('POST done'); const url = `${B}/a/items`\nlogger.info('PUT /a/other')\n", "c.js", {"/a/items": []}),
+    ('log.info("DELETE requested")\nurl = f"{B}/a/items"\nsession.delete(other)\n', "c.py", {"/a/items": []}),
+    ("const opts = { method: 'POST' }\nconst url = `${B}/a/items`\nfetch(url, opts)\n", "c.js", {"/a/items": []}),          # not resolvable: unknown, not guessed
+    ("fetch(`${B}/a/items`, opts)\n", "c.js", {"/a/items": []}),
+    # Other call shapes.
+    ('requests.request("PUT", f"{B}/a/items")\n', "c.py", {"/a/items": ["PUT"]}),
+    ("axios.get(withQuery(`${B}/a/items`))\n", "c.js", {"/a/items": ["GET"]}),
+    ('restTemplate.postForObject(base + "/a/items", body, Item.class);\n', "C.java", {"/a/items": ["POST"]}),
+    ('client.exchange(base + "/a/items", HttpMethod.DELETE, entity, Void.class);\n', "C.java", {"/a/items": ["DELETE"]}),
+    ("fetch('/a/items (see docs)')\nfetch(`${B}/a/other`)\n", "c.js", {"/a/other": ["GET"]}),                            # parentheses inside strings are not calls
+])
+def test_the_http_method_comes_only_from_the_call_that_uses_the_path(source, name, expected):
+    assert {path: refs[0][2] for path, refs in attributed(source, AB, name).items()} == expected
+
+
+def orders_comparison():
+    _, (comparison,) = analyze_specs([RepoInput("orders-v1", {"openapi.yaml": ORDERS_V1}), RepoInput("orders-v2", {"docs/openapi.json": ORDERS_V2})])
+    return comparison
+
+
+def test_a_neighbouring_call_does_not_move_a_finding_to_the_wrong_reference():
+    source = (
+        "const ORDERS_URL = process.env.ORDERS_URL\n"
+        "export const getOrder = (id) => fetch(`${ORDERS_URL}/orders/${id}`)\n"                           # a GET
+        "export const purge = () => fetch(`${ORDERS_URL}/items`, { method: 'DELETE' })\n"                 # unrelated DELETE right below
+    )
+    entry = engine.consumer_entry(orders_comparison(), "web", {"api.js": source})
+    # Before the fix the DELETE below was read as this call's method: the removed
+    # DELETE /orders/{id} was attributed to line 2 and the GET type change was lost.
+    assert changes(entry["findings"]) == {("CHANGED_RESPONSE_FIELD_TYPE", "GET", "/orders/{orderId}")}
+    assert [r["line"] for r in entry["findings"][0]["consumer_references"]] == [2]
+
+
+# ---- Regression: provider-consumer evidence (defect C) -------------------------------
+
+def test_shared_generic_paths_alone_never_make_a_consumer():
+    comparison = orders_comparison()
+    for source in (
+        "fetch(`${API}/orders`)\nfetch(`${API}/items`)\n",                          # an unnamed base URL
+        "fetch('/orders')\naxios.post('/orders', body)\n",                           # no base URL at all
+        "fetch('https://shop.other.example/orders')\n",                              # a different host
+        "const USERS_URL = env.USERS_URL\nfetch(`${USERS_URL}/orders/${id}`)\n",     # a base URL naming another service
+    ):
+        entry = engine.consumer_entry(comparison, "other", {"a.js": source})
+        assert (entry["status"], entry["findings"]) == ("RELATIONSHIP_UNVERIFIED", []), source
+        assert "a shared path does not establish a provider-consumer relationship" in entry["message"]
+        assert "consumer_evidence" not in entry["relationship"]
+        assert entry["possible_references"] and all(set(ref) == {"path", "repository", "file", "line", "snippet", "match"} for ref in entry["possible_references"])
+
+
+@pytest.mark.parametrize("source, name, signal", [
+    ("fetch('https://orders.acme.example/v2/orders?status=open')\n", "a.js", "server host orders.acme.example"),
+    ("const BASE = 'https://orders.acme.example/v2'\nfetch(`${BASE}/orders?status=open`)\n", "a.js", "server host orders.acme.example"),
+    ("fetch(`${process.env.ORDERS_API_URL}/orders`)\n", "a.js", "identifier naming the API (order)"),
+    ("const ordersApi = axios.create({ baseURL: cfg.url })\nordersApi.get('/orders')\n", "a.js", "identifier naming the API (order)"),
+    ('class Client:\n    def __init__(self):\n        self.base_url = settings.ORDER_SERVICE\n\n    def list(self):\n        return requests.get(f"{self.base_url}/orders")\n', "a.py", "identifier naming the API (order)"),
+])
+def test_a_host_or_a_naming_signal_verifies_the_relationship(source, name, signal):
+    entry = engine.consumer_entry(orders_comparison(), "web", {name: source})
+    assert entry["status"] == "ANALYZED" and signal in entry["relationship"]["consumer_evidence"]
+    assert ("NEW_REQUIRED_REQUEST_FIELD", "GET", "/orders") in changes(entry["findings"])
+    assert signal in entry["message"]
+
+
+def test_only_attributed_references_carry_findings_in_a_mixed_repository():
+    files = {
+        "orders.js": "const ORDERS = process.env.ORDERS_URL\nexport const one = (id) => axios.get(`${ORDERS}/orders/${id}`)\n",
+        "shop.js": "const SHOP = process.env.SHOP_URL\nexport const refund = (id) => axios.post(`${SHOP}/orders/${id}/refunds`)\n",
+    }
+    entry = engine.consumer_entry(orders_comparison(), "web", files)
+    assert entry["status"] == "ANALYZED"
+    assert changes(entry["findings"]) == {("CHANGED_RESPONSE_FIELD_TYPE", "GET", "/orders/{orderId}")}   # the shop call's removed path is not claimed
+    assert [(ref["path"], ref["file"]) for ref in entry["possible_references"]] == [("/orders/{id}/refunds", "shop.js")]
+
+
+def test_identity_signals_ignore_generic_words_and_local_hosts():
+    assert engine.identity_words("Orders API v2", "orders-v2", "Internal REST Service") == ["order"]
+    assert engine.identity_words("Swagger Petstore - OpenAPI 3.0", "swagger-api/swagger-petstore@v3-1.0.27") == ["petstore"]
+    assert engine.provider_hosts({"servers": [{"url": "https://Orders.Acme.example/v2"}, {"url": "http://localhost:8080"}, {"url": "/relative"}, {"url": "https://{tenant}.x.io"}]}, {"host": "api.legacy.example"}) == ["api.legacy.example", "orders.acme.example"]
+
+
+def test_scan_reports_ambiguous_and_verified_consumers_differently():
+    record = scan(github("orders-v1", "orders-v2", "catalog", "mobile-bff", "storefront"))
+    (catalog,) = entries(record, consumer="catalog")
+    assert (catalog["status"], catalog["findings"]) == ("RELATIONSHIP_UNVERIFIED", [])
+    assert sorted(ref["path"] for ref in catalog["possible_references"]) == ["/items", "/orders"]
+
+    (bff,) = entries(record, consumer="mobile-bff")
+    assert bff["status"] == "ANALYZED" and "server host orders.acme.example" in bff["relationship"]["consumer_evidence"]
+    assert changes(bff["findings"]) == {("REMOVED_OPERATION", "DELETE", "/orders/{id}")}           # requests.delete, path joined with "+"
+    assert bff["findings"][0]["consumer_references"][0] | {"snippet": ""} == {"repository": "mobile-bff", "file": "bff.py", "line": 5, "match": "concatenated", "snippet": ""}
+    assert "the path is built by concatenation" in bff["findings"][0]["impact"]
+
+    (storefront,) = entries(record, consumer="storefront")
+    assert storefront["relationship"]["consumer_evidence"] == ["identifier naming the API (order)"]
+
+
+# ---- Sign-in next to contract analysis -----------------------------------------------
+
+def test_contract_scans_respect_mandatory_sign_in(monkeypatch):
+    from urllib.parse import parse_qs, urlparse
+    from fastapi.testclient import TestClient
+    from app.api.v1.endpoints import auth
+    from app.main import app
+
+    for name, value in (("GITHUB_OAUTH_CLIENT_ID", "client-id"), ("GITHUB_OAUTH_CLIENT_SECRET", "client-secret"), ("SESSION_SECRET", "test-secret"), ("AUTH_REQUIRED", True)):
+        monkeypatch.setattr(settings, name, value)
+    monkeypatch.setattr(auth, "Http", lambda **_kwargs: fake_http())
+    monkeypatch.setattr(scan_runner, "Http", lambda **_kwargs: fake_http())
+    monkeypatch.setattr(scan_runner, "shared_cache", lambda: None)
+    client = TestClient(app, follow_redirects=False)
+    body = {"repository_targets": github("orders-v1", "orders-v2", "storefront")}
+
+    refused = client.post("/api/v1/scans", json=body)
+    assert refused.status_code == 401 and refused.json()["error_code"] == "SIGN_IN_REQUIRED"
+
+    login = client.get("/api/v1/auth/github/login", params={"return_to": settings.cors_origins_list[0]})
+    state = parse_qs(urlparse(login.headers["location"]).query)["state"][0]
+    assert client.get("/api/v1/auth/github/callback", params={"code": "good-code", "state": state}).status_code == 302
+    assert client.get("/api/v1/auth/me").json()["user"]["login"] == "octocat"
+
+    accepted = client.post("/api/v1/scans", json=body)
+    assert accepted.status_code == 202
+    record = client.get(accepted.json()["poll_url"]).json()
+    assert record["status"] == "COMPLETED"
+    assert [(e["consumer_repo"], e["status"], len(e["findings"])) for e in record["result"]["contract_analysis"]] == [("", "ANALYZED", 6), ("", "SPEC_UNAVAILABLE", 0), ("storefront", "ANALYZED", 2)]
+    # The signed-in user's OAuth token is for identity only; it is never used to read repositories.
+    client.cookies.clear()
+    assert client.get(accepted.json()["poll_url"]).status_code == 401

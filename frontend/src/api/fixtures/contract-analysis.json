@@ -124,6 +124,22 @@
     "findings": []
   },
   {
+    "provider_repo": "catalog",
+    "consumer_repo": "",
+    "status": "SPEC_UNAVAILABLE",
+    "spec_file": "",
+    "message": "No OpenAPI or Swagger file (openapi/swagger .json, .yaml, .yml) was found at the repository root or under docs/, api/, spec/, specs/, src/.",
+    "findings": []
+  },
+  {
+    "provider_repo": "mobile-bff",
+    "consumer_repo": "",
+    "status": "SPEC_UNAVAILABLE",
+    "spec_file": "",
+    "message": "No OpenAPI or Swagger file (openapi/swagger .json, .yaml, .yml) was found at the repository root or under docs/, api/, spec/, specs/, src/.",
+    "findings": []
+  },
+  {
     "provider_repo": "inventory",
     "consumer_repo": "",
     "status": "NOT_COMPARED",
@@ -158,7 +174,7 @@
     "consumer_repo": "storefront",
     "status": "ANALYZED",
     "spec_file": "docs/openapi.json",
-    "message": "storefront references 3 endpoint(s) of \"Orders API v2\" (/orders/{id}, /orders/{id}/refunds, /orders/{orderId}); 2 changed between 1.0.0 and 2.0.0.",
+    "message": "storefront references 3 endpoint(s) of \"Orders API v2\" (/orders/{id}, /orders/{id}/refunds, /orders/{orderId}); 2 change(s) between 1.0.0 and 2.0.0 touch them. Tied to this API by: identifier naming the API (order).",
     "findings": [
       {
         "change_type": "REMOVED_PATH",
@@ -169,7 +185,7 @@
         "spec_file": "openapi.yaml",
         "json_pointer": "/paths/~1orders~1{id}~1refunds",
         "severity": "HIGH",
-        "impact": "storefront references this endpoint at src/api.js:5. Potentially breaking for clients that still call this path. A matching path in source code is evidence of use, not proof that the call reaches this service or fails at runtime.",
+        "impact": "storefront references this endpoint at src/api.js:5. Potentially breaking for clients that still call this path. A matching call in source code is evidence of use, not proof that it reaches this service or fails at runtime.",
         "classification": "CONSUMER_REFERENCE_FOUND",
         "description": "Path /orders/{id}/refunds exists in 1.0.0 and is absent from 2.0.0.",
         "spec_repository": "orders-v1",
@@ -192,7 +208,7 @@
         "spec_file": "docs/openapi.json",
         "json_pointer": "/components/schemas/Order/properties/id/type",
         "severity": "MEDIUM",
-        "impact": "storefront references this endpoint at src/api.js:4. Potentially breaking for clients that read this value with the previous type. A matching path in source code is evidence of use, not proof that the call reaches this service or fails at runtime.",
+        "impact": "storefront references this endpoint at src/api.js:4. Potentially breaking for clients that read this value with the previous type. A matching call in source code is evidence of use, not proof that it reaches this service or fails at runtime.",
         "classification": "CONSUMER_REFERENCE_FOUND",
         "description": "Response field id of status 200 changed type from integer to string.",
         "spec_repository": "orders-v2",
@@ -208,7 +224,10 @@
       }
     ],
     "relationship": {
-      "same_api_basis": "matching normalized info.title"
+      "same_api_basis": "matching normalized info.title",
+      "consumer_evidence": [
+        "identifier naming the API (order)"
+      ]
     },
     "baseline": {
       "repository": "orders-v1",
@@ -228,10 +247,105 @@
     "consumer_repo": "reports",
     "status": "ANALYZED",
     "spec_file": "docs/openapi.json",
-    "message": "reports references 1 endpoint(s) of \"Orders API v2\" (/items). None of the changes between 1.0.0 and 2.0.0 touches an endpoint it references.",
+    "message": "reports references 1 endpoint(s) of \"Orders API v2\" (/items). None of the changes between 1.0.0 and 2.0.0 touches an endpoint it references. Tied to this API by: identifier naming the API (order).",
+    "findings": [],
+    "relationship": {
+      "same_api_basis": "matching normalized info.title",
+      "consumer_evidence": [
+        "identifier naming the API (order)"
+      ]
+    },
+    "baseline": {
+      "repository": "orders-v1",
+      "spec_file": "openapi.yaml",
+      "version": "1.0.0",
+      "title": "Orders API"
+    },
+    "candidate": {
+      "repository": "orders-v2",
+      "spec_file": "docs/openapi.json",
+      "version": "2.0.0",
+      "title": "Orders API v2"
+    }
+  },
+  {
+    "provider_repo": "orders-v2",
+    "consumer_repo": "catalog",
+    "status": "RELATIONSHIP_UNVERIFIED",
+    "spec_file": "docs/openapi.json",
+    "message": "catalog contains 2 string(s) matching path(s) that \"Orders API v2\" also defines (/items, /orders), but nothing ties them to this API: no server host from the specification and no identifier naming the API was found. Other services expose the same paths, so a shared path does not establish a provider-consumer relationship.",
     "findings": [],
     "relationship": {
       "same_api_basis": "matching normalized info.title"
+    },
+    "baseline": {
+      "repository": "orders-v1",
+      "spec_file": "openapi.yaml",
+      "version": "1.0.0",
+      "title": "Orders API"
+    },
+    "candidate": {
+      "repository": "orders-v2",
+      "spec_file": "docs/openapi.json",
+      "version": "2.0.0",
+      "title": "Orders API v2"
+    },
+    "possible_references": [
+      {
+        "path": "/items",
+        "repository": "catalog",
+        "file": "src/client.js",
+        "line": 2,
+        "snippet": "export const items = () => fetch(`${API}/items`)",
+        "match": "exact"
+      },
+      {
+        "path": "/orders",
+        "repository": "catalog",
+        "file": "src/client.js",
+        "line": 3,
+        "snippet": "export const orders = () => fetch('https://shop.other.example/orders')",
+        "match": "exact"
+      }
+    ]
+  },
+  {
+    "provider_repo": "orders-v2",
+    "consumer_repo": "mobile-bff",
+    "status": "ANALYZED",
+    "spec_file": "docs/openapi.json",
+    "message": "mobile-bff references 2 endpoint(s) of \"Orders API v2\" (/orders/{id}, /orders/{orderId}); 1 change(s) between 1.0.0 and 2.0.0 touch them. Tied to this API by: identifier naming the API (order); server host orders.acme.example.",
+    "findings": [
+      {
+        "change_type": "REMOVED_OPERATION",
+        "path": "/orders/{id}",
+        "method": "DELETE",
+        "previous_value": "operation present",
+        "new_value": "operation not present",
+        "spec_file": "openapi.yaml",
+        "json_pointer": "/paths/~1orders~1{id}/delete",
+        "severity": "HIGH",
+        "impact": "mobile-bff references this endpoint at bff.py:5 (the path is built by concatenation). Potentially breaking for clients that still call this operation. A matching call in source code is evidence of use, not proof that it reaches this service or fails at runtime.",
+        "classification": "CONSUMER_REFERENCE_FOUND",
+        "description": "DELETE /orders/{id} exists in 1.0.0 and is absent from 2.0.0.",
+        "spec_repository": "orders-v1",
+        "consumer_references": [
+          {
+            "repository": "mobile-bff",
+            "file": "bff.py",
+            "line": 5,
+            "snippet": "return requests.delete(\"https://orders.acme.example/v2/orders/\" + str(order_id))",
+            "match": "concatenated"
+          }
+        ]
+      }
+    ],
+    "relationship": {
+      "same_api_basis": "matching normalized info.title",
+      "consumer_evidence": [
+        "identifier naming the API (order)",
+        "server host orders.acme.example"
+      ]
     },
     "baseline": {
       "repository": "orders-v1",
