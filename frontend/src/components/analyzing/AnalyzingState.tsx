@@ -1,52 +1,18 @@
-import { Check, CircleX, Clock, LoaderCircle, type LucideIcon } from 'lucide-react'
-import type { RunMode, SubmittedProject } from '../../hooks/useAnalysis'
+import { Check, LoaderCircle } from 'lucide-react'
+import { SCAN_STAGES, type ScanProgress } from '../../api/scanTypes'
+import type { SubmittedRepo } from '../../hooks/useScan'
 import { useElapsedSeconds } from '../../hooks/useUi'
 import { cx } from '../../lib/cx'
+import type { DataSource } from '../../lib/exportMarkdown'
 import { formatElapsed } from '../../lib/formatters'
 import { Button } from '../common/Button'
-import { Wordmark } from '../common/Tags'
+import { SourceBadge, Wordmark } from '../common/Tags'
 
-/** Per-project progress. The backend answers once at the end today, so every
- *  row is "fetching"; streamed statuses can be passed in later unchanged. */
-export type ProjectProgress = 'waiting' | 'fetching' | 'done' | 'failed'
-
-const PROGRESS: Record<ProjectProgress, { label: string; icon: LucideIcon; classes: string }> = {
-  waiting: { label: 'Waiting', icon: Clock, classes: 'text-muted-foreground' },
-  fetching: { label: 'In progress', icon: LoaderCircle, classes: 'text-foreground' },
-  done: { label: 'Done', icon: Check, classes: 'text-success' },
-  failed: { label: 'Failed', icon: CircleX, classes: 'text-risk-critical' },
-}
-
-export function ProjectStatusList({
-  projects,
-  statuses,
-}: {
-  projects: SubmittedProject[]
-  statuses?: Readonly<Record<string, ProjectProgress>>
-}) {
-  if (projects.length === 0) return null
-  return (
-    <ul aria-label="Project status" className="divide-y divide-border rounded-lg border border-border bg-card">
-      {projects.map((project) => {
-        const progress = statuses?.[project.name] ?? 'fetching'
-        const { label, icon: Icon, classes } = PROGRESS[progress]
-        return (
-          <li key={`${project.origin}:${project.name}`} className="flex items-center justify-between gap-4 px-4 py-3 text-sm">
-            <span className="min-w-0 truncate">
-              <span className="font-medium">{project.name}</span>
-              <span className="ml-2 font-mono text-xs text-muted-foreground">
-                {project.origin === 'github' ? 'GitHub' : 'Pasted'}
-              </span>
-            </span>
-            <span className={cx('inline-flex shrink-0 items-center gap-1.5', classes)}>
-              <Icon aria-hidden="true" className={cx('size-4', progress === 'fetching' && 'animate-spin')} />
-              {label}
-            </span>
-          </li>
-        )
-      })}
-    </ul>
-  )
+const STAGE_COPY: Record<string, { title: string; text: string }> = {
+  QUEUED: { title: 'Queued', text: 'The scan is accepted and waiting to start.' },
+  FETCHING: { title: 'Fetching', text: 'Reading manifests and lockfiles from GitHub.' },
+  PARSING: { title: 'Parsing', text: 'Extracting declared ranges and resolved versions.' },
+  ANALYZING: { title: 'Analyzing', text: 'Comparing versions and checking release evidence.' },
 }
 
 function Block({ className }: { className?: string }) {
@@ -58,14 +24,13 @@ export function DashboardSkeleton() {
   return (
     <div aria-hidden="true" className="space-y-8">
       <div className="grid grid-cols-2 gap-px overflow-hidden rounded-lg border border-border bg-border lg:grid-cols-4">
-        {[0, 1, 2, 3].map((item) => (
+        {[0, 1, 2, 3, 4, 5, 6, 7].map((item) => (
           <div key={item} className="bg-background p-6">
-            <Block className="h-12 w-20" />
+            <Block className="h-10 w-16" />
             <Block className="mt-3 h-4 w-28" />
           </div>
         ))}
       </div>
-      <Block className="h-[420px] w-full rounded-lg" />
       <div className="space-y-2">
         {[0, 1, 2, 3, 4].map((item) => (
           <Block key={item} className="h-14 w-full" />
@@ -76,15 +41,25 @@ export function DashboardSkeleton() {
 }
 
 interface AnalyzingStateProps {
-  mode: RunMode
+  source: DataSource
   startedAt: number
-  projects: SubmittedProject[]
-  statuses?: Readonly<Record<string, ProjectProgress>>
+  scanId: string | null
+  /** Latest backend status, or "SUBMITTING" before the first reply. */
+  status: string
+  progress: ScanProgress | null
+  repos: SubmittedRepo[]
   onCancel: () => void
 }
 
-export function AnalyzingState({ mode, startedAt, projects, statuses, onCancel }: AnalyzingStateProps) {
+export function AnalyzingState({ source, startedAt, scanId, status, progress, repos, onCancel }: AnalyzingStateProps) {
   const elapsed = useElapsedSeconds(startedAt)
+  const stageIndex = (SCAN_STAGES as readonly string[]).indexOf(status)
+  const known = stageIndex !== -1
+  const percentage = progress?.percentage ?? null
+  const current =
+    status === 'SUBMITTING'
+      ? 'Submitting the scan'
+      : progress?.current_action || STAGE_COPY[status]?.text || `Status: ${status}`
 
   return (
     <div className="guide-lines min-h-screen">
@@ -96,36 +71,81 @@ export function AnalyzingState({ mode, startedAt, projects, statuses, onCancel }
       </header>
 
       <main className="mx-auto max-w-[1400px] px-4 pb-24 pt-14 sm:px-6 lg:px-8">
-        <div className="grid gap-10 lg:grid-cols-[minmax(0,26rem)_minmax(0,1fr)] lg:gap-16">
+        <div className="grid gap-10 lg:grid-cols-[minmax(0,28rem)_minmax(0,1fr)] lg:gap-16">
           <section aria-labelledby="analyzing-title">
-            <p className="eyebrow">{mode === 'demo' ? 'Demo run' : 'Analysis'}</p>
+            <div className="flex flex-wrap items-center gap-3">
+              <p className="eyebrow">Scan in progress</p>
+              <SourceBadge source={source} />
+            </div>
             <h1 id="analyzing-title" className="mt-6 font-display text-4xl tracking-tight lg:text-5xl">
-              {mode === 'demo' ? 'Loading the saved demo run' : 'Analyzing your projects'}
+              {source === 'demo' ? 'Playing the demo scan' : 'Analyzing your repositories'}
             </h1>
-            <p className="mt-4 text-lg text-muted-foreground">
-              {mode === 'demo'
-                ? 'This is saved demo data, not a live scan.'
-                : 'Fetching manifests, comparing versions, checking risk'}
+            <p role="status" aria-live="polite" className="mt-4 min-h-14 text-lg text-muted-foreground">
+              {current}
             </p>
 
             <div
               role="progressbar"
-              aria-label="Analysis in progress"
-              aria-valuetext="In progress"
-              className="mt-8 h-1 overflow-hidden rounded-full bg-muted"
+              aria-label="Scan progress"
+              aria-valuemin={0}
+              aria-valuemax={100}
+              aria-valuenow={percentage ?? undefined}
+              aria-valuetext={percentage === null ? 'In progress' : `${percentage} percent`}
+              className="mt-6 h-1 overflow-hidden rounded-full bg-muted"
             >
-              <div className="h-full w-2/5 animate-indeterminate rounded-full bg-foreground" />
+              {percentage === null ? (
+                <div className="h-full w-2/5 animate-indeterminate rounded-full bg-foreground" />
+              ) : (
+                <div
+                  className="h-full rounded-full bg-foreground transition-[width] duration-500"
+                  style={{ width: `${Math.min(100, Math.max(0, percentage))}%` }}
+                />
+              )}
             </div>
-            <p className="mt-3 font-mono text-sm text-muted-foreground">
-              Elapsed{' '}
-              <time role="timer" aria-live="off" className="tabular-nums text-foreground">
-                {formatElapsed(elapsed)}
-              </time>
+            <p className="mt-3 flex flex-wrap gap-x-6 gap-y-1 font-mono text-sm text-muted-foreground">
+              <span>
+                Elapsed <span className="tabular-nums text-foreground">{formatElapsed(elapsed)}</span>
+              </span>
+              {percentage !== null && <span className="tabular-nums">{percentage}%</span>}
+              {scanId && <span className="break-all">{scanId}</span>}
             </p>
 
-            <div className="mt-8">
-              <ProjectStatusList projects={projects} statuses={statuses} />
-            </div>
+            <ol aria-label="Scan stages" className="mt-8 divide-y divide-border rounded-lg border border-border bg-card">
+              {SCAN_STAGES.map((stage, index) => {
+                const state = !known ? 'pending' : index < stageIndex ? 'done' : index === stageIndex ? 'active' : 'pending'
+                return (
+                  <li
+                    key={stage}
+                    aria-current={state === 'active' ? 'step' : undefined}
+                    className={cx('flex items-start gap-3 px-4 py-3 text-sm', state === 'pending' && 'text-muted-foreground')}
+                  >
+                    <span className="mt-0.5 flex size-5 shrink-0 items-center justify-center">
+                      {state === 'done' && <Check aria-hidden="true" className="size-4 text-success" />}
+                      {state === 'active' && <LoaderCircle aria-hidden="true" className="size-4 animate-spin" />}
+                      {state === 'pending' && <span aria-hidden="true" className="size-1.5 rounded-full bg-border" />}
+                    </span>
+                    <span>
+                      <span className="font-medium">{STAGE_COPY[stage]?.title}</span>
+                      <span className="sr-only">
+                        {state === 'done' ? ', done' : state === 'active' ? ', in progress' : ', not started'}
+                      </span>
+                      <span className="block text-muted-foreground">{STAGE_COPY[stage]?.text}</span>
+                    </span>
+                  </li>
+                )
+              })}
+            </ol>
+
+            {repos.length > 0 && (
+              <ul aria-label="Repositories in this scan" className="mt-6 space-y-1 text-sm">
+                {repos.map((repo) => (
+                  <li key={repo.url} className="flex flex-wrap gap-x-2">
+                    <span className="font-medium">{repo.label}</span>
+                    <span className="font-mono text-xs leading-5 text-muted-foreground">{repo.name}</span>
+                  </li>
+                ))}
+              </ul>
+            )}
           </section>
 
           <DashboardSkeleton />

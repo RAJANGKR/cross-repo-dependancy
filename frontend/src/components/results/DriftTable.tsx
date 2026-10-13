@@ -1,23 +1,18 @@
 import { ArrowDown, ArrowUp, ChevronsUpDown } from 'lucide-react'
 import { memo, useCallback, type KeyboardEvent } from 'react'
-import type { Drift } from '../../api/types'
+import type { DependencyDrift, RepoDeclaration } from '../../api/scanTypes'
 import { useKeyboardNav } from '../../hooks/useKeyboardNav'
 import { cx } from '../../lib/cx'
 import type { SortKey } from '../../lib/filterSort'
-import { LOW_CONFIDENCE_THRESHOLD } from '../../lib/formatters'
-import { RiskBadge } from '../common/RiskBadge'
-import { EcosystemTag, Tag, VersionChip } from '../common/Tags'
-import { Tooltip } from '../common/Tooltip'
-import { CONFIDENCE_HINT, ConfidenceMeter } from '../detail/ConfidenceMeter'
-
-const VISIBLE_VERSIONS = 3
+import { DriftBadge, RiskBadge } from '../common/Badges'
+import { EcosystemTag } from '../common/Tags'
 
 /** Natural direction of each sort, used for aria-sort. */
 const NATURAL_ORDER: Record<SortKey, 'ascending' | 'descending'> = {
+  drift: 'descending',
   risk: 'descending',
-  score: 'descending',
-  library: 'ascending',
-  projects: 'descending',
+  name: 'ascending',
+  ecosystem: 'ascending',
 }
 
 interface SortHeaderProps {
@@ -26,16 +21,15 @@ interface SortHeaderProps {
   active: SortKey
   reversed: boolean
   onSort: (key: SortKey) => void
-  className?: string
 }
 
-function SortHeader({ label, sortKey, active, reversed, onSort, className }: SortHeaderProps) {
+function SortHeader({ label, sortKey, active, reversed, onSort }: SortHeaderProps) {
   const isActive = active === sortKey
   const natural = NATURAL_ORDER[sortKey]
   const direction = !isActive ? 'none' : reversed ? (natural === 'ascending' ? 'descending' : 'ascending') : natural
   const Icon = direction === 'none' ? ChevronsUpDown : direction === 'ascending' ? ArrowUp : ArrowDown
   return (
-    <th scope="col" aria-sort={direction} className={cx('px-4 py-3 text-left font-normal', className)}>
+    <th scope="col" aria-sort={direction} className="px-4 py-3 text-left align-bottom font-normal">
       <button
         type="button"
         onClick={() => onSort(sortKey)}
@@ -51,22 +45,37 @@ function SortHeader({ label, sortKey, active, reversed, onSort, className }: Sor
   )
 }
 
-function PlainHeader({ label, hint, className }: { label: string; hint?: string; className?: string }) {
+/** One repository's view of a package. Declared and resolved are never merged. */
+function DeclarationCell({ declaration }: { declaration: RepoDeclaration | undefined }) {
+  if (!declaration) {
+    return <span className="text-sm text-muted-foreground">Not declared</span>
+  }
   return (
-    <th scope="col" className={cx('px-4 py-3 text-left font-mono text-xs font-normal uppercase text-muted-foreground', className)}>
-      {hint ? (
-        <Tooltip label={hint} focusable>
-          <span className="underline decoration-dotted underline-offset-4">{label}</span>
-        </Tooltip>
-      ) : (
-        label
-      )}
-    </th>
+    <dl className="space-y-1 text-xs">
+      <div className="flex gap-2">
+        <dt className="w-16 shrink-0 text-muted-foreground">Declared</dt>
+        <dd className="break-all font-mono">{declaration.declared_range || 'Not provided'}</dd>
+      </div>
+      <div className="flex gap-2">
+        <dt className="w-16 shrink-0 text-muted-foreground">Resolved</dt>
+        <dd className={cx('break-all', declaration.resolved_version ? 'font-mono tabular-nums' : 'text-muted-foreground')}>
+          {declaration.resolved_version ?? 'Not resolved'}
+        </dd>
+      </div>
+      <div className="flex gap-2">
+        <dt className="w-16 shrink-0 text-muted-foreground">Source</dt>
+        <dd className="break-all text-muted-foreground">
+          {declaration.source_file || 'Not provided'}
+          {declaration.dep_type && declaration.dep_type !== 'runtime' && ` (${declaration.dep_type})`}
+        </dd>
+      </div>
+    </dl>
   )
 }
 
 interface DriftRowProps {
-  drift: Drift
+  row: DependencyDrift
+  repos: readonly string[]
   index: number
   active: boolean
   selected: boolean
@@ -77,7 +86,8 @@ interface DriftRowProps {
 }
 
 const DriftRow = memo(function DriftRow({
-  drift,
+  row,
+  repos,
   index,
   active,
   selected,
@@ -86,17 +96,13 @@ const DriftRow = memo(function DriftRow({
   onKeyDown,
   registerRow,
 }: DriftRowProps) {
-  const visible = drift.versions.slice(0, VISIBLE_VERSIONS)
-  const hidden = drift.versions.slice(VISIBLE_VERSIONS)
-  const lowConfidence = drift.confidence !== null && drift.confidence < LOW_CONFIDENCE_THRESHOLD
-
   return (
     <tr
       ref={registerRow(index)}
       tabIndex={active ? 0 : -1}
       aria-selected={selected}
       aria-rowindex={index + 2}
-      onClick={() => onSelect(drift.id)}
+      onClick={() => onSelect(row.id)}
       onFocus={() => onFocusRow(index)}
       onKeyDown={onKeyDown}
       className={cx(
@@ -105,49 +111,31 @@ const DriftRow = memo(function DriftRow({
       )}
     >
       <th scope="row" className="px-4 py-4 text-left align-top font-medium">
-        <span className="break-all">{drift.library}</span>
-      </th>
-      <td className="px-4 py-4 align-top">
-        <EcosystemTag ecosystem={drift.ecosystem} />
-      </td>
-      <td className="px-4 py-4 align-top">
-        {drift.versions.length === 0 ? (
-          <span className="text-sm text-muted-foreground">Not available</span>
-        ) : (
-          <span className="flex flex-wrap gap-1.5">
-            {visible.map((entry) => (
-              <VersionChip key={`${entry.repo}:${entry.file}`} repo={entry.repo} version={entry.version} />
-            ))}
-            {hidden.length > 0 && (
-              <Tooltip
-                focusable
-                label={hidden.map((entry) => `${entry.repo} ${entry.version}`).join(', ')}
-              >
-                <span className="rounded-sm bg-secondary px-2 py-0.5 font-mono text-xs text-muted-foreground">
-                  +{hidden.length} more
-                </span>
-              </Tooltip>
-            )}
-          </span>
-        )}
-      </td>
-      <td className="px-4 py-4 align-top font-mono text-xs">{drift.gap}</td>
-      <td className="px-4 py-4 align-top">
-        <RiskBadge level={drift.risk} />
-      </td>
-      <td className="px-4 py-4 text-right align-top font-mono tabular-nums">{drift.score}</td>
-      <td className="px-4 py-4 align-top">
-        <span className="flex flex-col items-start gap-1.5">
-          <ConfidenceMeter confidence={drift.confidence} />
-          {lowConfidence && <Tag tone="warning">Low confidence</Tag>}
+        <span className="break-all">{row.dependency_name}</span>
+        <span className="mt-1.5 block">
+          <EcosystemTag ecosystem={row.ecosystem} />
         </span>
+      </th>
+      {repos.map((repo) => (
+        <td key={repo} className="px-4 py-4 align-top">
+          <DeclarationCell declaration={row.declarations_by_repo[repo]} />
+        </td>
+      ))}
+      <td className="px-4 py-4 align-top">
+        <DriftBadge value={row.drift_disparity} />
+      </td>
+      <td className="px-4 py-4 align-top">
+        <RiskBadge value={row.compatibility_risk} />
       </td>
     </tr>
   )
 })
 
 interface DriftTableProps {
-  drifts: Drift[]
+  rows: DependencyDrift[]
+  /** Repository names, one column each. */
+  repos: readonly string[]
+  repoLabel: (name: string) => string
   selectedId: string | null
   onSelect: (id: string) => void
   sort: SortKey
@@ -155,55 +143,60 @@ interface DriftTableProps {
   onSort: (key: SortKey) => void
 }
 
-export function DriftTable({ drifts, selectedId, onSelect, sort, reversed, onSort }: DriftTableProps) {
+export function DriftTable({ rows, repos, repoLabel, selectedId, onSelect, sort, reversed, onSort }: DriftTableProps) {
   const activate = useCallback(
     (index: number) => {
-      const drift = drifts[index]
-      if (drift) onSelect(drift.id)
+      const row = rows[index]
+      if (row) onSelect(row.id)
     },
-    [drifts, onSelect],
+    [rows, onSelect],
   )
-  const nav = useKeyboardNav(drifts.length, activate)
+  const nav = useKeyboardNav(rows.length, activate)
 
   return (
     <div className="overflow-x-auto rounded-lg border border-border bg-card">
       <table
         role="grid"
-        aria-label="Drifted libraries"
-        aria-rowcount={drifts.length + 1}
-        aria-describedby="drift-table-help"
-        className="w-full min-w-[56rem] border-collapse text-sm"
+        aria-label="Dependency comparison across repositories"
+        aria-rowcount={rows.length + 1}
+        className="w-full min-w-[64rem] border-collapse text-sm"
       >
-        <caption id="drift-table-help" className="sr-only">
-          Use the up and down arrow keys to move between rows, Home and End to jump to the first or last
-          row, and Enter or Space to open the details.
+        <caption className="sr-only">
+          One row per package. Use the up and down arrow keys to move between rows, Home and End to jump to the
+          first or last row, and Enter or Space to open the details.
         </caption>
         <thead>
           <tr aria-rowindex={1}>
-            <SortHeader label="Library" sortKey="library" active={sort} reversed={reversed} onSort={onSort} />
-            <PlainHeader label="Ecosystem" />
-            <SortHeader label="Versions by project" sortKey="projects" active={sort} reversed={reversed} onSort={onSort} />
-            <PlainHeader label="Gap" />
-            <SortHeader label="Risk" sortKey="risk" active={sort} reversed={reversed} onSort={onSort} />
-            <SortHeader label="Score" sortKey="score" active={sort} reversed={reversed} onSort={onSort} className="text-right" />
-            <PlainHeader label="Confidence" hint={CONFIDENCE_HINT} />
+            <SortHeader label="Package" sortKey="name" active={sort} reversed={reversed} onSort={onSort} />
+            {repos.map((repo) => {
+              const label = repoLabel(repo)
+              return (
+                <th key={repo} scope="col" className="px-4 py-3 text-left align-bottom font-normal">
+                  <span className="block text-sm font-medium">{label}</span>
+                  {label !== repo && <span className="block font-mono text-xs text-muted-foreground">{repo}</span>}
+                </th>
+              )
+            })}
+            <SortHeader label="Drift" sortKey="drift" active={sort} reversed={reversed} onSort={onSort} />
+            <SortHeader label="Compatibility risk" sortKey="risk" active={sort} reversed={reversed} onSort={onSort} />
           </tr>
         </thead>
         <tbody>
-          {drifts.length === 0 ? (
+          {rows.length === 0 ? (
             <tr>
-              <td colSpan={7} className="border-t border-border px-4 py-12 text-center text-muted-foreground">
-                No drifts match these filters
+              <td colSpan={repos.length + 3} className="border-t border-border px-4 py-12 text-center text-muted-foreground">
+                No packages match these filters
               </td>
             </tr>
           ) : (
-            drifts.map((drift, index) => (
+            rows.map((row, index) => (
               <DriftRow
-                key={drift.id}
-                drift={drift}
+                key={row.id}
+                row={row}
+                repos={repos}
                 index={index}
                 active={index === nav.activeIndex}
-                selected={drift.id === selectedId}
+                selected={row.id === selectedId}
                 onSelect={onSelect}
                 onFocusRow={nav.setActiveIndex}
                 onKeyDown={nav.onKeyDown}

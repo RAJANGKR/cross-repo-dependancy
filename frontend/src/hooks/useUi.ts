@@ -98,27 +98,3 @@ export function useFocusTrap(containerRef: RefObject<HTMLElement | null>): void 
     }
   }, [containerRef])
 }
-
-/** Calls `onOutside` for a pointer press outside `ref`, while `active`. */
-export function useOutsidePress(
-  ref: RefObject<HTMLElement | null>,
-  active: boolean,
-  onOutside: () => void,
-): void {
-  const handlerRef = useRef(onOutside)
-  useEffect(() => {
-    handlerRef.current = onOutside
-  }, [onOutside])
-
-  useEffect(() => {
-    if (!active) return
-    const onPointerDown = (event: PointerEvent) => {
-      const target = event.target
-      if (ref.current && target instanceof Node && !ref.current.contains(target)) {
-        handlerRef.current()
-      }
-    }
-    document.addEventListener('pointerdown', onPointerDown)
-    return () => document.removeEventListener('pointerdown', onPointerDown)
-  }, [ref, active])
-}

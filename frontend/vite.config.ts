@@ -12,5 +12,9 @@ export default defineConfig({
   test: {
     environment: 'node',
     include: ['src/**/*.test.{ts,tsx}'],
+    // Threads start faster than forked processes, which matters when the
+    // project sits in a synced folder and jsdom is slow to load from disk.
+    pool: 'threads',
+    testTimeout: 20_000,
   },
 })

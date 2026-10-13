@@ -1,24 +1,32 @@
-import type { ReportGraph, RiskLevel } from '../api/types'
-import { ecosystemOfId, libraryLabel } from './formatters'
-import { RISK_RANK } from './risk'
+import type { DependencyDrift } from '../api/scanTypes'
+import { driftMeta, isDrifted } from './classify'
 
 export const NODE_WIDTH = 220
 export const NODE_HEIGHT = 44
 export const ROW_GAP = 16
 export const COLUMN_GAP = 300
-/** Above this many library nodes the full view gets a density note. */
-export const LARGE_GRAPH_THRESHOLD = 60
 
 const ROW_PITCH = NODE_HEIGHT + ROW_GAP
-const LIBRARY_X = NODE_WIDTH + COLUMN_GAP
+const PACKAGE_X = NODE_WIDTH + COLUMN_GAP
+
+export const GRAPH_VIEWS = ['drifted', 'shared', 'all'] as const
+export type GraphView = (typeof GRAPH_VIEWS)[number]
+
+export const GRAPH_VIEW_LABELS: Record<GraphView, string> = {
+  drifted: 'Drifted packages',
+  shared: 'All shared packages',
+  all: 'Every package',
+}
 
 export interface LayoutNode {
   id: string
-  kind: 'repo' | 'library'
+  kind: 'repo' | 'package'
   label: string
   ecosystem: string
-  risk: RiskLevel | null
-  drifted: boolean
+  /** Drift classification of a package node; empty for repositories. */
+  drift: string
+  /** Used by two or more repositories. */
+  shared: boolean
   x: number
   y: number
 }
@@ -27,89 +35,100 @@ export interface LayoutEdge {
   id: string
   source: string
   target: string
-  version: string
-  raw_spec: string
+  declared_range: string
+  resolved_version: string | null
 }
 
 export interface GraphLayout {
   nodes: LayoutNode[]
   edges: LayoutEdge[]
   height: number
-  /** Library nodes in the report, drifted or not. */
-  totalLibraries: number
-  /** Library nodes left out of this layout. */
-  hiddenLibraries: number
+  totalPackages: number
+  hiddenPackages: number
+}
+
+export const repoNodeId = (name: string) => `repo:${name}`
+
+function inView(row: DependencyDrift, view: GraphView): boolean {
+  if (view === 'all') return true
+  if (view === 'shared') return row.present_in_repos.length > 1
+  return isDrifted(row.drift_disparity)
+}
+
+/** The most useful default: drifted packages if there are any, else shared ones. */
+export function defaultGraphView(rows: readonly DependencyDrift[]): GraphView {
+  if (rows.some((row) => isDrifted(row.drift_disparity))) return 'drifted'
+  return rows.some((row) => row.present_in_repos.length > 1) ? 'shared' : 'all'
 }
 
 /**
- * Deterministic two-column layout: projects on the left, libraries on the
- * right, one row each, so nodes can never overlap. By default only drifted
- * libraries and the projects that use them are included.
+ * Deterministic two-column layout built only from the drift matrix:
+ * repositories on the left, packages on the right, one row each, so nodes can
+ * never overlap. Every edge is a declaration the backend reported; no
+ * service-to-service links are inferred.
  */
-export function buildGraph(graph: ReportGraph, options: { showAll: boolean }): GraphLayout {
-  const libraries = graph.nodes.filter((node) => node.type === 'library')
-  const visibleLibraries = libraries
-    .filter((node) => options.showAll || node.drifted)
+export function buildGraph(
+  rows: readonly DependencyDrift[],
+  repoOrder: readonly string[],
+  view: GraphView,
+): GraphLayout {
+  const visible = rows
+    .filter((row) => inView(row, view))
     .sort(
       (a, b) =>
-        Number(b.drifted) - Number(a.drifted) ||
-        (b.risk ? RISK_RANK[b.risk] : -1) - (a.risk ? RISK_RANK[a.risk] : -1) ||
-        a.id.localeCompare(b.id),
+        driftMeta(b.drift_disparity).rank - driftMeta(a.drift_disparity).rank ||
+        b.present_in_repos.length - a.present_in_repos.length ||
+        a.dependency_name.localeCompare(b.dependency_name),
     )
-  const libraryIds = new Set(visibleLibraries.map((node) => node.id))
 
-  const repoIds = new Set(
-    graph.nodes.filter((node) => node.type === 'repo').map((node) => node.id),
-  )
-  const seenEdges = new Set<string>()
   const edges: LayoutEdge[] = []
-  for (const edge of graph.edges) {
-    const id = `${edge.source}->${edge.target}`
-    if (!repoIds.has(edge.source) || !libraryIds.has(edge.target) || seenEdges.has(id)) continue
-    seenEdges.add(id)
-    edges.push({ id, ...edge })
+  const connected = new Set<string>()
+  for (const row of visible) {
+    for (const [repo, declaration] of Object.entries(row.declarations_by_repo)) {
+      connected.add(repo)
+      edges.push({
+        id: `${repo}->${row.id}`,
+        source: repoNodeId(repo),
+        target: row.id,
+        declared_range: declaration.declared_range,
+        resolved_version: declaration.resolved_version,
+      })
+    }
   }
 
-  const connectedRepos = new Set(edges.map((edge) => edge.source))
-  const visibleRepos = graph.nodes.filter(
-    (node) => node.type === 'repo' && connectedRepos.has(node.id),
-  )
+  const repos = [
+    ...repoOrder.filter((name) => connected.has(name)),
+    ...[...connected].filter((name) => !repoOrder.includes(name)),
+  ]
 
-  const rows = Math.max(visibleRepos.length, visibleLibraries.length, 1)
-  const height = rows * ROW_PITCH - ROW_GAP
+  const rowCount = Math.max(repos.length, visible.length, 1)
+  const height = rowCount * ROW_PITCH - ROW_GAP
   const columnTop = (count: number) => (height - (count * ROW_PITCH - ROW_GAP)) / 2
-
-  const repoTop = columnTop(visibleRepos.length)
-  const libraryTop = columnTop(visibleLibraries.length)
+  const repoTop = columnTop(repos.length)
+  const packageTop = columnTop(visible.length)
 
   const nodes: LayoutNode[] = [
-    ...visibleRepos.map((node, index) => ({
-      id: node.id,
+    ...repos.map((name, index) => ({
+      id: repoNodeId(name),
       kind: 'repo' as const,
-      label: node.id,
+      label: name,
       ecosystem: '',
-      risk: null,
-      drifted: false,
+      drift: '',
+      shared: false,
       x: 0,
       y: repoTop + index * ROW_PITCH,
     })),
-    ...visibleLibraries.map((node, index) => ({
-      id: node.id,
-      kind: 'library' as const,
-      label: libraryLabel(node.id),
-      ecosystem: ecosystemOfId(node.id),
-      risk: node.drifted ? node.risk : null,
-      drifted: node.drifted,
-      x: LIBRARY_X,
-      y: libraryTop + index * ROW_PITCH,
+    ...visible.map((row, index) => ({
+      id: row.id,
+      kind: 'package' as const,
+      label: row.dependency_name,
+      ecosystem: row.ecosystem,
+      drift: row.drift_disparity,
+      shared: row.present_in_repos.length > 1,
+      x: PACKAGE_X,
+      y: packageTop + index * ROW_PITCH,
     })),
   ]
 
-  return {
-    nodes,
-    edges,
-    height,
-    totalLibraries: libraries.length,
-    hiddenLibraries: libraries.length - visibleLibraries.length,
-  }
+  return { nodes, edges, height, totalPackages: rows.length, hiddenPackages: rows.length - visible.length }
 }

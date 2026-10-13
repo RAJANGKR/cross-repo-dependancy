@@ -1,38 +1,88 @@
 import { Search, X } from 'lucide-react'
 import { useEffect, useId, useRef, useState } from 'react'
-import { RISK_LEVELS, type RiskLevel } from '../../api/types'
 import { useDebouncedValue } from '../../hooks/useUi'
+import { driftMeta, riskMeta, type ClassMeta } from '../../lib/classify'
 import { cx } from '../../lib/cx'
-import { hasActiveFilters, SORT_KEYS, SORT_LABELS, type DriftFilters, type SortKey } from '../../lib/filterSort'
+import { hasActiveFilters, SORT_KEYS, SORT_LABELS, type DriftFilters } from '../../lib/filterSort'
 import { ecosystemLabel } from '../../lib/formatters'
-import { RISK_STYLES } from '../../lib/risk'
 import { Button } from '../common/Button'
-import { RISK_ICONS } from '../common/RiskBadge'
 
 const SEARCH_DEBOUNCE_MS = 200
 
-const CHIP =
-  'inline-flex h-8 items-center gap-1.5 rounded-full border px-3 text-xs transition-colors [&_svg]:size-3.5'
+const CHIP = 'inline-flex h-8 items-center gap-1.5 rounded-full border px-3 text-xs transition-colors [&_svg]:size-3.5'
 const CHIP_OFF = 'border-border bg-card text-foreground/70 hover:border-foreground/40 hover:text-foreground'
 const CHIP_ON = 'border-foreground bg-foreground text-background'
 
-function toggle<T>(list: readonly T[], item: T): T[] {
+function toggle(list: readonly string[], item: string): string[] {
   return list.includes(item) ? list.filter((value) => value !== item) : [...list, item]
+}
+
+interface ChipGroupProps {
+  label: string
+  values: string[]
+  selected: string[]
+  labelOf: (value: string) => string
+  onToggle: (value: string) => void
+}
+
+function ChipGroup({ label, values, selected, labelOf, onToggle }: ChipGroupProps) {
+  if (values.length === 0) return null
+  return (
+    <div role="group" aria-label={`Filter by ${label.toLowerCase()}`} className="flex flex-wrap items-center gap-2">
+      <span aria-hidden="true" className="font-mono text-xs uppercase text-muted-foreground">
+        {label}
+      </span>
+      {values.map((value) => {
+        const on = selected.includes(value)
+        return (
+          <button
+            key={value}
+            type="button"
+            aria-pressed={on}
+            onClick={() => onToggle(value)}
+            className={cx(CHIP, on ? CHIP_ON : CHIP_OFF)}
+          >
+            {labelOf(value)}
+          </button>
+        )
+      })}
+    </div>
+  )
+}
+
+/** Known classifications first in severity order, then anything unrecognized. */
+function ordered(values: string[], meta: (value: string) => ClassMeta): string[] {
+  return [...values].sort((a, b) => meta(b).rank - meta(a).rank)
 }
 
 interface FiltersProps {
   filters: DriftFilters
   onChange: (filters: DriftFilters) => void
   ecosystems: string[]
-  /** Project picked from the graph, or null. */
-  project: string | null
-  onClearProject: () => void
+  drifts: string[]
+  risks: string[]
+  /** Repository picked from the graph, or null. */
+  repo: string | null
+  repoLabel: (name: string) => string
+  onClearRepo: () => void
   onClearAll: () => void
   shown: number
   total: number
 }
 
-export function Filters({ filters, onChange, ecosystems, project, onClearProject, onClearAll, shown, total }: FiltersProps) {
+export function Filters({
+  filters,
+  onChange,
+  ecosystems,
+  drifts,
+  risks,
+  repo,
+  repoLabel,
+  onClearRepo,
+  onClearAll,
+  shown,
+  total,
+}: FiltersProps) {
   const searchId = useId()
   const sortId = useId()
 
@@ -62,23 +112,25 @@ export function Filters({ filters, onChange, ecosystems, project, onClearProject
       <div className="flex flex-wrap items-end gap-x-6 gap-y-4">
         <div className="min-w-56 flex-1">
           <label htmlFor={searchId} className="block font-mono text-xs uppercase text-muted-foreground">
-            Search
+            Search packages
           </label>
           <div className="relative mt-1.5">
-            <Search aria-hidden="true" className="pointer-events-none absolute left-3 top-1/2 size-4 -translate-y-1/2 text-muted-foreground" />
+            <Search
+              aria-hidden="true"
+              className="pointer-events-none absolute left-3 top-1/2 size-4 -translate-y-1/2 text-muted-foreground"
+            />
             <input
               id={searchId}
               type="search"
               value={text}
               onChange={(event) => setText(event.target.value)}
-              placeholder="Library or project name"
+              placeholder="Package name"
               autoComplete="off"
               spellCheck={false}
               className="h-10 w-full rounded-full border border-input bg-card pl-9 pr-4 text-sm placeholder:text-muted-foreground/70"
             />
           </div>
         </div>
-
         <div>
           <label htmlFor={sortId} className="block font-mono text-xs uppercase text-muted-foreground">
             Sort by
@@ -92,7 +144,7 @@ export function Filters({ filters, onChange, ecosystems, project, onClearProject
             }}
             className="mt-1.5 h-10 rounded-full border border-input bg-card px-4 text-sm"
           >
-            {SORT_KEYS.map((key: SortKey) => (
+            {SORT_KEYS.map((key) => (
               <option key={key} value={key}>
                 {SORT_LABELS[key]}
               </option>
@@ -102,57 +154,34 @@ export function Filters({ filters, onChange, ecosystems, project, onClearProject
       </div>
 
       <div className="flex flex-wrap items-center gap-x-6 gap-y-3">
-        <div role="group" aria-label="Filter by risk" className="flex flex-wrap items-center gap-2">
-          <span aria-hidden="true" className="font-mono text-xs uppercase text-muted-foreground">
-            Risk
-          </span>
-          {RISK_LEVELS.map((level: RiskLevel) => {
-            const Icon = RISK_ICONS[level]
-            const on = filters.risks.includes(level)
-            return (
-              <button
-                key={level}
-                type="button"
-                aria-pressed={on}
-                onClick={() => onChange({ ...filters, risks: toggle(filters.risks, level) })}
-                className={cx(CHIP, on ? CHIP_ON : CHIP_OFF)}
-              >
-                <Icon aria-hidden="true" className={on ? undefined : RISK_STYLES[level].text} />
-                {level}
-              </button>
-            )
-          })}
-        </div>
-
-        {ecosystems.length > 0 && (
-          <div role="group" aria-label="Filter by ecosystem" className="flex flex-wrap items-center gap-2">
-            <span aria-hidden="true" className="font-mono text-xs uppercase text-muted-foreground">
-              Ecosystem
-            </span>
-            {ecosystems.map((ecosystem) => {
-              const on = filters.ecosystems.includes(ecosystem)
-              return (
-                <button
-                  key={ecosystem}
-                  type="button"
-                  aria-pressed={on}
-                  onClick={() => onChange({ ...filters, ecosystems: toggle(filters.ecosystems, ecosystem) })}
-                  className={cx(CHIP, on ? CHIP_ON : CHIP_OFF)}
-                >
-                  {ecosystemLabel(ecosystem)}
-                </button>
-              )
-            })}
-          </div>
-        )}
-
-        {project !== null && (
+        <ChipGroup
+          label="Drift"
+          values={ordered(drifts, driftMeta)}
+          selected={filters.drifts}
+          labelOf={(value) => driftMeta(value).label}
+          onToggle={(value) => onChange({ ...filters, drifts: toggle(filters.drifts, value) })}
+        />
+        <ChipGroup
+          label="Risk"
+          values={ordered(risks, riskMeta)}
+          selected={filters.risks}
+          labelOf={(value) => riskMeta(value).label}
+          onToggle={(value) => onChange({ ...filters, risks: toggle(filters.risks, value) })}
+        />
+        <ChipGroup
+          label="Ecosystem"
+          values={ecosystems}
+          selected={filters.ecosystems}
+          labelOf={ecosystemLabel}
+          onToggle={(value) => onChange({ ...filters, ecosystems: toggle(filters.ecosystems, value) })}
+        />
+        {repo !== null && (
           <span className={cx(CHIP, 'border-foreground/40 bg-secondary pr-1')}>
-            Project: {project}
+            Repository: {repoLabel(repo)}
             <button
               type="button"
-              onClick={onClearProject}
-              aria-label={`Remove project filter ${project}`}
+              onClick={onClearRepo}
+              aria-label={`Remove repository filter ${repoLabel(repo)}`}
               className="rounded-full p-1 hover:bg-foreground/10"
             >
               <X aria-hidden="true" />
@@ -164,9 +193,9 @@ export function Filters({ filters, onChange, ecosystems, project, onClearProject
       <div className="flex flex-wrap items-center gap-3">
         <p role="status" className="text-sm text-muted-foreground">
           Showing <span className="tabular-nums text-foreground">{shown}</span> of{' '}
-          <span className="tabular-nums text-foreground">{total}</span> drifts
+          <span className="tabular-nums text-foreground">{total}</span> packages
         </p>
-        {hasActiveFilters(filters, project) && (
+        {hasActiveFilters(filters, repo) && (
           <Button size="sm" variant="ghost" onClick={onClearAll}>
             <X aria-hidden="true" />
             Clear filters

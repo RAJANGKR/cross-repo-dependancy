@@ -1,119 +1,120 @@
-import { RISK_LEVELS, type Drift, type RiskLevel } from '../api/types'
-import { RISK_RANK } from './risk'
+import type { DependencyDrift } from '../api/scanTypes'
+import { driftMeta, riskMeta } from './classify'
 
-export const SORT_KEYS = ['risk', 'score', 'library', 'projects'] as const
+export const SORT_KEYS = ['drift', 'risk', 'name', 'ecosystem'] as const
 export type SortKey = (typeof SORT_KEYS)[number]
 
 export const SORT_LABELS: Record<SortKey, string> = {
-  risk: 'Risk, Critical first',
-  score: 'Score, high to low',
-  library: 'Library, A to Z',
-  projects: 'Projects affected, most first',
+  drift: 'Drift, largest first',
+  risk: 'Compatibility risk, highest first',
+  name: 'Package name, A to Z',
+  ecosystem: 'Ecosystem',
 }
 
 export interface DriftFilters {
-  /** Empty means all levels. */
-  risks: RiskLevel[]
-  /** Empty means all ecosystems. */
-  ecosystems: string[]
   query: string
+  /** Empty means all. */
+  ecosystems: string[]
+  /** Drift classifications. Empty means all. */
+  drifts: string[]
+  /** Compatibility risks. Empty means all. */
+  risks: string[]
   sort: SortKey
-  /** Reverses the order of the chosen sort. */
   reversed: boolean
 }
 
 export const DEFAULT_FILTERS: DriftFilters = {
-  risks: [],
-  ecosystems: [],
   query: '',
-  sort: 'risk',
+  ecosystems: [],
+  drifts: [],
+  risks: [],
+  sort: 'drift',
   reversed: false,
 }
 
-export function hasActiveFilters(filters: DriftFilters, project: string | null): boolean {
+export function hasActiveFilters(filters: DriftFilters, repo: string | null): boolean {
   return (
-    filters.risks.length > 0 ||
-    filters.ecosystems.length > 0 ||
     filters.query.trim() !== '' ||
-    project !== null
+    filters.ecosystems.length > 0 ||
+    filters.drifts.length > 0 ||
+    filters.risks.length > 0 ||
+    repo !== null
   )
 }
 
-function projectCount(drift: Drift): number {
-  return new Set(drift.versions.map((entry) => entry.repo)).size
+const byName = (a: DependencyDrift, b: DependencyDrift) =>
+  a.dependency_name.localeCompare(b.dependency_name, undefined, { sensitivity: 'base' })
+const byDrift = (a: DependencyDrift, b: DependencyDrift) =>
+  driftMeta(b.drift_disparity).rank - driftMeta(a.drift_disparity).rank
+const byRisk = (a: DependencyDrift, b: DependencyDrift) =>
+  riskMeta(b.compatibility_risk).rank - riskMeta(a.compatibility_risk).rank
+
+const COMPARATORS: Record<SortKey, (a: DependencyDrift, b: DependencyDrift) => number> = {
+  drift: (a, b) => byDrift(a, b) || byRisk(a, b),
+  risk: (a, b) => byRisk(a, b) || byDrift(a, b),
+  name: byName,
+  ecosystem: (a, b) => a.ecosystem.localeCompare(b.ecosystem),
 }
 
-const COMPARATORS: Record<SortKey, (a: Drift, b: Drift) => number> = {
-  risk: (a, b) => RISK_RANK[b.risk] - RISK_RANK[a.risk] || b.score - a.score,
-  score: (a, b) => b.score - a.score || RISK_RANK[b.risk] - RISK_RANK[a.risk],
-  library: (a, b) => a.library.localeCompare(b.library, undefined, { sensitivity: 'base' }),
-  projects: (a, b) => projectCount(b) - projectCount(a) || b.score - a.score,
-}
-
-export function sortDrifts(drifts: readonly Drift[], sort: SortKey, reversed = false): Drift[] {
+export function sortDrifts(rows: readonly DependencyDrift[], sort: SortKey, reversed = false): DependencyDrift[] {
   const compare = COMPARATORS[sort]
-  const sorted = [...drifts].sort(
-    (a, b) => compare(a, b) || a.library.localeCompare(b.library) || a.id.localeCompare(b.id),
-  )
+  const sorted = [...rows].sort((a, b) => compare(a, b) || byName(a, b) || a.id.localeCompare(b.id))
   return reversed ? sorted.reverse() : sorted
 }
 
-/** Applies risk, ecosystem, search and project filters, then sorts. */
+/** Applies search, ecosystem, drift, risk and repository filters, then sorts. */
 export function filterDrifts(
-  drifts: readonly Drift[],
+  rows: readonly DependencyDrift[],
   filters: DriftFilters,
-  project: string | null = null,
-): Drift[] {
+  repo: string | null = null,
+): DependencyDrift[] {
   const query = filters.query.trim().toLowerCase()
-  const matching = drifts.filter((drift) => {
-    if (filters.risks.length > 0 && !filters.risks.includes(drift.risk)) return false
-    if (filters.ecosystems.length > 0 && !filters.ecosystems.includes(drift.ecosystem)) return false
-    if (project !== null && !drift.versions.some((entry) => entry.repo === project)) return false
-    if (query === '') return true
-    return (
-      drift.library.toLowerCase().includes(query) ||
-      drift.versions.some((entry) => entry.repo.toLowerCase().includes(query))
-    )
+  const matching = rows.filter((row) => {
+    if (filters.ecosystems.length > 0 && !filters.ecosystems.includes(row.ecosystem)) return false
+    if (filters.drifts.length > 0 && !filters.drifts.includes(row.drift_disparity)) return false
+    if (filters.risks.length > 0 && !filters.risks.includes(row.compatibility_risk)) return false
+    if (repo !== null && !(repo in row.declarations_by_repo)) return false
+    return query === '' || row.dependency_name.toLowerCase().includes(query)
   })
   return sortDrifts(matching, filters.sort, filters.reversed)
 }
 
-/** Ecosystems present in the data, in first-seen order. */
-export function ecosystemsIn(drifts: readonly Drift[]): string[] {
-  return [...new Set(drifts.map((drift) => drift.ecosystem).filter((eco) => eco !== ''))]
+/** Distinct values of a field in first-seen order, for building filter chips. */
+export function valuesIn(
+  rows: readonly DependencyDrift[],
+  key: 'ecosystem' | 'drift_disparity' | 'compatibility_risk',
+): string[] {
+  return [...new Set(rows.map((row) => row[key]).filter((value) => value !== ''))]
 }
 
 // ---- URL query string ------------------------------------------------------
-// Only filter values and the selected drift id go into the URL. Pasted manifest
-// content never does.
 
-const OWNED_PARAMS = ['risk', 'eco', 'q', 'sort', 'selected'] as const
+const OWNED_PARAMS = ['q', 'eco', 'drift', 'risk', 'sort', 'selected'] as const
 
 export interface UrlViewState {
   filters: DriftFilters
   selected: string | null
 }
 
+function listParam(params: URLSearchParams, key: string): string[] {
+  return (params.get(key) ?? '').split(',').filter((value) => value !== '')
+}
+
 export function viewStateFromSearch(search: string): UrlViewState {
   const params = new URLSearchParams(search)
-  const risks = (params.get('risk') ?? '')
-    .split(',')
-    .filter((value): value is RiskLevel => (RISK_LEVELS as readonly string[]).includes(value))
-  const ecosystems = (params.get('eco') ?? '').split(',').filter((value) => value !== '')
   const rawSort = params.get('sort') ?? ''
   const reversed = rawSort.startsWith('-')
   const sortName = reversed ? rawSort.slice(1) : rawSort
-  const sort = (SORT_KEYS as readonly string[]).includes(sortName)
-    ? (sortName as SortKey)
-    : DEFAULT_FILTERS.sort
+  const sort = SORT_KEYS.find((key) => key === sortName)
 
   return {
     filters: {
-      risks,
-      ecosystems,
       query: params.get('q') ?? '',
-      sort,
-      reversed: (SORT_KEYS as readonly string[]).includes(sortName) && reversed,
+      ecosystems: listParam(params, 'eco'),
+      drifts: listParam(params, 'drift'),
+      risks: listParam(params, 'risk'),
+      sort: sort ?? DEFAULT_FILTERS.sort,
+      reversed: sort !== undefined && reversed,
     },
     selected: params.get('selected') || null,
   }
@@ -125,9 +126,10 @@ export function viewStateToSearch(state: UrlViewState, currentSearch: string): s
   for (const key of OWNED_PARAMS) params.delete(key)
 
   const { filters, selected } = state
-  if (filters.risks.length > 0) params.set('risk', filters.risks.join(','))
-  if (filters.ecosystems.length > 0) params.set('eco', filters.ecosystems.join(','))
   if (filters.query.trim() !== '') params.set('q', filters.query.trim())
+  if (filters.ecosystems.length > 0) params.set('eco', filters.ecosystems.join(','))
+  if (filters.drifts.length > 0) params.set('drift', filters.drifts.join(','))
+  if (filters.risks.length > 0) params.set('risk', filters.risks.join(','))
   if (filters.sort !== DEFAULT_FILTERS.sort || filters.reversed) {
     params.set('sort', `${filters.reversed ? '-' : ''}${filters.sort}`)
   }

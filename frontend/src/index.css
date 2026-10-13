@@ -37,6 +37,13 @@
   --color-risk-critical: #c20011;
   --color-risk-critical-tint: #fbdfe1;
 
+  /* Neutral ramp for charts and unclassified items. */
+  --color-chart-1: #080503;
+  --color-chart-2: #433830;
+  --color-chart-3: #7b6f66;
+  --color-chart-4: #a89c92;
+  --color-chart-5: #d3ccc7;
+
   --color-success: #2a6548;
   --color-success-tint: #e3efe8;
   --color-warning: #7d5200;

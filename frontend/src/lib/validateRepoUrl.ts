@@ -2,13 +2,13 @@ const PREFIX = 'https://github.com/'
 const SEGMENT = /^[A-Za-z0-9._-]+$/
 
 export interface ParsedRepo {
-  /** Cleaned URL, sent to the backend exactly as is. */
+  /** `https://github.com/{owner}/{repo}`, without a branch. */
   url: string
   owner: string
   repo: string
   /** Branch, tag or commit from a /tree/ link. May contain slashes. */
   ref: string | null
-  /** Case-insensitive identity used to block duplicates. */
+  /** Case-insensitive identity of the repository, used to block duplicates. */
   key: string
 }
 
@@ -41,18 +41,43 @@ export function parseRepoUrl(input: string): ParsedRepo | null {
   if (repo === '.' || repo === '..' || owner === '.' || owner === '..') return null
 
   return {
-    url: `${PREFIX}${owner}/${repo}${ref ? `/tree/${ref}` : ''}`,
+    url: `${PREFIX}${owner}/${repo}`,
     owner,
     repo,
     ref,
-    key: `${owner}/${repo}@${ref ?? ''}`.toLowerCase(),
+    key: `${owner}/${repo}`.toLowerCase(),
   }
 }
 
-/** Splits pasted or typed text into candidate URLs on newlines, commas and spaces. */
-export function splitUrls(text: string): string[] {
-  return text
-    .split(/[\s,]+/)
-    .map((part) => part.trim())
-    .filter((part) => part !== '')
+export interface RepoInput {
+  label: string
+  url: string
+}
+
+export interface RepoInputValidation {
+  /** One entry per input: an error sentence, or null when the field is fine. */
+  errors: Array<string | null>
+  parsed: Array<ParsedRepo | null>
+  valid: boolean
+}
+
+export const REPO_ERRORS = {
+  missing: 'Enter a GitHub repository URL',
+  malformed: 'Use a public repository URL such as https://github.com/owner/repo',
+  duplicate: 'This repository is already listed above',
+} as const
+
+/** Validates the repository fields together: missing, malformed and duplicate. */
+export function validateRepoInputs(inputs: readonly RepoInput[]): RepoInputValidation {
+  const parsed = inputs.map((input) => (input.url.trim() === '' ? null : parseRepoUrl(input.url)))
+  const seen = new Set<string>()
+  const errors = inputs.map((input, index) => {
+    if (input.url.trim() === '') return REPO_ERRORS.missing
+    const repo = parsed[index]
+    if (!repo) return REPO_ERRORS.malformed
+    if (seen.has(repo.key)) return REPO_ERRORS.duplicate
+    seen.add(repo.key)
+    return null
+  })
+  return { errors, parsed, valid: errors.every((error) => error === null) }
 }

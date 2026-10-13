@@ -1,12 +1,14 @@
-import { useMemo, useState } from 'react'
+import { useState } from 'react'
 import type { UiError } from '../../api/errors'
-import type { Report } from '../../api/types'
-import { USE_MOCK } from '../../config'
+import { API_BASE_URL } from '../../config'
+import { useBackendHealth, type BackendHealth } from '../../hooks/useBackendHealth'
+import type { SubmittedRepo } from '../../hooks/useScan'
+import { cx } from '../../lib/cx'
+import type { RepoInput } from '../../lib/validateRepoUrl'
 import { GlyphField } from '../common/GlyphField'
 import { Wordmark } from '../common/Tags'
 import { LimitationsDialog } from '../states/LimitationsDialog'
-import type { ResolvedRefs } from './GithubTab'
-import { InputCard, type RateLimitInfo } from './InputCard'
+import { RepoForm } from './RepoForm'
 
 const HEADLINE_WORD = 'break'
 
@@ -14,47 +16,40 @@ const STEPS = [
   {
     numeral: 'I',
     title: 'Fetch',
-    text: 'Reads package.json, requirements.txt and pom.xml from each project, straight from GitHub or from what you paste.',
+    text: 'Reads manifests and lockfiles from three public repositories: package.json, package-lock.json, requirements.txt, pyproject.toml and poetry.lock.',
   },
   {
     numeral: 'II',
     title: 'Compare',
-    text: 'Groups every direct dependency by library and flags the ones pinned to different versions across projects.',
+    text: 'Lines up every shared package and separates what each repository declares from the version it actually resolves to.',
   },
   {
     numeral: 'III',
-    title: 'Score',
-    text: 'Weighs the version gap, changelogs, known vulnerabilities and your actual code usage, and shows the evidence.',
+    title: 'Assess',
+    text: 'Classifies the drift, then checks release notes for evidence of breaking changes. A version gap alone is never called a break.',
   },
 ]
 
-interface InputScreenProps {
-  busy: boolean
-  inlineError: UiError | null
-  onDismissError: () => void
-  onAnalyze: () => void
-  onLoadDemo: () => void
-  /** The most recent report, used for rate-limit status and resolved refs. */
-  lastReport: Report | null
+const HEALTH: Record<BackendHealth, { label: string; dot: string }> = {
+  checking: { label: 'Checking backend', dot: 'bg-muted-foreground' },
+  online: { label: 'Backend online', dot: 'bg-success' },
+  unreachable: { label: 'Backend unreachable', dot: 'bg-risk-critical' },
+  mock: { label: 'Mock mode', dot: 'bg-warning' },
 }
 
-export function InputScreen({ busy, inlineError, onDismissError, onAnalyze, onLoadDemo, lastReport }: InputScreenProps) {
+interface InputScreenProps {
+  inputs: RepoInput[]
+  onInputsChange: (inputs: RepoInput[]) => void
+  busy: boolean
+  error: UiError | null
+  onDismissError: () => void
+  onSubmit: (repos: SubmittedRepo[]) => void
+  onLoadDemo: () => void
+}
+
+export function InputScreen({ inputs, onInputsChange, busy, error, onDismissError, onSubmit, onLoadDemo }: InputScreenProps) {
   const [limitationsOpen, setLimitationsOpen] = useState(false)
-
-  const resolvedRefs = useMemo<ResolvedRefs>(() => {
-    const map = new Map<string, { ref: string; commit: string }>()
-    for (const repo of lastReport?.repos ?? []) {
-      if (repo.origin === 'github' && repo.url) {
-        map.set(repo.url.toLowerCase(), { ref: repo.ref, commit: repo.commit })
-      }
-    }
-    return map
-  }, [lastReport])
-
-  const rateLimit = useMemo<RateLimitInfo | null>(() => {
-    const remaining = lastReport?.meta.github_rate_limit_remaining ?? null
-    return remaining === null || !lastReport ? null : { remaining, source: lastReport.meta.source }
-  }, [lastReport])
+  const health = useBackendHealth()
 
   return (
     <div className="guide-lines relative min-h-screen overflow-x-clip">
@@ -77,8 +72,13 @@ export function InputScreen({ busy, inlineError, onDismissError, onAnalyze, onLo
             >
               Limitations
             </button>
-            <span className="rounded-full bg-secondary px-3 py-1 font-mono text-xs text-muted-foreground">
-              {USE_MOCK ? 'Mock mode' : 'Live API'}
+            <span
+              role="status"
+              title={health === 'mock' ? undefined : API_BASE_URL}
+              className="inline-flex items-center gap-2 rounded-full bg-secondary px-3 py-1 font-mono text-xs text-muted-foreground"
+            >
+              <span aria-hidden="true" className={cx('size-2 rounded-full', HEALTH[health].dot)} />
+              {HEALTH[health].label}
             </span>
           </div>
         </nav>
@@ -112,18 +112,19 @@ export function InputScreen({ busy, inlineError, onDismissError, onAnalyze, onLo
           </span>
         </h1>
         <p className="mt-10 max-w-2xl animate-rise-in text-xl leading-relaxed text-muted-foreground lg:text-2xl">
-          Dependabot tells you versions differ. DriftLock tells you whether your code will actually break.
+          Compare three services at once. See which shared packages have drifted, what each repository
+          really resolves to, and what the release notes say about it.
         </p>
 
         <div className="mt-12 max-w-5xl">
-          <InputCard
-            busy={busy}
-            inlineError={inlineError}
-            onDismissError={onDismissError}
-            onAnalyze={onAnalyze}
+          <RepoForm
+            inputs={inputs}
+            onChange={onInputsChange}
+            onSubmit={onSubmit}
             onLoadDemo={onLoadDemo}
-            resolvedRefs={resolvedRefs}
-            rateLimit={rateLimit}
+            busy={busy}
+            error={error}
+            onDismissError={onDismissError}
           />
         </div>
 
@@ -144,14 +145,14 @@ export function InputScreen({ busy, inlineError, onDismissError, onAnalyze, onLo
             ))}
           </ol>
           <p className="mt-8 text-lg text-muted-foreground">
-            Works on any public repo. Nothing to install in your repos.
+            Works on public repositories. Nothing to install in them.
           </p>
         </section>
       </main>
 
       <footer className="relative border-t border-border">
         <div className="mx-auto flex max-w-[1400px] flex-wrap items-center justify-between gap-4 px-4 py-8 text-sm text-muted-foreground sm:px-6 lg:px-8">
-          <p>DriftLock. Risk is a signal, not a guarantee.</p>
+          <p>DriftLock. Missing evidence is never shown as proof of safety.</p>
           <button
             type="button"
             onClick={() => setLimitationsOpen(true)}
