@@ -24,6 +24,8 @@ class ScanOptions(BaseModel):
     check_changelogs: bool = True
     check_vulnerabilities: bool = True
     scan_code: bool = True
+    #: Look for OpenAPI / Swagger files and compare verified versions of the same API.
+    check_contracts: bool = True
     ecosystems: List[str] = Field(default_factory=lambda: ["npm", "python", "maven"])
 
 

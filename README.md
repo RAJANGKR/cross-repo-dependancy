@@ -101,11 +101,12 @@ cd frontend; npm test; npm run build               # 99 tests
 - Only pushed code is read.
 - The code scan finds changed names, not silent behavior changes, and cannot confirm a runtime failure.
 - Maven: `${property}` and `dependencyManagement` in the same `pom.xml` only; parent POMs and BOM imports are not followed.
+- API contract analysis compares OpenAPI / Swagger files only when they are verifiably two versions of the same API (matching `x-api-id` or title, and an orderable `info.version`). Findings are potentially breaking changes found in the files, never confirmed runtime failures. Details and limits: `docs/API_CONTRACT.md`, "Contract analysis".
 - Risk is a signal, not a guarantee.
 
 ## Not built
 
-OpenAPI contract analysis (the UI section exists and stays empty), Tier 3 candidate rules, rule packs other than pydantic, graph export to PNG, and per-repository retry (a retry re-runs the whole scan).
+Tier 3 candidate rules, rule packs other than pydantic, graph export to PNG, and per-repository retry (a retry re-runs the whole scan).
 
 ## Roadmap
 

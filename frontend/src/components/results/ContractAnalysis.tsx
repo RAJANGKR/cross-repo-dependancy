@@ -67,9 +67,10 @@ function Entry({ entry, repoLabel }: { entry: ContractAnalysisEntry; repoLabel: 
           {entry.message && ` ${meta.description}`}
         </p>
       )}
-      {analyzed && entry.findings.length === 0 && (
+      {analyzed && (entry.message || entry.findings.length === 0) && (
+        // The backend's message says which two specifications were compared and on what basis.
         <p className="border-t border-border px-5 py-4 text-sm text-muted-foreground">
-          No contract changes were reported between the specifications that were compared.
+          {entry.message || 'No contract changes were reported between the specifications that were compared.'}
         </p>
       )}
       {entry.findings.length > 0 && (

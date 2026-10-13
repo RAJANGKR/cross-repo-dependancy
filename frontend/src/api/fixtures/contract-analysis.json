@@ -1,0 +1,318 @@
+[
+  {
+    "provider_repo": "orders-v2",
+    "consumer_repo": "",
+    "status": "ANALYZED",
+    "spec_file": "docs/openapi.json",
+    "message": "Compared \"Orders API v2\" 1.0.0 (orders-v1/openapi.yaml) with 2.0.0 (orders-v2/docs/openapi.json); same API by matching normalized info.title, order by info.version. 6 potentially breaking change(s) detected. This is a static comparison of specification files and does not prove a runtime failure.",
+    "findings": [
+      {
+        "change_type": "CHANGED_RESPONSE_FIELD_TYPE",
+        "path": "/orders",
+        "method": "GET",
+        "previous_value": "200 response body[].id: integer",
+        "new_value": "200 response body[].id: string",
+        "spec_file": "docs/openapi.json",
+        "json_pointer": "/components/schemas/Order/properties/id/type",
+        "severity": "MEDIUM",
+        "impact": "Potentially breaking for clients that read this value with the previous type. Found by comparing the two specification files; not a confirmed runtime failure.",
+        "classification": "POTENTIALLY_BREAKING",
+        "description": "Response body[].id of status 200 changed type from integer to string.",
+        "spec_repository": "orders-v2"
+      },
+      {
+        "change_type": "NEW_REQUIRED_REQUEST_FIELD",
+        "path": "/orders",
+        "method": "GET",
+        "previous_value": "query parameter status: optional",
+        "new_value": "query parameter status: required",
+        "spec_file": "docs/openapi.json",
+        "json_pointer": "/paths/~1orders/get/parameters/0",
+        "severity": "HIGH",
+        "impact": "Potentially breaking for clients that do not send this value. Found by comparing the two specification files; not a confirmed runtime failure.",
+        "classification": "POTENTIALLY_BREAKING",
+        "description": "Query parameter 'status' is required in 2.0.0 and was optional in 1.0.0.",
+        "spec_repository": "orders-v2"
+      },
+      {
+        "change_type": "NEW_REQUIRED_REQUEST_FIELD",
+        "path": "/orders",
+        "method": "POST",
+        "previous_value": "request field currency: optional",
+        "new_value": "request field currency: required",
+        "spec_file": "docs/openapi.json",
+        "json_pointer": "/components/schemas/NewOrder/required",
+        "severity": "HIGH",
+        "impact": "Potentially breaking for clients that do not send this value. Found by comparing the two specification files; not a confirmed runtime failure.",
+        "classification": "POTENTIALLY_BREAKING",
+        "description": "Request body field 'currency' is required in 2.0.0 and was optional in 1.0.0.",
+        "spec_repository": "orders-v2"
+      },
+      {
+        "change_type": "REMOVED_OPERATION",
+        "path": "/orders/{id}",
+        "method": "DELETE",
+        "previous_value": "operation present",
+        "new_value": "operation not present",
+        "spec_file": "openapi.yaml",
+        "json_pointer": "/paths/~1orders~1{id}/delete",
+        "severity": "HIGH",
+        "impact": "Potentially breaking for clients that still call this operation. Found by comparing the two specification files; not a confirmed runtime failure.",
+        "classification": "POTENTIALLY_BREAKING",
+        "description": "DELETE /orders/{id} exists in 1.0.0 and is absent from 2.0.0.",
+        "spec_repository": "orders-v1"
+      },
+      {
+        "change_type": "REMOVED_PATH",
+        "path": "/orders/{id}/refunds",
+        "method": "",
+        "previous_value": "operations: POST",
+        "new_value": "path not present",
+        "spec_file": "openapi.yaml",
+        "json_pointer": "/paths/~1orders~1{id}~1refunds",
+        "severity": "HIGH",
+        "impact": "Potentially breaking for clients that still call this path. Found by comparing the two specification files; not a confirmed runtime failure.",
+        "classification": "POTENTIALLY_BREAKING",
+        "description": "Path /orders/{id}/refunds exists in 1.0.0 and is absent from 2.0.0.",
+        "spec_repository": "orders-v1"
+      },
+      {
+        "change_type": "CHANGED_RESPONSE_FIELD_TYPE",
+        "path": "/orders/{orderId}",
+        "method": "GET",
+        "previous_value": "200 response field id: integer",
+        "new_value": "200 response field id: string",
+        "spec_file": "docs/openapi.json",
+        "json_pointer": "/components/schemas/Order/properties/id/type",
+        "severity": "MEDIUM",
+        "impact": "Potentially breaking for clients that read this value with the previous type. Found by comparing the two specification files; not a confirmed runtime failure.",
+        "classification": "POTENTIALLY_BREAKING",
+        "description": "Response field id of status 200 changed type from integer to string.",
+        "spec_repository": "orders-v2"
+      }
+    ],
+    "relationship": {
+      "same_api_basis": "matching normalized info.title"
+    },
+    "baseline": {
+      "repository": "orders-v1",
+      "spec_file": "openapi.yaml",
+      "version": "1.0.0",
+      "title": "Orders API"
+    },
+    "candidate": {
+      "repository": "orders-v2",
+      "spec_file": "docs/openapi.json",
+      "version": "2.0.0",
+      "title": "Orders API v2"
+    }
+  },
+  {
+    "provider_repo": "storefront",
+    "consumer_repo": "",
+    "status": "SPEC_UNAVAILABLE",
+    "spec_file": "",
+    "message": "No OpenAPI or Swagger file (openapi/swagger .json, .yaml, .yml) was found at the repository root or under docs/, api/, spec/, specs/, src/.",
+    "findings": []
+  },
+  {
+    "provider_repo": "reports",
+    "consumer_repo": "",
+    "status": "SPEC_UNAVAILABLE",
+    "spec_file": "",
+    "message": "No OpenAPI or Swagger file (openapi/swagger .json, .yaml, .yml) was found at the repository root or under docs/, api/, spec/, specs/, src/.",
+    "findings": []
+  },
+  {
+    "provider_repo": "inventory",
+    "consumer_repo": "",
+    "status": "NOT_COMPARED",
+    "spec_file": "swagger.json",
+    "message": "Swagger 2.0 specification \"Inventory Service\" version 3.0.0 was read. No other version of this API was found among the scanned repositories, so nothing was compared.",
+    "findings": [],
+    "api": {
+      "repository": "inventory",
+      "spec_file": "swagger.json",
+      "version": "3.0.0",
+      "title": "Inventory Service"
+    }
+  },
+  {
+    "provider_repo": "broken-spec",
+    "consumer_repo": "",
+    "status": "MALFORMED_SPEC",
+    "spec_file": "api/openapi.yaml",
+    "message": "api/openapi.yaml could not be parsed: not valid YAML (ParserError).",
+    "findings": []
+  },
+  {
+    "provider_repo": "service-a",
+    "consumer_repo": "",
+    "status": "SPEC_UNAVAILABLE",
+    "spec_file": "",
+    "message": "No OpenAPI or Swagger file (openapi/swagger .json, .yaml, .yml) was found at the repository root or under docs/, api/, spec/, specs/, src/.",
+    "findings": []
+  },
+  {
+    "provider_repo": "orders-v2",
+    "consumer_repo": "storefront",
+    "status": "ANALYZED",
+    "spec_file": "docs/openapi.json",
+    "message": "storefront references 3 endpoint(s) of \"Orders API v2\" (/orders/{id}, /orders/{id}/refunds, /orders/{orderId}); 2 changed between 1.0.0 and 2.0.0.",
+    "findings": [
+      {
+        "change_type": "REMOVED_PATH",
+        "path": "/orders/{id}/refunds",
+        "method": "",
+        "previous_value": "operations: POST",
+        "new_value": "path not present",
+        "spec_file": "openapi.yaml",
+        "json_pointer": "/paths/~1orders~1{id}~1refunds",
+        "severity": "HIGH",
+        "impact": "storefront references this endpoint at src/api.js:5. Potentially breaking for clients that still call this path. A matching path in source code is evidence of use, not proof that the call reaches this service or fails at runtime.",
+        "classification": "CONSUMER_REFERENCE_FOUND",
+        "description": "Path /orders/{id}/refunds exists in 1.0.0 and is absent from 2.0.0.",
+        "spec_repository": "orders-v1",
+        "consumer_references": [
+          {
+            "repository": "storefront",
+            "file": "src/api.js",
+            "line": 5,
+            "snippet": "export const refund = (id) => fetch(`${BASE}/orders/${id}/refunds`, {",
+            "match": "exact"
+          }
+        ]
+      },
+      {
+        "change_type": "CHANGED_RESPONSE_FIELD_TYPE",
+        "path": "/orders/{orderId}",
+        "method": "GET",
+        "previous_value": "200 response field id: integer",
+        "new_value": "200 response field id: string",
+        "spec_file": "docs/openapi.json",
+        "json_pointer": "/components/schemas/Order/properties/id/type",
+        "severity": "MEDIUM",
+        "impact": "storefront references this endpoint at src/api.js:4. Potentially breaking for clients that read this value with the previous type. A matching path in source code is evidence of use, not proof that the call reaches this service or fails at runtime.",
+        "classification": "CONSUMER_REFERENCE_FOUND",
+        "description": "Response field id of status 200 changed type from integer to string.",
+        "spec_repository": "orders-v2",
+        "consumer_references": [
+          {
+            "repository": "storefront",
+            "file": "src/api.js",
+            "line": 4,
+            "snippet": "export const getOrder = (id) => axios.get(`${BASE}/orders/${id}`)",
+            "match": "exact"
+          }
+        ]
+      }
+    ],
+    "relationship": {
+      "same_api_basis": "matching normalized info.title"
+    },
+    "baseline": {
+      "repository": "orders-v1",
+      "spec_file": "openapi.yaml",
+      "version": "1.0.0",
+      "title": "Orders API"
+    },
+    "candidate": {
+      "repository": "orders-v2",
+      "spec_file": "docs/openapi.json",
+      "version": "2.0.0",
+      "title": "Orders API v2"
+    }
+  },
+  {
+    "provider_repo": "orders-v2",
+    "consumer_repo": "reports",
+    "status": "ANALYZED",
+    "spec_file": "docs/openapi.json",
+    "message": "reports references 1 endpoint(s) of \"Orders API v2\" (/items). None of the changes between 1.0.0 and 2.0.0 touches an endpoint it references.",
+    "findings": [],
+    "relationship": {
+      "same_api_basis": "matching normalized info.title"
+    },
+    "baseline": {
+      "repository": "orders-v1",
+      "spec_file": "openapi.yaml",
+      "version": "1.0.0",
+      "title": "Orders API"
+    },
+    "candidate": {
+      "repository": "orders-v2",
+      "spec_file": "docs/openapi.json",
+      "version": "2.0.0",
+      "title": "Orders API v2"
+    }
+  },
+  {
+    "provider_repo": "orders-v2",
+    "consumer_repo": "inventory",
+    "status": "RELATIONSHIP_UNVERIFIED",
+    "spec_file": "docs/openapi.json",
+    "message": "No reference to an endpoint of \"Orders API v2\" was found in the 0 source file(s) read from inventory. A provider-consumer relationship is unverified; it is not ruled out.",
+    "findings": [],
+    "relationship": {
+      "same_api_basis": "matching normalized info.title"
+    },
+    "baseline": {
+      "repository": "orders-v1",
+      "spec_file": "openapi.yaml",
+      "version": "1.0.0",
+      "title": "Orders API"
+    },
+    "candidate": {
+      "repository": "orders-v2",
+      "spec_file": "docs/openapi.json",
+      "version": "2.0.0",
+      "title": "Orders API v2"
+    }
+  },
+  {
+    "provider_repo": "orders-v2",
+    "consumer_repo": "broken-spec",
+    "status": "RELATIONSHIP_UNVERIFIED",
+    "spec_file": "docs/openapi.json",
+    "message": "No reference to an endpoint of \"Orders API v2\" was found in the 0 source file(s) read from broken-spec. A provider-consumer relationship is unverified; it is not ruled out.",
+    "findings": [],
+    "relationship": {
+      "same_api_basis": "matching normalized info.title"
+    },
+    "baseline": {
+      "repository": "orders-v1",
+      "spec_file": "openapi.yaml",
+      "version": "1.0.0",
+      "title": "Orders API"
+    },
+    "candidate": {
+      "repository": "orders-v2",
+      "spec_file": "docs/openapi.json",
+      "version": "2.0.0",
+      "title": "Orders API v2"
+    }
+  },
+  {
+    "provider_repo": "orders-v2",
+    "consumer_repo": "service-a",
+    "status": "RELATIONSHIP_UNVERIFIED",
+    "spec_file": "docs/openapi.json",
+    "message": "No reference to an endpoint of \"Orders API v2\" was found in the 2 source file(s) read from service-a. A provider-consumer relationship is unverified; it is not ruled out.",
+    "findings": [],
+    "relationship": {
+      "same_api_basis": "matching normalized info.title"
+    },
+    "baseline": {
+      "repository": "orders-v1",
+      "spec_file": "openapi.yaml",
+      "version": "1.0.0",
+      "title": "Orders API"
+    },
+    "candidate": {
+      "repository": "orders-v2",
+      "spec_file": "docs/openapi.json",
+      "version": "2.0.0",
+      "title": "Orders API v2"
+    }
+  }
+]

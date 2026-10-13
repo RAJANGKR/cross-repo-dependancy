@@ -202,7 +202,9 @@ def test_create_poll_and_contract_keys():
     assert drift["id"] == f"{drift['ecosystem']}:{drift['dependency_name']}"
     assert all(isinstance(item, str) for item in result["skipped_items"] + result["warnings"])
     assert set(result["code_impact"][0]) == {"repository", "file", "line", "snippet", "related_change", "dependency_name", "impact", "confidence", "limitations"}
-    assert result["contract_analysis"] is None
+    # No repository here has an OpenAPI file: that is reported per repository, not as null and not as "compatible".
+    assert [(e["provider_repo"], e["status"], e["findings"]) for e in result["contract_analysis"]] == [
+        ("service-a", "SPEC_UNAVAILABLE", []), ("service-b", "SPEC_UNAVAILABLE", []), ("service-c", "SPEC_UNAVAILABLE", [])]
 
 
 def test_wait_returns_the_finished_record():

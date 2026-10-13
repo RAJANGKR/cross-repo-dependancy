@@ -13,6 +13,7 @@ export const LIMITATIONS: readonly string[] = [
   'npm, Python and Maven manifests are supported: package.json, package-lock.json, requirements.txt, pyproject.toml, poetry.lock and pom.xml.',
   'Only pushed code is read. The code scan finds changed names, not silent behavior changes, and cannot confirm a runtime failure.',
   'A major version gap is not a confirmed break. Compatibility risk is only as strong as the release notes behind it.',
+  'API contract findings compare OpenAPI files of the same API only when its identity and version order are verified. They are potentially breaking changes, not confirmed failures.',
   'Missing evidence is not proof of safety. "No issue identified" means nothing was found in what was available.',
   'AI-written interpretation is labeled as such and is never used to decide a classification on its own.',
 ]

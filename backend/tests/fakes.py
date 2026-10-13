@@ -54,6 +54,146 @@ REPOS: Dict[str, dict] = {
     "acme/empty": {"default_branch": "main", "refs": {"main": "e" * 40}, "files": {"README.md": "nothing here"}},
 }
 
+# ---- OpenAPI fixtures --------------------------------------------------------
+_PKG = json.dumps({"dependencies": {}})
+
+ORDERS_V1 = """openapi: 3.0.3
+info:
+  title: Orders API
+  version: 1.0.0
+paths:
+  /health:
+    get:
+      responses:
+        '200': {description: ok}
+  /items:
+    get:
+      responses:
+        '200': {description: ok}
+  /orders:
+    get:
+      parameters:
+        - {name: status, in: query, required: false, schema: {type: string}}
+      responses:
+        '200':
+          description: ok
+          content:
+            application/json:
+              schema: {type: array, items: {$ref: '#/components/schemas/Order'}}
+    post:
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: {$ref: '#/components/schemas/NewOrder'}
+      responses:
+        '201': {description: created}
+  /orders/{id}:
+    parameters:
+      - {name: id, in: path, required: true, schema: {type: integer}}
+    get:
+      responses:
+        '200':
+          description: ok
+          content:
+            application/json:
+              schema: {$ref: '#/components/schemas/Order'}
+    delete:
+      responses:
+        '204': {description: deleted}
+  /orders/{id}/refunds:
+    post:
+      responses:
+        '201': {description: created}
+components:
+  schemas:
+    Order:
+      type: object
+      properties:
+        id: {type: integer}
+        total: {type: number}
+        status: {type: string}
+    NewOrder:
+      type: object
+      required: [item]
+      properties:
+        item: {type: string}
+        currency: {type: string}
+"""
+
+ORDERS_V2 = json.dumps({
+    "openapi": "3.0.3",
+    "info": {"title": "Orders API v2", "version": "2.0.0"},
+    "paths": {
+        "/health": {"get": {"responses": {"200": {"description": "ok"}}}},
+        "/items": {"get": {"responses": {"200": {"description": "ok"}}}},
+        "/orders": {
+            "get": {
+                "parameters": [{"name": "status", "in": "query", "required": True, "schema": {"type": "string"}}],
+                "responses": {"200": {"description": "ok", "content": {"application/json": {
+                    "schema": {"type": "array", "items": {"$ref": "#/components/schemas/Order"}}}}}},
+            },
+            "post": {
+                "requestBody": {"required": True, "content": {"application/json": {"schema": {"$ref": "#/components/schemas/NewOrder"}}}},
+                "responses": {"201": {"description": "created"}},
+            },
+        },
+        # The path parameter was renamed and DELETE was dropped.
+        "/orders/{orderId}": {
+            "parameters": [{"name": "orderId", "in": "path", "required": True, "schema": {"type": "string"}}],
+            "get": {"responses": {"200": {"description": "ok", "content": {"application/json": {"schema": {"$ref": "#/components/schemas/Order"}}}}}},
+        },
+        # Additive: must not be reported.
+        "/orders/{orderId}/events": {"get": {"responses": {"200": {"description": "ok"}}}},
+    },
+    "components": {"schemas": {
+        "Order": {"type": "object", "properties": {"id": {"type": "string"}, "total": {"type": "number"}, "status": {"type": "string"}, "note": {"type": "string"}}},
+        "NewOrder": {"type": "object", "required": ["item", "currency"], "properties": {"item": {"type": "string"}, "currency": {"type": "string"}, "memo": {"type": "string"}}},
+    }},
+}, indent=1)
+
+# A different service that happens to share /health, /items and /orders.
+INVENTORY = json.dumps({
+    "swagger": "2.0",
+    "info": {"title": "Inventory Service", "version": "3.0.0"},
+    "paths": {
+        "/health": {"get": {"responses": {"200": {"description": "ok"}}}},
+        "/items": {"get": {"responses": {"200": {"description": "ok", "schema": {"type": "object"}}}}},
+        "/orders": {"get": {"responses": {"200": {"description": "ok", "schema": {"type": "string"}}}}},
+    },
+})
+
+
+def _payments(version: str) -> str:
+    return f"openapi: 3.1.0\ninfo:\n  title: Payments API\n  version: {version}\npaths:\n  /charges:\n    get:\n      responses:\n        '200': {{description: ok}}\n"
+
+
+def _repo(sha: str, files: Dict[str, str]) -> dict:
+    return {"default_branch": "main", "refs": {"main": sha * 40}, "files": {"package.json": _PKG, **files}}
+
+
+REPOS.update({
+    "acme/orders-v1": _repo("1", {"openapi.yaml": ORDERS_V1}),
+    "acme/orders-v2": _repo("2", {"docs/openapi.json": ORDERS_V2, "node_modules/x/openapi.json": "{}", "deep/elsewhere/openapi.json": ORDERS_V2}),
+    "acme/inventory": _repo("3", {"swagger.json": INVENTORY}),
+    # Calls the removed refund path and the changed order lookup.
+    "acme/storefront": _repo("4", {"src/api.js": (
+        "import axios from 'axios'\n"
+        "const BASE = process.env.ORDERS_URL\n"
+        "// old: fetch(`${BASE}/orders/${id}/refunds`)\n"
+        "export const getOrder = (id) => axios.get(`${BASE}/orders/${id}`)\n"
+        "export const refund = (id) => fetch(`${BASE}/orders/${id}/refunds`, {\n  method: 'POST',\n})\n"
+        "export const health = () => fetch(`${BASE}/health`)\n"
+    )}),
+    # Calls the API, but only an endpoint that did not change.
+    "acme/reports": _repo("5", {"report.py": 'import requests\n\ndef items(base):\n    return requests.get(f"{base}/items").json()\n'}),
+    # Serves its own /orders routes and calls nothing of the Orders API.
+    "acme/gateway": _repo("6", {"server.js": "app.get('/orders', list)\nrouter.post('/orders', create)\nconst url = '/internal/admin/orders'\n"}),
+    "acme/broken-spec": _repo("7", {"api/openapi.yaml": "openapi: 3.0.0\npaths: [unclosed\n"}),
+    "acme/pay-a": _repo("8", {"openapi.yaml": _payments("latest")}),
+    "acme/pay-b": _repo("9", {"openapi.yaml": _payments("1.4.0")}),
+})
+
 NPM = {
     "axios": {"versions": ["0.21.4", "0.27.2", "1.0.0", "1.6.2", "1.6.8", "2.0.0-beta.1"], "repo": "git+https://github.com/axios/axios.git"},
     "lodash": {"versions": ["4.17.20", "4.17.21"], "repo": "git+https://github.com/lodash/lodash.git"},

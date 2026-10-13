@@ -35,6 +35,8 @@ class Settings(BaseSettings):
     MAX_PASTED_FILE_BYTES: int = 200 * 1024
     MAX_MANIFEST_BYTES: int = 6 * 1024 * 1024
     MAX_MANIFESTS_PER_REPO: int = 40
+    MAX_SPEC_BYTES: int = 2 * 1024 * 1024
+    MAX_SPECS_PER_REPO: int = 4
     MAX_ZIP_BYTES: int = 30 * 1024 * 1024
     MAX_SOURCE_FILE_BYTES: int = 400 * 1024
     MAX_CHANGELOG_BYTES: int = 600 * 1024

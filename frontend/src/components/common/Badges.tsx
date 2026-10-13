@@ -33,6 +33,8 @@ const CONTRACT_ICONS: Record<string, LucideIcon> = {
   ANALYZED: Check,
   SPEC_UNAVAILABLE: FileQuestion,
   MALFORMED_SPEC: FileWarning,
+  RELATIONSHIP_UNVERIFIED: CircleHelp,
+  NOT_COMPARED: Minus,
 }
 
 export const driftIcon = (value: string): LucideIcon => DRIFT_ICONS[value] ?? CircleDashed

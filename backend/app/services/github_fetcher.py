@@ -7,6 +7,7 @@ from urllib.parse import quote
 from app.core.config import settings
 from app.core.security import manifest_kind
 from app.services.http import FetchError, Http
+from app.services.openapi_diff_engine import is_spec_path
 
 API = "https://api.github.com"
 RAW = "https://raw.githubusercontent.com"
@@ -25,6 +26,10 @@ class RepoFiles:
     commit: str = ""
     subdir: str = ""
     files: Dict[str, str] = field(default_factory=dict)
+    #: OpenAPI / Swagger files as {path: text}, kept apart from the manifests.
+    specs: Dict[str, str] = field(default_factory=dict)
+    #: {path: reason} for specification files that were found but could not be read.
+    spec_errors: Dict[str, str] = field(default_factory=dict)
     warnings: List[str] = field(default_factory=list)
     error: Optional[str] = None
 
@@ -69,8 +74,11 @@ async def resolve_ref(http: Http, owner: str, repo: str, ref_path: str) -> Optio
     return None
 
 
-async def fetch_repo(http: Http, owner: str, repo: str, ref_path: Optional[str]) -> RepoFiles:
-    """Resolve the ref, list the tree, and download every supported manifest."""
+async def fetch_repo(http: Http, owner: str, repo: str, ref_path: Optional[str], discover_specs: bool = True) -> RepoFiles:
+    """Resolve the ref, list the tree, and download every supported manifest.
+
+    The same tree listing is reused to find OpenAPI / Swagger files, so
+    discovery costs one extra request per specification file and nothing else."""
     result = RepoFiles(owner=owner, repo=repo)
     what = f"{owner}/{repo}"
     try:
@@ -111,6 +119,29 @@ async def fetch_repo(http: Http, owner: str, repo: str, ref_path: Optional[str])
             result.files[path] = await fetch_file(http, owner, repo, result.commit, path, settings.MAX_MANIFEST_BYTES, _PINNED_TTL)
         except FetchError as error:
             result.warnings.append(f"{what}: {describe(error, path)}")
+
+    if discover_specs:
+        spec_paths = sorted(
+            (
+                entry["path"]
+                for entry in tree.get("tree", [])
+                if entry.get("type") == "blob"
+                and isinstance(entry.get("path"), str)
+                and entry["path"].startswith(prefix)
+                and not _skipped(entry["path"])
+                and is_spec_path(entry["path"][len(prefix):])
+            ),
+            key=lambda path: (path.count("/"), path),
+        )
+        if len(spec_paths) > settings.MAX_SPECS_PER_REPO:
+            result.warnings.append(f"{what}: {len(spec_paths)} OpenAPI files found, only the first {settings.MAX_SPECS_PER_REPO} were read")
+            spec_paths = spec_paths[: settings.MAX_SPECS_PER_REPO]
+        for path in spec_paths:
+            try:
+                result.specs[path] = await fetch_file(http, owner, repo, result.commit, path, settings.MAX_SPEC_BYTES, _PINNED_TTL)
+            except FetchError as error:
+                result.spec_errors[path] = describe(error, path)
+                result.warnings.append(f"{what}: {describe(error, path)}")
     return result
 
 

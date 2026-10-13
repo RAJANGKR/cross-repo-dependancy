@@ -15,7 +15,7 @@ export const SCAN_STAGES = ['QUEUED', 'FETCHING', 'PARSING', 'ANALYZING'] as con
 
 export const DRIFT_DISPARITIES = ['MAJOR_DRIFT', 'MINOR_DRIFT', 'INFO', 'IN_SYNC'] as const
 export const COMPATIBILITY_RISKS = ['CONFIRMED_BREAKING', 'SUSPECTED_BREAKING', 'UNKNOWN_IMPACT', 'NONE'] as const
-export const CONTRACT_STATES = ['ANALYZED', 'SPEC_UNAVAILABLE', 'MALFORMED_SPEC'] as const
+export const CONTRACT_STATES = ['ANALYZED', 'SPEC_UNAVAILABLE', 'MALFORMED_SPEC', 'RELATIONSHIP_UNVERIFIED', 'NOT_COMPARED'] as const
 
 // ---- Request ---------------------------------------------------------------
 
@@ -161,10 +161,12 @@ export interface GraphSummary {
 }
 
 /**
- * PROVISIONAL. The backend does not return OpenAPI contract analysis yet and
- * docs/API_CONTRACT.md does not define it. These field names are this
- * frontend's best reading of the feature brief; align them with the backend
- * schema when it lands. The section renders only when the data is present.
+ * One change between two versions of the same API, as returned by
+ * backend/app/services/openapi_diff_engine.py (docs/API_CONTRACT.md,
+ * "Contract analysis"). A finding is a difference between two specification
+ * files. It is potentially breaking; it is never a confirmed runtime failure.
+ * The backend also sends additive fields (`classification`,
+ * `consumer_references`) that this dashboard does not read yet.
  */
 export interface ContractFinding {
   change_type: string
@@ -178,7 +180,14 @@ export interface ContractFinding {
   impact: string
 }
 
+/**
+ * One row of contract analysis. With an empty `consumer_repo` it describes a
+ * repository's specification: compared against an older version (ANALYZED),
+ * or why it was not. With a `consumer_repo` it describes whether that
+ * repository's source code references the changed API.
+ */
 export interface ContractAnalysisEntry {
+  /** The repository holding the specification (the newer one when compared). */
   provider_repo: string
   consumer_repo: string
   status: string
@@ -187,7 +196,6 @@ export interface ContractAnalysisEntry {
   findings: ContractFinding[]
 }
 
-/** PROVISIONAL, same caveat as `ContractAnalysisEntry`. */
 export interface CodeImpactItem {
   repository: string
   file: string

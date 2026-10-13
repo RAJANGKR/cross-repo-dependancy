@@ -18,7 +18,7 @@ from app.core.security import InvalidTarget, manifest_kind, parse_github_url
 from app.parsers.lockfiles import LOCK_ECOSYSTEM, is_lockfile, parse_lockfile
 from app.parsers.registry import default_registry
 from app.schemas.scan import ScanCreateRequest, ScanOptions
-from app.services import changelog_service, explain, github_fetcher, graph_service, osv_client, usage_scanner
+from app.services import changelog_service, explain, github_fetcher, graph_service, openapi_diff_engine, osv_client, usage_scanner
 from app.services import range_service as ranges
 from app.services.cache import Cache
 from app.services.classifier import Classification, Declaration, classify
@@ -69,6 +69,9 @@ class Target:
     subdir: str = ""
     error: Optional[str] = None
     code_scanned: bool = False
+    #: OpenAPI / Swagger files found while fetching, and the ones that could not be read.
+    specs: Dict[str, str] = field(default_factory=dict)
+    spec_errors: Dict[str, str] = field(default_factory=dict)
 
 
 def validate_request(request: ScanCreateRequest) -> List[Target]:
@@ -216,6 +219,48 @@ async def run_scan(scan_id: str, targets: List[Target], options: ScanOptions, st
             await http.aclose()
 
 
+async def _contract_analysis(scan_id: str, targets: List[Target], options: ScanOptions, store: ScanStore, warnings: List[str], source_files) -> Optional[List[dict]]:
+    """The `contract_analysis` section, or None when no analysis was performed
+    (it is turned off, or no repository could be searched for a specification).
+
+    Specifications are compared only when they are verifiably two versions of
+    the same API; see openapi_diff_engine.py. Other repositories are then
+    checked for references to that API, reusing the source archive loader."""
+    searchable = [t for t in targets if t.kind == "github" and not t.error]
+    if not options.check_contracts or not searchable:
+        return None
+    inputs = []
+    for target in targets:
+        reason = ""
+        if target.kind == "pasted":
+            reason = "Pasted input contains manifests only, so no OpenAPI specification could be looked for."
+        elif target.error:
+            reason = f"The repository could not be read ({target.error}), so no OpenAPI specification could be looked for."
+        inputs.append(openapi_diff_engine.RepoInput(target.name, target.specs, reason, target.spec_errors))
+    if any(target.specs for target in targets):
+        store.progress(scan_id, "ANALYZING", 80, "Comparing OpenAPI specifications")
+    entries, comparisons = await asyncio.to_thread(openapi_diff_engine.analyze_specs, inputs)
+
+    async def check(comparison, target: Target) -> dict:
+        if target.kind != "github":
+            return openapi_diff_engine.consumer_entry(comparison, target.name, None, "pasted input has no source code")
+        if target.error or not target.commit:
+            return openapi_diff_engine.consumer_entry(comparison, target.name, None, "the repository could not be read")
+        if not options.scan_code:
+            return openapi_diff_engine.consumer_entry(comparison, target.name, None, "the code scan is turned off")
+        try:
+            files = await source_files(target)
+        except FetchError as error:
+            warnings.append(f"{target.name}: code scan skipped ({github_fetcher.describe(error, 'the source archive')}).")
+            return openapi_diff_engine.consumer_entry(comparison, target.name, None, "its source archive could not be downloaded")
+        return await asyncio.to_thread(openapi_diff_engine.consumer_entry, comparison, target.name, files)
+
+    # Only a comparison that found changes gives a consumer something to be affected by.
+    pairs = [(c, t) for c in comparisons if c.findings for t in targets if t.name not in c.holders]
+    entries.extend(await asyncio.gather(*(check(comparison, target) for comparison, target in pairs)))
+    return entries
+
+
 async def _run(scan_id: str, targets: List[Target], options: ScanOptions, store: ScanStore, http: Http) -> None:
     warnings: List[str] = []
     skipped: List[str] = []
@@ -228,9 +273,9 @@ async def _run(scan_id: str, targets: List[Target], options: ScanOptions, store:
 
     async def fetch(target: Target) -> None:
         async with repo_gate:
-            fetched = await github_fetcher.fetch_repo(http, target.owner, target.repo, target.ref_path)
+            fetched = await github_fetcher.fetch_repo(http, target.owner, target.repo, target.ref_path, discover_specs=options.check_contracts)
         target.ref, target.commit, target.subdir, target.error = fetched.ref, fetched.commit, fetched.subdir, fetched.error
-        target.files = fetched.files
+        target.files, target.specs, target.spec_errors = fetched.files, fetched.specs, fetched.spec_errors
         warnings.extend(fetched.warnings)
 
     await asyncio.gather(*(fetch(target) for target in github_targets))
@@ -282,6 +327,23 @@ async def _run(scan_id: str, targets: List[Target], options: ScanOptions, store:
     await asyncio.gather(*(first_pass(lib) for lib in libs.values()))
     drifted = [lib for lib in libs.values() if lib.cls.drifted]
 
+    # Source archives are downloaded at most once per repository and only when a
+    # stage needs them (the usage scan below, or the contract consumer check).
+    source_cache: Dict[str, "asyncio.Future"] = {}
+
+    async def source_files(target: Target) -> Dict[str, str]:
+        async def load() -> Dict[str, str]:
+            async with repo_gate:
+                archive = await github_fetcher.fetch_zipball(http, target.owner, target.repo, target.commit)
+            files = await asyncio.to_thread(usage_scanner.read_zip, archive)
+            if target.subdir:  # a /tree/{ref}/{folder} target only covers that folder
+                files = {path: text for path, text in files.items() if path.startswith(target.subdir + "/")}
+            return files
+
+        if target.name not in source_cache:
+            source_cache[target.name] = asyncio.ensure_future(load())
+        return await source_cache[target.name]
+
     # Code-usage scan: GitHub targets only, and only for drifted libraries.
     code_impact: Optional[List[dict]] = None
     tier2: Dict[str, int] = {}
@@ -308,18 +370,11 @@ async def _run(scan_id: str, targets: List[Target], options: ScanOptions, store:
                 target.code_scanned = True
                 return []
             try:
-                async with repo_gate:
-                    archive = await github_fetcher.fetch_zipball(http, target.owner, target.repo, target.commit)
+                files = await source_files(target)
             except FetchError as error:
                 warnings.append(f"{target.name}: code scan skipped ({github_fetcher.describe(error, 'the source archive')}).")
                 return []
-            def work() -> dict:
-                files = usage_scanner.read_zip(archive)
-                if target.subdir:  # a /tree/{ref}/{folder} target only covers that folder
-                    files = {path: text for path, text in files.items() if path.startswith(target.subdir + "/")}
-                return usage_scanner.scan_repository(target.name, files, wanted, packs)
-
-            found = await asyncio.to_thread(work)
+            found = await asyncio.to_thread(usage_scanner.scan_repository, target.name, files, wanted, packs)
             target.code_scanned = True
             for drift_id, hits in found["tier2"].items():
                 tier2[drift_id] = tier2.get(drift_id, 0) + hits
@@ -329,6 +384,8 @@ async def _run(scan_id: str, targets: List[Target], options: ScanOptions, store:
         scannable = [t for t in analyzed if t.kind == "github" and t.commit]
         if scannable:
             code_impact = [item for items in await asyncio.gather(*(scan(t) for t in scannable)) for item in items]
+
+    contract_analysis = await _contract_analysis(scan_id, targets, options, store, warnings, source_files)
 
     store.progress(scan_id, "ANALYZING", 85, f"Checking release notes and vulnerabilities for {len(drifted)} drifted packages")
     scanned_names = {t.name for t in analyzed if t.code_scanned}
@@ -444,7 +501,7 @@ async def _run(scan_id: str, targets: List[Target], options: ScanOptions, store:
         "graph_summary": graph_service.summarize(rows),
         "warnings": list(dict.fromkeys(warnings)),
         "skipped_items": list(dict.fromkeys(skipped)),
-        "contract_analysis": None,
+        "contract_analysis": contract_analysis,
         "code_impact": code_impact,
         "data_sources": [source(name) for name in _HOSTS],
         "repository_details": [

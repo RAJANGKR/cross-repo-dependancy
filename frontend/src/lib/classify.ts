@@ -123,6 +123,18 @@ const CONTRACT: Record<string, Omit<ClassMeta, 'value' | 'known'>> = {
     tone: 'medium',
     rank: 2,
   },
+  RELATIONSHIP_UNVERIFIED: {
+    label: 'Relationship unverified',
+    description: 'Nothing was compared for this pair, so no conclusion about compatibility can be drawn.',
+    tone: 'medium',
+    rank: 1,
+  },
+  NOT_COMPARED: {
+    label: 'Not compared',
+    description: 'A specification on its own says nothing about compatibility.',
+    tone: 'neutral',
+    rank: 1,
+  },
 }
 
 function lookup(table: Record<string, Omit<ClassMeta, 'value' | 'known'>>, value: string): ClassMeta {
