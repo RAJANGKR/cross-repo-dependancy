@@ -158,8 +158,9 @@ export function Menu({ label, trigger, children, align = 'right', triggerClassNa
         <div
           role="dialog"
           aria-label={label}
+          onPointerDown={(event) => event.stopPropagation()}
           className={cx(
-            'absolute top-full z-40 mt-2 max-w-[calc(100vw-2rem)] animate-fade-in rounded-md border border-border bg-card p-3 text-sm shadow-pop',
+            'absolute top-full z-50 mt-2 max-w-[calc(100vw-2rem)] animate-fade-in rounded-md border border-border bg-card p-3 text-sm shadow-pop',
             wide ? 'w-96' : 'w-72',
             align === 'right' ? 'right-0' : 'left-0',
           )}
@@ -178,7 +179,7 @@ export function MenuItem({ children, onClick, disabled }: { children: ReactNode;
       type="button"
       disabled={disabled}
       onClick={onClick}
-      className="flex w-full items-center gap-2 rounded-sm px-2 py-1.5 text-left text-sm transition-colors hover:bg-secondary disabled:opacity-40 [&_svg]:size-4"
+      className="flex w-full cursor-pointer items-center gap-2 rounded-sm px-2 py-1.5 text-left text-sm transition-colors hover:bg-secondary disabled:cursor-not-allowed disabled:opacity-40 [&_svg]:size-4"
     >
       {children}
     </button>

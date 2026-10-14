@@ -109,6 +109,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   const signIn = useCallback(() => window.location.assign(signInUrl(window.location.origin)), [])
 
   const signOut = useCallback(async () => {
+    setInfo((prev) => ({ ...prev, user: null }))
     try {
       await fetch(`${API_BASE_URL}/api/v1/auth/logout`, { method: 'POST', credentials: 'include' })
     } catch {

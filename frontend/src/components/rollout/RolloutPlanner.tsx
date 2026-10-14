@@ -496,7 +496,7 @@ export function RolloutPlanner({ onBack, analyze = analyzeRollout }: RolloutPlan
 
   return (
     <div className="guide-lines relative min-h-screen overflow-x-clip">
-      <header className="relative mx-auto max-w-[1400px] px-4 pt-5 sm:px-6 lg:px-8">
+      <header className="relative z-30 mx-auto max-w-[1400px] px-4 pt-5 sm:px-6 lg:px-8">
         <nav aria-label="Primary" className="flex h-16 items-center justify-between gap-6 rounded-xl border border-border bg-card/90 px-5 shadow-nav backdrop-blur sm:px-6">
           <Wordmark />
           <div className="flex items-center gap-4 text-sm sm:gap-8">
