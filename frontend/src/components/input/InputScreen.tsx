@@ -1,10 +1,13 @@
+import { FolderGit2, Lock, LogIn } from 'lucide-react'
 import { useState } from 'react'
 import type { UiError } from '../../api/errors'
 import { API_BASE_URL } from '../../config'
+import { useAuth } from '../../hooks/useAuth'
 import { useBackendHealth, type BackendHealth } from '../../hooks/useBackendHealth'
 import { cx } from '../../lib/cx'
 import type { ScanTarget } from '../../lib/targets'
 import { AuthButton } from '../common/AuthButton'
+import { Button } from '../common/Button'
 import { GlyphField } from '../common/GlyphField'
 import { Wordmark } from '../common/Tags'
 import { LimitationsDialog } from '../states/LimitationsDialog'
@@ -47,11 +50,15 @@ interface InputScreenProps {
   onLoadDemo: () => void
   /** Opens the rollout planner. The link is hidden when no handler is given. */
   onOpenRollout?: () => void
+  /** Opens the signed-in user's repository list. Offered only when the backend has repository access set up. */
+  onOpenRepositories?: () => void
 }
 
-export function InputScreen({ form, onFormChange, busy, error, onDismissError, onSubmit, onLoadDemo, onOpenRollout }: InputScreenProps) {
+export function InputScreen({ form, onFormChange, busy, error, onDismissError, onSubmit, onLoadDemo, onOpenRollout, onOpenRepositories }: InputScreenProps) {
   const [limitationsOpen, setLimitationsOpen] = useState(false)
   const health = useBackendHealth()
+  const auth = useAuth()
+  const repositories = auth.status === 'ready' && auth.repositoryAccess && onOpenRepositories ? onOpenRepositories : null
 
   return (
     <div className="guide-lines relative min-h-screen overflow-x-clip">
@@ -67,6 +74,11 @@ export function InputScreen({ form, onFormChange, busy, error, onDismissError, o
             <a href="#how-it-works" className="hidden text-foreground/70 transition-colors hover:text-foreground sm:inline">
               How it works
             </a>
+            {repositories && auth.user && (
+              <button type="button" onClick={repositories} className="hidden text-foreground/70 transition-colors hover:text-foreground md:inline">
+                Your repositories
+              </button>
+            )}
             {onOpenRollout && (
               <button type="button" onClick={onOpenRollout} className="text-foreground/70 transition-colors hover:text-foreground">
                 Rollout planner
@@ -123,6 +135,37 @@ export function InputScreen({ form, onFormChange, busy, error, onDismissError, o
           Compare 2 to 10 services at once. See which shared packages have drifted, what each repository
           really resolves to, and what the release notes say about it.
         </p>
+
+        {repositories && (
+          <section aria-label="Private repositories" className="mt-10 flex max-w-5xl flex-wrap items-center gap-4 rounded-xl border border-border bg-card/90 px-5 py-4">
+            <Lock aria-hidden="true" className="size-5 shrink-0 text-muted-foreground" />
+            <p className="min-w-0 flex-1 basis-80 text-sm leading-relaxed text-muted-foreground">
+              {auth.user ? (
+                <>
+                  <span className="font-medium text-foreground">Scan your own repositories, private ones included.</span> Pick from the
+                  repositories you granted to DriftLock&apos;s GitHub App, or connect more.
+                </>
+              ) : (
+                <>
+                  <span className="font-medium text-foreground">Private repositories need your permission.</span> Sign in with GitHub, then
+                  choose which repositories DriftLock&apos;s GitHub App may read: all of them or only a few. Access is read-only, and you can
+                  remove it on GitHub at any time.
+                </>
+              )}
+            </p>
+            {auth.user ? (
+              <Button size="sm" onClick={repositories}>
+                <FolderGit2 aria-hidden="true" />
+                Choose from your repositories
+              </Button>
+            ) : (
+              <Button size="sm" onClick={auth.signIn} disabled={!auth.configured}>
+                <LogIn aria-hidden="true" />
+                Sign in with GitHub
+              </Button>
+            )}
+          </section>
+        )}
 
         <div className="mt-12 max-w-5xl">
           <RepoForm

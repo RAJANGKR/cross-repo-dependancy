@@ -1,4 +1,4 @@
-import type { ContractAnalysisEntry, ContractFinding, ContractImpactRow } from '../api/scanTypes'
+import type { ContractAnalysisEntry, ContractCandidateRow, ContractFinding, ContractImpactRow } from '../api/scanTypes'
 import { contractMeta } from './classify'
 import { humanizeCode, plural } from './formatters'
 
@@ -143,6 +143,32 @@ export function suggestedAction(change: ChangeLike, usage = ''): string {
   }
 }
 
+/**
+ * A suggested next step for a candidate row: a call that matches the changed
+ * operation in a repository whose relationship to the API is unverified. The
+ * first thing to settle is always the relationship; what the call was seen to
+ * do only follows under "if it does".
+ */
+export function candidateAction(change: ChangeLike, tier: string, usage: string): string {
+  if (tier !== 'POSSIBLE_REFERENCE') {
+    return 'Confirm manually. No matching call was found, which is not proof that this repository is unaffected.'
+  }
+  const value = fieldName(change.field) || 'a request body'
+  const then: Record<string, string> = {
+    READS_CHANGED_FIELD: 'check that this code handles the new type',
+    OMITS_REQUIRED_FIELD: `send ${value} in this request before the provider is upgraded`,
+    MAY_SEND_REQUIRED_FIELD: `make sure ${value} is sent on every path`,
+    CALLS_OPERATION: 'stop calling this operation before the provider is upgraded',
+    SENDS_REQUIRED_FIELD: 'this request already sends the value',
+  }
+  return `Confirm whether this call reaches this API. If it does, ${then[usage] ?? 'review it manually: the analysis could not settle what it does with the changed element'}.`
+}
+
+/** How many candidate rows found a possible reference, out of how many changes. */
+export function candidateCounts(rows: readonly Pick<ContractCandidateRow, 'evidence_tier'>[]): { total: number; referenced: number } {
+  return { total: rows.length, referenced: rows.filter((row) => row.evidence_tier === 'POSSIBLE_REFERENCE').length }
+}
+
 /** Usages where source code shows the change reaches the consumer. */
 const NEEDS_ATTENTION = new Set(['READS_CHANGED_FIELD', 'OMITS_REQUIRED_FIELD', 'CALLS_OPERATION'])
 /** Usages where the analysis found the call but could not settle the question. */
@@ -180,8 +206,14 @@ export function entryHeadline(entry: ContractAnalysisEntry): Headline {
   switch (entry.status) {
     case 'ANALYZED':
       break
-    case 'RELATIONSHIP_UNVERIFIED':
-      return { action: 'Confirm manually whether this repository calls the API.', why: 'Its relationship to the provider could not be verified, so nothing was concluded.' }
+    case 'RELATIONSHIP_UNVERIFIED': {
+      const action = 'Confirm manually whether this repository calls the API.'
+      const candidates = candidateCounts(entry.candidate_impact ?? [])
+      if (candidates.referenced > 0) {
+        return { action, why: `Its code has a possible reference to ${candidates.referenced} of ${plural(candidates.total, 'changed element')}, but nothing ties those calls to this API.` }
+      }
+      return { action, why: 'Its relationship to the provider could not be verified, so nothing was concluded.' }
+    }
     case 'UNRESOLVED':
       return { action: 'Review this consumer manually before upgrading the provider.', why: 'Its request URLs are built at runtime, so no operation could be matched or excluded.' }
     case 'NOT_COMPARED':

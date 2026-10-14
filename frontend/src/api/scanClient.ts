@@ -7,6 +7,7 @@ import type { Health, ScanAccepted, ScanCreateRequest, ScanRecord } from './scan
  * docs/API_CONTRACT.md:
  *   POST /api/v1/scans            -> 202 { scan_id, status, poll_url }
  *   GET  /api/v1/scans/{scan_id}  -> ScanRecord
+ *   GET  /api/v1/demo             -> ScanRecord (a saved run, replayed)
  *   GET  /health
  */
 
@@ -21,6 +22,12 @@ export interface ScanClient {
   createScan(request: ScanCreateRequest, options?: RequestOptions): Promise<ScanSubmission>
   getScan(accepted: ScanAccepted, options?: RequestOptions): Promise<ScanRecord>
   getHealth(options?: RequestOptions): Promise<Health>
+}
+
+/** The client for a real backend: it can also load the run the backend keeps for demos. */
+export interface BackendScanClient extends ScanClient {
+  /** `GET /api/v1/demo`: a saved run of a real scan, as a finished record. */
+  getDemo(options?: RequestOptions): Promise<ScanRecord>
 }
 
 export interface ScanClientConfig {
@@ -40,7 +47,7 @@ export function pollPathFor(accepted: ScanAccepted): string {
   return `/api/v1/scans/${encodeURIComponent(accepted.scan_id)}`
 }
 
-export function createScanClient(config: ScanClientConfig): ScanClient {
+export function createScanClient(config: ScanClientConfig): BackendScanClient {
   const { baseUrl, timeoutMs, fetchImpl } = config
 
   async function request(path: string, init: RequestInit, options?: RequestOptions): Promise<unknown> {
@@ -117,11 +124,32 @@ export function createScanClient(config: ScanClientConfig): ScanClient {
       return parse(parseScanRecord, await request(pollPathFor(accepted), { method: 'GET' }, options))
     },
 
+    async getDemo(options) {
+      const record = parse(parseScanRecord, await request('/api/v1/demo', { method: 'GET' }, options))
+      // A saved run is finished by definition. Anything else cannot be shown as one.
+      if (record.status !== 'COMPLETED' || !record.result) throw new ApiFailure('shape')
+      return record
+    },
+
     async getHealth(options) {
       const body = await request('/health', { method: 'GET' }, options)
       const status = typeof body === 'object' && body !== null ? (body as Record<string, unknown>).status : null
       if (typeof status !== 'string') throw new ApiFailure('shape')
       return { status }
     },
+  }
+}
+
+/**
+ * A client whose "scan" is the backend's saved demo run. The record then goes
+ * through the same run loop, parser and state as a live scan; only the request
+ * differs, and nothing is submitted.
+ */
+export function createSavedDemoClient(config: ScanClientConfig): ScanClient {
+  const client = createScanClient(config)
+  return {
+    createScan: async (_request, options) => ({ kind: 'record', record: await client.getDemo(options) }),
+    getScan: client.getScan,
+    getHealth: client.getHealth,
   }
 }

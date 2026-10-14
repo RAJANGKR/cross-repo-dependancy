@@ -21,6 +21,8 @@ export interface AuthInfo {
   /** The backend refuses scans from signed-out users. */
   required: boolean
   user: AuthUser | null
+  /** A GitHub App is set up, so a signed-in user can pick repositories and scan private ones. */
+  repositoryAccess: boolean
 }
 
 export interface AuthApi extends AuthInfo {
@@ -32,7 +34,7 @@ export interface AuthApi extends AuthInfo {
   refresh: () => Promise<void>
 }
 
-const SIGNED_OUT: AuthInfo = { configured: false, required: false, user: null }
+const SIGNED_OUT: AuthInfo = { configured: false, required: false, user: null, repositoryAccess: false }
 const AVATAR_HOST = 'https://avatars.githubusercontent.com/'
 
 export const AUTH_ERRORS: Record<string, string> = {
@@ -42,6 +44,16 @@ export const AUTH_ERRORS: Record<string, string> = {
   not_configured: 'GitHub sign-in is not set up on the backend.',
 }
 
+/** Where GitHub's App installation flow ended, from /repositories?github_setup=. */
+export const SETUP_NOTICES: Record<string, { tone: 'success' | 'info' | 'warning'; text: string }> = {
+  install: { tone: 'success', text: "DriftLock's GitHub App is installed. The repositories you granted are listed below." },
+  update: { tone: 'success', text: 'Repository access was updated. The list below is read again from GitHub.' },
+  request: { tone: 'info', text: 'Your request was sent to an organization owner. Its repositories appear here once they approve the installation.' },
+  done: { tone: 'info', text: 'Back from GitHub. The list below is read again.' },
+  sign_in_required: { tone: 'warning', text: 'Sign in with GitHub first, then connect repositories.' },
+  not_configured: { tone: 'warning', text: 'Repository access is not set up on this backend.' },
+}
+
 /** Reads the backend's /auth/me reply, tolerating missing or malformed fields. */
 export function parseAuth(body: unknown): AuthInfo {
   if (typeof body !== 'object' || body === null) return SIGNED_OUT
@@ -49,9 +61,11 @@ export function parseAuth(body: unknown): AuthInfo {
   const raw = typeof data.user === 'object' && data.user !== null ? (data.user as Record<string, unknown>) : null
   const login = raw && typeof raw.login === 'string' ? raw.login : ''
   const avatar = raw && typeof raw.avatar_url === 'string' ? raw.avatar_url : ''
+  const access = typeof data.repository_access === 'object' && data.repository_access !== null ? (data.repository_access as Record<string, unknown>) : {}
   return {
     configured: data.configured === true,
     required: data.required === true,
+    repositoryAccess: access.configured === true,
     user: login
       ? {
           login,

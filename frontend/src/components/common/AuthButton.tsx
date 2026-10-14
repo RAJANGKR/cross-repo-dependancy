@@ -1,5 +1,6 @@
-import { LogIn, LogOut } from 'lucide-react'
+import { FolderGit2, LogIn, LogOut } from 'lucide-react'
 import { useAuth } from '../../hooks/useAuth'
+import { navigate, ROUTE_PATHS } from '../../hooks/useRoute'
 import { Button } from './Button'
 import { Menu, MenuItem, useToast } from './Controls'
 
@@ -48,6 +49,17 @@ export function AuthButton({ size = 'md' }: { size?: 'sm' | 'md' }) {
         <>
           <p className="truncate px-2 font-medium">{user.name}</p>
           <p className="truncate px-2 pb-2 font-mono text-xs text-muted-foreground">Signed in with GitHub as {user.login}</p>
+          {auth.repositoryAccess && (
+            <MenuItem
+              onClick={() => {
+                close()
+                navigate(ROUTE_PATHS.repositories)
+              }}
+            >
+              <FolderGit2 aria-hidden="true" />
+              Your repositories and access
+            </MenuItem>
+          )}
           <MenuItem
             onClick={() => {
               close()

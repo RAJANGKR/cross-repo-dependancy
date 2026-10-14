@@ -47,6 +47,8 @@ NOT_COMPARED = "NOT_COMPARED"
 #: evidence from a consumer. None of them is a runtime observation.
 T0_DETECTED = "T0_DETECTED"
 NO_USAGE_FOUND = "NO_USAGE_FOUND"
+#: A call matching a changed operation, in a repository whose relationship to the API is not verified.
+POSSIBLE_REFERENCE = "POSSIBLE_REFERENCE"
 
 #: Titles that frameworks generate by default. Two services that both kept the
 #: default are not the same API, so these never establish identity on their own.
@@ -984,7 +986,14 @@ def consumer_entry(comparison: Comparison, consumer: str, files: Optional[Dict[s
                           or omit the newly required one (`usage` says which);
       T1_OPERATION_MATCH  the operation is called, with a known HTTP method; nothing is claimed about the field;
       UNRESOLVED          the code, the client, the HTTP method or the URL could not be established;
-      NO_USAGE_FOUND      no call was found in the inspected files (not proof of safety)."""
+      NO_USAGE_FOUND      no call was found in the inspected files (not proof of safety).
+
+    A RELATIONSHIP_UNVERIFIED entry whose code contains strings matching the
+    API's paths carries `candidate_impact` instead: one row per change saying
+    what those possible references do (POSSIBLE_REFERENCE, with the file, the
+    line and the `usage` seen at that call) or that none was found
+    (NO_USAGE_FOUND). These rows are candidates. They never become findings
+    and never change the entry status."""
     candidate, baseline = comparison.candidate, comparison.baseline
     api = f'"{candidate.label}"'
     meta = comparison.meta()
@@ -1018,26 +1027,13 @@ def consumer_entry(comparison: Comparison, consumer: str, files: Optional[Dict[s
         paths = sorted(paths)
         return ", ".join(paths[:5]) + (f" and {len(paths) - 5} more" if len(paths) > 5 else "")
 
-    if not verified and not dynamic:
-        shared = sorted({item["path"] for item in unattributed})
-        mentions = _host_mentions(files, hosts)
-        if mentions:
-            meta["relationship"] = {**meta["relationship"], "candidate_evidence": mentions}
-        hint = (f" The provider's server host does appear at {mentions[0]['file']}:{mentions[0]['line']}, but the matching calls are not tied to it, "
-                "so this is a candidate and not a verified relationship." if mentions else "")
-        return _entry(candidate.repo, RELATIONSHIP_UNVERIFIED,
-                      f"{consumer} contains {len(unattributed)} string(s) matching path(s) that {api} also defines ({listed(shared)}), but nothing ties them to this API: "
-                      "no server host from the specification and no identifier naming the API was found on those calls. Other services expose the same paths, "
-                      f"so a shared path does not establish a provider-consumer relationship.{hint}", **common, **meta, **extra)
-
     repository = consumer_usage.Repository(files)
-    affected: List[dict] = []
-    rows: List[dict] = []
-    for finding in comparison.findings:
-        operation = f"{finding['method']} {finding['path']}".strip()
+
+    def calls_of(finding: dict, refs: List[dict]) -> Tuple[List[dict], List[Tuple[dict, str]]]:
+        """(references that call the changed operation, references whose HTTP method is not known and why)."""
         definite: List[dict] = []
         uncertain: List[Tuple[dict, str]] = []
-        for ref in verified.get(finding["path"], []):
+        for ref in refs:
             methods = ref["methods"]
             reason = ""
             if finding["method"] and not methods:  # the text around the URL does not say; ask the located call
@@ -1048,7 +1044,54 @@ def consumer_entry(comparison: Comparison, consumer: str, files: Optional[Dict[s
                 definite.append(ref)
             elif not methods:
                 uncertain.append((ref, reason))
-        definite = definite[:_MAX_REFERENCES]
+        return definite[:_MAX_REFERENCES], uncertain
+
+    if not verified and not dynamic:
+        # What the possible references do with each change. They stay candidates: no finding, no change of status.
+        caveat = f"Nothing ties this call to {api}: it is a possible reference, and whether it reaches this API is unverified."
+        candidates: List[dict] = []
+        for finding in comparison.findings:
+            operation = f"{finding['method']} {finding['path']}".strip()
+            definite, uncertain = calls_of(finding, references.get(finding["path"], []))
+            if definite:
+                results = [consumer_usage.assess(finding, repository.call_facts(ref["file"], ref["line"])) for ref in definite]
+                best = consumer_usage.strongest(results)
+                row = _impact_row(finding, consumer, POSSIBLE_REFERENCE, best["usage"], f"{best['explanation']} {caveat}",
+                                  best["file"], best["line"], _snippet(files, best["file"], best["line"]))
+                row["references"] = [{**_public(consumer, ref), "usage": result["usage"]} for ref, result in zip(definite, results)]
+            elif uncertain:
+                ref, reason = uncertain[0]
+                row = _impact_row(finding, consumer, POSSIBLE_REFERENCE, consumer_usage.NOT_DETERMINED,
+                                  f"A request to this path is built at {ref['file']}:{ref['line']}, but its HTTP method could not be determined"
+                                  f"{f' ({reason})' if reason else ''}, so it is not known whether it is {operation}. {caveat}",
+                                  ref["file"], ref["line"], ref["snippet"])
+                row["references"] = [{**_public(consumer, item), "usage": consumer_usage.NOT_DETERMINED} for item, _ in uncertain[:_MAX_REFERENCES]]
+            else:
+                row = _impact_row(finding, consumer, NO_USAGE_FOUND, NO_USAGE_FOUND,
+                                  f"No string matching {operation} was found in the {len(files)} source file(s) read from {consumer}. This is not proof that it is unaffected.")
+                row["references"] = []
+            candidates.append(row)
+        if candidates:
+            extra["candidate_impact"] = candidates
+        touched = sum(1 for row in candidates if row["evidence_tier"] == POSSIBLE_REFERENCE)
+        listed_as = (f" {touched} of the {len(candidates)} change(s) between {baseline.version_text} and {candidate.version_text} have a possible reference in its code; "
+                     "they are listed as candidates only." if candidates else "")
+        shared = sorted({item["path"] for item in unattributed})
+        mentions = _host_mentions(files, hosts)
+        if mentions:
+            meta["relationship"] = {**meta["relationship"], "candidate_evidence": mentions}
+        hint = (f" The provider's server host does appear at {mentions[0]['file']}:{mentions[0]['line']}, but the matching calls are not tied to it, "
+                "so this is a candidate and not a verified relationship." if mentions else "")
+        return _entry(candidate.repo, RELATIONSHIP_UNVERIFIED,
+                      f"{consumer} contains {len(unattributed)} string(s) matching path(s) that {api} also defines ({listed(shared)}), but nothing ties them to this API: "
+                      "no server host from the specification and no identifier naming the API was found on those calls. Other services expose the same paths, "
+                      f"so a shared path does not establish a provider-consumer relationship.{hint}{listed_as}", **common, **meta, **extra)
+
+    affected: List[dict] = []
+    rows: List[dict] = []
+    for finding in comparison.findings:
+        operation = f"{finding['method']} {finding['path']}".strip()
+        definite, uncertain = calls_of(finding, verified.get(finding["path"], []))
         if not definite and uncertain:
             # A URL does not say which operation is called. Unknown is reported as unknown, never as a match.
             ref, reason = uncertain[0]

@@ -21,6 +21,7 @@ from app.schemas.scan import ScanCreateRequest, ScanOptions
 from app.services import changelog_service, explain, github_fetcher, graph_service, openapi_diff_engine, osv_client, usage_scanner
 from app.services import range_service as ranges
 from app.services.cache import Cache
+from app.services.credentials import RepoCredentials
 from app.services.classifier import Classification, Declaration, classify
 from app.services.http import FetchError, Http
 from app.services.registry_client import PackageInfo, package_info
@@ -206,9 +207,13 @@ def _row(lib: _Lib, all_repos: List[str]) -> dict:
     }
 
 
-async def run_scan(scan_id: str, targets: List[Target], options: ScanOptions, store: ScanStore, http: Optional[Http] = None) -> None:
+async def run_scan(scan_id: str, targets: List[Target], options: ScanOptions, store: ScanStore, http: Optional[Http] = None,
+                   credentials: Optional[RepoCredentials] = None) -> None:
+    """`credentials` holds the tokens for this scan's private repositories (see repo_access.py). They
+    belong to this scan's own HTTP client and end with it."""
     owns_http = http is None
-    http = http or Http(cache=shared_cache(), github_token=settings.GITHUB_TOKEN, timeout=settings.HTTP_TIMEOUT_SECONDS, retries=settings.HTTP_RETRIES)
+    http = http or Http(cache=shared_cache(), github_token=settings.GITHUB_TOKEN, timeout=settings.HTTP_TIMEOUT_SECONDS,
+                        retries=settings.HTTP_RETRIES, credentials=credentials)
     try:
         await _run(scan_id, targets, options, store, http)
     except Exception:  # last line of defense: a scan must always reach a terminal status
@@ -219,7 +224,8 @@ async def run_scan(scan_id: str, targets: List[Target], options: ScanOptions, st
             await http.aclose()
 
 
-async def _contract_analysis(scan_id: str, targets: List[Target], options: ScanOptions, store: ScanStore, warnings: List[str], source_files) -> Optional[List[dict]]:
+async def _contract_analysis(scan_id: str, targets: List[Target], options: ScanOptions, store: ScanStore, warnings: List[str], source_files,
+                             private=lambda target: False) -> Optional[List[dict]]:
     """The `contract_analysis` section, or None when no analysis was performed
     (it is turned off, or no repository could be searched for a specification).
 
@@ -251,8 +257,9 @@ async def _contract_analysis(scan_id: str, targets: List[Target], options: ScanO
         try:
             files = await source_files(target)
         except FetchError as error:
-            warnings.append(f"{target.name}: code scan skipped ({github_fetcher.describe(error, 'the source archive')}).")
-            return openapi_diff_engine.consumer_entry(comparison, target.name, None, "its source archive could not be downloaded")
+            reason = github_fetcher.describe(error, "the source archive", private(target))
+            warnings.append(f"{target.name}: code scan skipped ({reason}).")
+            return openapi_diff_engine.consumer_entry(comparison, target.name, None, f"its source archive could not be downloaded ({reason})")
         return await asyncio.to_thread(openapi_diff_engine.consumer_entry, comparison, target.name, files)
 
     # Only a comparison that found changes gives a consumer something to be affected by.
@@ -372,7 +379,8 @@ async def _run(scan_id: str, targets: List[Target], options: ScanOptions, store:
             try:
                 files = await source_files(target)
             except FetchError as error:
-                warnings.append(f"{target.name}: code scan skipped ({github_fetcher.describe(error, 'the source archive')}).")
+                private = http.credentialed(target.owner, target.repo)
+                warnings.append(f"{target.name}: code scan skipped ({github_fetcher.describe(error, 'the source archive', private)}).")
                 return []
             found = await asyncio.to_thread(usage_scanner.scan_repository, target.name, files, wanted, packs)
             target.code_scanned = True
@@ -385,7 +393,8 @@ async def _run(scan_id: str, targets: List[Target], options: ScanOptions, store:
         if scannable:
             code_impact = [item for items in await asyncio.gather(*(scan(t) for t in scannable)) for item in items]
 
-    contract_analysis = await _contract_analysis(scan_id, targets, options, store, warnings, source_files)
+    contract_analysis = await _contract_analysis(scan_id, targets, options, store, warnings, source_files,
+                                                 lambda target: http.credentialed(target.owner, target.repo))
 
     store.progress(scan_id, "ANALYZING", 85, f"Checking release notes and vulnerabilities for {len(drifted)} drifted packages")
     scanned_names = {t.name for t in analyzed if t.code_scanned}

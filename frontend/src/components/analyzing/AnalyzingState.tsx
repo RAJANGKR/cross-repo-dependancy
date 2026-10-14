@@ -48,10 +48,18 @@ interface AnalyzingStateProps {
   status: string
   progress: ScanProgress | null
   repos: SubmittedRepo[]
+  /** Why this run is playing instead of what was asked for. */
+  notice?: string | null
   onCancel: () => void
 }
 
-export function AnalyzingState({ source, startedAt, scanId, status, progress, repos, onCancel }: AnalyzingStateProps) {
+const HEADINGS: Record<DataSource, string> = {
+  live: 'Analyzing your repositories',
+  demo: 'Loading the saved demo scan',
+  sample: 'Playing the sample scan',
+}
+
+export function AnalyzingState({ source, startedAt, scanId, status, progress, repos, notice, onCancel }: AnalyzingStateProps) {
   const elapsed = useElapsedSeconds(startedAt)
   const stageIndex = (SCAN_STAGES as readonly string[]).indexOf(status)
   const known = stageIndex !== -1
@@ -78,8 +86,9 @@ export function AnalyzingState({ source, startedAt, scanId, status, progress, re
               <SourceBadge source={source} />
             </div>
             <h1 id="analyzing-title" className="mt-6 font-display text-4xl tracking-tight lg:text-5xl">
-              {source === 'demo' ? 'Playing the demo scan' : 'Analyzing your repositories'}
+              {HEADINGS[source]}
             </h1>
+            {notice && <p className="mt-4 rounded-md border border-warning/30 bg-warning-tint px-4 py-3 text-sm">{notice}</p>}
             <p role="status" aria-live="polite" className="mt-4 min-h-14 text-lg text-muted-foreground">
               {current}
             </p>

@@ -20,7 +20,7 @@ export const CONTRACT_STATES = ['ANALYZED', 'SPEC_UNAVAILABLE', 'MALFORMED_SPEC'
  * How much evidence stands behind a contract change, weakest first. None of
  * them is a runtime observation, and NO_USAGE_FOUND is not a statement of safety.
  */
-export const EVIDENCE_TIERS = ['T0_DETECTED', 'T1_OPERATION_MATCH', 'T2_FIELD_MATCH', 'NO_USAGE_FOUND', 'UNRESOLVED'] as const
+export const EVIDENCE_TIERS = ['T0_DETECTED', 'POSSIBLE_REFERENCE', 'T1_OPERATION_MATCH', 'T2_FIELD_MATCH', 'NO_USAGE_FOUND', 'UNRESOLVED'] as const
 export const FIELD_USAGES = [
   'CALLS_OPERATION',
   'READS_CHANGED_FIELD',
@@ -227,6 +227,34 @@ export interface ContractImpactRow {
   explanation: string
 }
 
+/** A place in a consumer's source code that matches a path of the API. */
+export interface ContractReference {
+  repository: string
+  file: string
+  line: number | null
+  snippet: string
+  /** The API path the string matches. Empty when the row it belongs to already names it. */
+  path: string
+  /** What that call was seen to do with the changed element; see FIELD_USAGES. Empty in a plain list of references. */
+  usage: string
+}
+
+/**
+ * One contract change as seen from the possible references of a consumer whose
+ * relationship to the API is unverified. `evidence_tier` is POSSIBLE_REFERENCE
+ * or NO_USAGE_FOUND. A candidate, never a finding.
+ */
+export interface ContractCandidateRow extends ContractImpactRow {
+  references: ContractReference[]
+}
+
+/** A sign that the repository may talk to the provider. It ties no particular call to it. */
+export interface ContractCandidateSignal {
+  signal: string
+  file: string
+  line: number | null
+}
+
 /**
  * One row of contract analysis. With an empty `consumer_repo` it describes a
  * repository's specification: compared against an older version (ANALYZED),
@@ -243,6 +271,14 @@ export interface ContractAnalysisEntry {
   findings: ContractFinding[]
   /** For an analyzed consumer: every change of the comparison with its evidence tier. */
   consumer_impact?: ContractImpactRow[]
+  /** For an unverified consumer: what its possible references do with each change. Candidates, not findings. */
+  candidate_impact?: ContractCandidateRow[]
+  /** Strings matching a path of the API that nothing ties to it. The backend lists at most ten. */
+  possible_references?: ContractReference[]
+  /** Signs that the repository may use the provider, short of a verified relationship. */
+  candidate_evidence?: ContractCandidateSignal[]
+  /** Requests whose path is only known at runtime, so no operation could be matched or excluded. */
+  dynamic_urls?: ContractReference[]
 }
 
 export interface CodeImpactItem {

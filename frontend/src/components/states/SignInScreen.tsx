@@ -23,7 +23,8 @@ export function SignInScreen() {
         <h1 className="mt-6 font-display text-5xl tracking-tight lg:text-7xl">Sign in to continue</h1>
         <p className="mt-6 text-xl leading-relaxed text-muted-foreground">
           This DriftLock server requires a GitHub account. Signing in shares only your public profile: your name, username
-          and avatar. It does not give DriftLock access to your repositories.
+          and avatar. It does not give DriftLock access to your repositories. To scan private ones, you then choose which
+          repositories DriftLock&apos;s GitHub App may read, with read-only access that you can remove on GitHub at any time.
         </p>
 
         <div className="mt-10" aria-live="polite">
