@@ -24,6 +24,9 @@ htmlcov/
 .env.local
 .env.*.local
 *.local
+*.pem
+*.key
+*.db
 
 # System & IDE
 .DS_Store

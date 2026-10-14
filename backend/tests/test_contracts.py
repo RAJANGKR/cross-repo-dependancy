@@ -398,8 +398,9 @@ def test_response_matches_the_frontend_contract_types():
     """Field names and types are read from frontend/src/api/scanTypes.ts itself."""
     entry_fields, finding_fields = interface_fields("ContractAnalysisEntry"), interface_fields("ContractFinding")
     assert set(entry_fields) == {"provider_repo", "consumer_repo", "status", "spec_file", "message", "findings"}
-    assert set(interface_fields("ContractAnalysisEntry", optional=True)) == {"consumer_impact"}
+    assert set(interface_fields("ContractAnalysisEntry", optional=True)) == {"consumer_impact", "candidate_impact", "possible_references", "candidate_evidence", "dynamic_urls"}
     tier_fields, row_fields = interface_fields("ContractFinding", optional=True), interface_fields("ContractImpactRow")
+    reference_fields, signal_fields = interface_fields("ContractReference"), interface_fields("ContractCandidateSignal")
     assert set(tier_fields) == {"evidence_tier", "field", "field_in", "usage", "explanation", "source_file", "source_line"}
     source = SCAN_TYPES.read_text(encoding="utf-8")
     constants = lambda name: set(re.search(rf"{name} = \[(.*?)\]", source, re.S).group(1).replace("'", "").replace(" ", "").replace("\n", "").strip(",").split(","))
@@ -413,6 +414,19 @@ def test_response_matches_the_frontend_contract_types():
         assert isinstance(entry["findings"], list) and entry["provider_repo"] and entry["message"]
         # Every analyzed consumer carries one evidence row per change; nothing else does.
         assert ("consumer_impact" in entry) == (entry["status"] == "ANALYZED" and bool(entry["consumer_repo"]))
+        # Candidate rows belong to an unverified consumer that has possible references, and never come with findings.
+        assert ("candidate_impact" in entry) == (entry["status"] == "RELATIONSHIP_UNVERIFIED" and "possible_references" in entry)
+        for row in entry.get("candidate_impact", []):
+            assert entry["findings"] == [] and set(row) == set(row_fields) | {"references"}
+            assert row["evidence_tier"] in ("POSSIBLE_REFERENCE", "NO_USAGE_FOUND") and row["explanation"]
+            assert (row["evidence_tier"] == "POSSIBLE_REFERENCE") == bool(row["references"]) == (row["file"] != "")
+            assert all(set(ref) - {"match"} <= set(reference_fields) and ref["file"] and isinstance(ref["line"], int) for ref in row["references"])
+            tiers.add(row["evidence_tier"])
+            usages.add(row["usage"])
+        for ref in entry.get("possible_references", []):
+            assert set(ref) - {"match"} <= set(reference_fields) and ref["path"] and ref["file"] and isinstance(ref["line"], int)
+        for signal in entry["relationship"].get("candidate_evidence", []) if entry.get("relationship") else []:
+            assert set(signal) == set(signal_fields)
         for finding in entry["findings"]:
             assert set(finding_fields) <= set(finding)
             assert all(isinstance(finding[name], str) and finding[name] for name in finding_fields if name != "method")

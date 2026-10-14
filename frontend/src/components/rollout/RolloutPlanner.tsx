@@ -12,6 +12,7 @@ import {
   type RolloutState,
 } from '../../api/rolloutClient'
 import { isCancelled } from '../../api/errors'
+import { useRolloutMemory } from '../../hooks/useRolloutMemory'
 import { changedFieldLabel, evidenceBadge, TONE_STYLES, type Tone } from '../../lib/classify'
 import { cx } from '../../lib/cx'
 import { humanizeCode, plural } from '../../lib/formatters'
@@ -442,6 +443,7 @@ interface RolloutPlannerProps {
 }
 
 export function RolloutPlanner({ onBack, analyze = analyzeRollout }: RolloutPlannerProps) {
+  const { remember } = useRolloutMemory()
   const baseId = useId()
   const [form, setForm] = useState<RolloutRequest>(EMPTY)
   const [problems, setProblems] = useState<Record<string, string>>({})
@@ -477,11 +479,13 @@ export function RolloutPlanner({ onBack, analyze = analyzeRollout }: RolloutPlan
     setError(null)
     // The previous answer is cleared first: an old verdict must not sit next to new inputs.
     setResult(null)
+    remember(null)
     try {
       const answer = await analyze(request, { signal: current.signal })
       if (controller.current !== current) return
       setResult(answer)
       setAnalyzed(request)
+      remember(answer) // the assistant can then answer questions about this analysis
     } catch (failure) {
       if (controller.current !== current || isCancelled(failure)) return
       setError(rolloutErrorMessage(failure))

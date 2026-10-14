@@ -161,6 +161,16 @@ export function toUiError(error: unknown): UiError {
     }
   }
 
+  if (status === 403 || code === 'REPOSITORY_NOT_AUTHORIZED') {
+    return {
+      kind: 'bad-request',
+      title: 'No access to a repository',
+      message: serverMessage || 'DriftLock has no access to one of these repositories.',
+      code,
+      actions: ['edit-input'],
+    }
+  }
+
   if (status === 401 || code === 'SIGN_IN_REQUIRED') {
     return {
       kind: 'bad-request',

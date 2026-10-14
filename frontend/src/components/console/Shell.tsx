@@ -164,7 +164,7 @@ export function Shell({ view, onView, source, result, badges, scanning, onScanAg
             <MenuIcon aria-hidden="true" />
           </IconButton>
           <Wordmark />
-          {source === 'demo' && <SourceBadge source={source} />}
+          {source !== 'live' && <SourceBadge source={source} />}
           {editingName ? (
             <input
               autoFocus

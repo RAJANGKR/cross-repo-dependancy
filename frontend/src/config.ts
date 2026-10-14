@@ -12,9 +12,9 @@ export const API_BASE_URL: string = (
 ).replace(/\/+$/, '')
 
 /**
- * Mock mode routes "Analyze repositories" through the bundled demo scan
- * instead of the backend, and labels everything "Demo data". Off by default:
- * only the literal string "true" turns it on.
+ * Mock mode routes "Analyze repositories" and "Load demo run" through the
+ * sample built into the app instead of the backend, and labels everything
+ * "Sample data". Off by default: only the literal string "true" turns it on.
  */
 export const USE_MOCK: boolean = env.VITE_USE_MOCK === 'true'
 

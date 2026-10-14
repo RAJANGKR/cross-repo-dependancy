@@ -1,5 +1,10 @@
-"""Reads public GitHub repositories over the REST API. Files are fetched as
-text only; nothing downloaded is ever executed."""
+"""Reads GitHub repositories over the REST API. Files are fetched as text
+only; nothing downloaded is ever executed.
+
+Public repositories are read anonymously or with the shared GITHUB_TOKEN. A
+private repository is read only with the installation token its scan was
+given (see credentials.py); without one it is refused, not read with
+whatever access the shared token happens to have."""
 from dataclasses import dataclass, field
 from typing import Dict, List, Optional
 from urllib.parse import quote
@@ -34,8 +39,12 @@ class RepoFiles:
     error: Optional[str] = None
 
 
-def describe(error: FetchError, what: str) -> str:
+def describe(error: FetchError, what: str, private: bool = False) -> str:
+    """Why `what` could not be read. For a private repository a refusal is never worded as an empty result."""
+    if private and error.kind == "not_found":
+        return f"{what} could not be read with the access granted to DriftLock: GitHub answered not found. Access may have been removed"
     return {
+        "unauthorized": f"GitHub refused access to {what}: the access granted to DriftLock is missing, expired or was revoked",
         "not_found": f"{what} was not found, or the repository is private",
         "rate_limit": "GitHub rate limit reached. Set GITHUB_TOKEN on the backend or retry later",
         "timeout": f"Timed out while reading {what}",
@@ -81,10 +90,17 @@ async def fetch_repo(http: Http, owner: str, repo: str, ref_path: Optional[str],
     discovery costs one extra request per specification file and nothing else."""
     result = RepoFiles(owner=owner, repo=repo)
     what = f"{owner}/{repo}"
+    private = http.credentialed(owner, repo)
     try:
-        if not ref_path:
+        # Anonymous requests cannot see a private repository; the shared token might. Then its visibility is checked
+        # first, so a private repository is never read on the strength of the backend's own token.
+        if not ref_path or (http.uses_shared_token and not private):
             info = await http.get_json(f"{API}/repos/{owner}/{repo}", ttl=_SHORT_TTL)
-            ref_path = str(info.get("default_branch") or "main")
+            if isinstance(info, dict) and info.get("private") and not private:
+                result.error = (f"{what} is private. Scanning it needs Sign in with GitHub and access granted to DriftLock's GitHub App, "
+                                "so it was not read")
+                return result
+            ref_path = ref_path or str((info if isinstance(info, dict) else {}).get("default_branch") or "main")
         resolved = await resolve_ref(http, owner, repo, ref_path)
         if resolved is None:
             result.error = f'Branch, tag or commit "{ref_path}" could not be resolved in {what}'
@@ -93,7 +109,7 @@ async def fetch_repo(http: Http, owner: str, repo: str, ref_path: Optional[str],
 
         tree = await http.get_json(f"{API}/repos/{owner}/{repo}/git/trees/{result.commit}?recursive=1", ttl=_PINNED_TTL)
     except FetchError as error:
-        result.error = describe(error, what)
+        result.error = describe(error, what, private)
         return result
 
     if tree.get("truncated"):
@@ -118,7 +134,7 @@ async def fetch_repo(http: Http, owner: str, repo: str, ref_path: Optional[str],
         try:
             result.files[path] = await fetch_file(http, owner, repo, result.commit, path, settings.MAX_MANIFEST_BYTES, _PINNED_TTL)
         except FetchError as error:
-            result.warnings.append(f"{what}: {describe(error, path)}")
+            result.warnings.append(f"{what}: {describe(error, path, private)}")
 
     if discover_specs:
         spec_paths = sorted(
@@ -140,8 +156,8 @@ async def fetch_repo(http: Http, owner: str, repo: str, ref_path: Optional[str],
             try:
                 result.specs[path] = await fetch_file(http, owner, repo, result.commit, path, settings.MAX_SPEC_BYTES, _PINNED_TTL)
             except FetchError as error:
-                result.spec_errors[path] = describe(error, path)
-                result.warnings.append(f"{what}: {describe(error, path)}")
+                result.spec_errors[path] = describe(error, path, private)
+                result.warnings.append(f"{what}: {describe(error, path, private)}")
     return result
 
 
@@ -159,7 +175,8 @@ async def fetch_file(
             ignore_404_failure=ignore_404_failure,
         )
     except FetchError as error:
-        if error.kind != "rate_limit":
+        # raw.githubusercontent.com is a fallback for public files only.
+        if error.kind != "rate_limit" or http.credentialed(owner, repo):
             raise
         try:
             return await http.get_text(
@@ -191,5 +208,9 @@ async def fetch_changelog_file(http: Http, owner: str, repo: str) -> Optional[tu
 
 
 async def fetch_zipball(http: Http, owner: str, repo: str, commit: str) -> bytes:
-    """Source archive for one commit, held in memory and size-capped."""
+    """Source archive for one commit, held in memory and size-capped. A private
+    repository's archive is requested through the API with its token; GitHub
+    answers with a short-lived download link, which is followed without the token."""
+    if http.credentialed(owner, repo):
+        return await http.get_bytes(f"{API}/repos/{owner}/{repo}/zipball/{commit}", max_bytes=settings.MAX_ZIP_BYTES)
     return await http.get_bytes(f"{CODELOAD}/{owner}/{repo}/zip/{commit}", max_bytes=settings.MAX_ZIP_BYTES)

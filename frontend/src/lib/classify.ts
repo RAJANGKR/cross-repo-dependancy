@@ -194,6 +194,12 @@ const EVIDENCE: Record<string, Omit<ClassMeta, 'value' | 'known'>> = {
     tone: 'neutral',
     rank: 1,
   },
+  POSSIBLE_REFERENCE: {
+    label: 'Possible reference',
+    description: 'A call matching this operation was found, but nothing ties it to this API. It is a candidate and is not counted as usage.',
+    tone: 'neutral',
+    rank: 1,
+  },
   T0_DETECTED: {
     label: 'Change detected',
     description: 'A difference between two specification files. No consumer evidence is attached.',
@@ -267,6 +273,8 @@ const USAGE: Record<string, Omit<ClassMeta, 'value' | 'known'>> = {
  * shown as sent.
  */
 export function evidenceBadge(tier: string, usage: string): ClassMeta {
+  // A candidate stays a candidate, whatever the call was seen to do.
+  if (tier === 'POSSIBLE_REFERENCE') return evidenceMeta(tier)
   const byUsage = USAGE[usage]
   if (byUsage) return { value: usage, known: true, ...byUsage }
   return evidenceMeta(tier)

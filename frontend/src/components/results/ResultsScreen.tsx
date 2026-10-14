@@ -9,6 +9,7 @@ import { DEFAULT_FILTERS, filterDrifts, sortDrifts, valuesIn, viewStateFromSearc
 import { fixesFor, fixPlan, fixPlanText, githubEditUrl, needsReview } from '../../lib/insights'
 import { log, setReview, updateStore, useStore, type HistoryEntry } from '../../lib/localStore'
 import { computeOverview, repoNamesOf } from '../../lib/overview'
+import { Banner } from '../common/Banner'
 import { Button } from '../common/Button'
 import { ConfirmButton, Menu, MenuItem, Switch, useCopy, useToast } from '../common/Controls'
 import { PreviewTag, SectionHeading } from '../common/Tags'
@@ -38,6 +39,8 @@ interface ResultsScreenProps {
   record: ScanRecord
   result: ScanResult
   source: DataSource
+  /** Why this data is on screen instead of what was asked for (the sample in place of the saved demo run). */
+  notice?: string | null
   /** What the user submitted, used for labels and to spot dropped repositories. */
   submitted: SubmittedRepo[]
   /** Current query string: the single source of truth for view, filters and selection. */
@@ -49,7 +52,7 @@ interface ResultsScreenProps {
   onRunAgain: (entry: HistoryEntry) => void
 }
 
-export function ResultsScreen({ record, result, source, submitted, search, onNewScan, onScanAgain, onRunAgain }: ResultsScreenProps) {
+export function ResultsScreen({ record, result, source, notice, submitted, search, onNewScan, onScanAgain, onRunAgain }: ResultsScreenProps) {
   const store = useStore()
   const { settings, reviews } = store
   const toast = useToast()
@@ -85,12 +88,13 @@ export function ResultsScreen({ record, result, source, submitted, search, onNew
     [submitted],
   )
 
-  // Demo data is hand-written, so its files do not exist on GitHub to edit.
+  // Only a scan that was just run offers a pull request: a saved run may be out of date, and the sample's files do not exist.
   const editUrlFor = useCallback(
-    (repo: string, sourceFile: string) => (source === 'demo' ? null : githubEditUrl(result, repo, sourceFile)),
+    (repo: string, sourceFile: string) => (source === 'live' ? githubEditUrl(result, repo, sourceFile) : null),
     [source, result],
   )
-  const editUnavailableReason = source === 'demo' ? 'Not available for demo data' : 'Only available for GitHub repositories whose branch the scan reported'
+  const editUnavailableReason =
+    source === 'live' ? 'Only available for GitHub repositories whose branch the scan reported' : `Not available for ${source} data`
 
   const go = useCallback((next: string) => navigate(`${ROUTE_PATHS.results}${next}`, { replace: true }), [])
   const setView = useCallback(
@@ -169,7 +173,8 @@ export function ResultsScreen({ record, result, source, submitted, search, onNew
   )
 
   const noDrift = rows.length > 0 && !rows.some((row) => isDrifted(row.drift_disparity))
-  const preview = source === 'demo' ? <PreviewTag /> : undefined
+  // The sample's contract and code-impact sections are hand-written in a provisional shape; a saved run is real backend output.
+  const preview = source === 'sample' ? <PreviewTag /> : undefined
   const pasted = submitted.filter((target) => target.kind === 'pasted')
 
   return (
@@ -187,6 +192,11 @@ export function ResultsScreen({ record, result, source, submitted, search, onNew
         fixes: fixPlan(rows, repos).reduce((sum, group) => sum + group.items.filter(({ row, fix }) => !store.fixesDone.includes(`${row.id}@${fix.repo}`)).length, 0),
       }}
     >
+      {notice && (
+        <Banner tone="warning" role="status" title="Showing sample data" className="mb-4">
+          {notice}
+        </Banner>
+      )}
       {pasted.length > 0 && (
         <p className="mb-4 rounded-md border border-border bg-info-tint px-4 py-2 text-sm">
           Pasted input ({pasted.map((target) => target.label).join(', ')}): no code scan, and resolved versions only where a lockfile was pasted.

@@ -1,7 +1,8 @@
 import { ArrowRight } from 'lucide-react'
-import type { ContractAnalysisEntry, ContractFinding, ContractImpactRow } from '../../api/scanTypes'
-import { changedFieldLabel, contractMeta, evidenceBadge, evidenceMeta } from '../../lib/classify'
+import type { ContractAnalysisEntry, ContractCandidateRow, ContractFinding, ContractImpactRow, ContractReference } from '../../api/scanTypes'
+import { changedFieldLabel, contractMeta, evidenceBadge, evidenceMeta, usageLabel } from '../../lib/classify'
 import {
+  candidateAction,
   entryHeadline,
   entryRank,
   findingFor,
@@ -35,6 +36,24 @@ function EvidenceBadge({ tier, usage }: { tier: string; usage: string }) {
   return <ToneBadge label={meta.label} tone={meta.tone} prefix="Evidence" />
 }
 
+/** Places in a consumer's code, each with what the backend said about it. A place alone establishes nothing. */
+function ReferenceList({ references, label }: { references: readonly ContractReference[]; label: string }) {
+  return (
+    <ul aria-label={label} className="space-y-3">
+      {references.map((reference, index) => (
+        <li key={`${reference.file}:${reference.line}:${index}`} className="min-w-0">
+          <p className="break-all font-mono text-xs">
+            {sourceLocation(reference.file, reference.line) || 'No location'}
+            {reference.path && <span className="text-muted-foreground"> matches {reference.path}</span>}
+            {reference.usage && <span className="text-muted-foreground"> · {usageLabel(reference.usage)}</span>}
+          </p>
+          {reference.snippet && <code className="mt-1 block break-all rounded-md bg-secondary px-3 py-2 font-mono text-xs">{reference.snippet}</code>}
+        </li>
+      ))}
+    </ul>
+  )
+}
+
 interface ChangeRowProps {
   change: ChangeLike
   tier: string
@@ -43,6 +62,8 @@ interface ChangeRowProps {
   impact?: ContractImpactRow
   /** The specification finding for this change, when the backend sent one. */
   finding?: ContractFinding
+  /** Set when the row is a candidate: the consumer's relationship to the API is unverified. */
+  candidate?: ContractCandidateRow
 }
 
 /**
@@ -51,15 +72,16 @@ interface ChangeRowProps {
  * after values, JSON pointer, source line, the full explanation) is in
  * "View evidence".
  */
-function ChangeRow({ change, tier, usage, impact, finding }: ChangeRowProps) {
+function ChangeRow({ change, tier, usage, impact, finding, candidate }: ChangeRowProps) {
   const summary = summarizeChange(change)
   const field = changedFieldLabel(change.field ?? '', change.field_in ?? '')
-  const source = impact ? sourceLocation(impact.file, impact.line) : sourceLocation(finding?.source_file, finding?.source_line)
+  const located = impact ?? candidate
+  const source = located ? sourceLocation(located.file, located.line) : sourceLocation(finding?.source_file, finding?.source_line)
   const level = evidenceMeta(tier).label
   // The badge already names the evidence when it reads the same as the level, and the finding's impact text
   // already contains the explanation when both exist. Neither is printed twice.
   const showLevel = Boolean(tier) && evidenceBadge(tier, usage).label !== level
-  const explained = Boolean(impact?.explanation && finding?.impact?.includes(impact.explanation))
+  const explained = Boolean(located?.explanation && finding?.impact?.includes(located.explanation))
   return (
     <li className="border-t border-border px-5 py-4">
       <div className="flex flex-wrap items-start justify-between gap-x-4 gap-y-2">
@@ -78,26 +100,42 @@ function ChangeRow({ change, tier, usage, impact, finding }: ChangeRowProps) {
         {summary.change}
         {summary.location && <span className="text-muted-foreground"> ({summary.location})</span>}
       </p>
+      {candidate && source && (
+        <p className="mt-1 text-sm">
+          <span className="text-muted-foreground">Possible reference: </span>
+          <span className="break-all font-mono text-xs">{source}</span>
+          {/* What the call was seen to do is an observation about that line, not a finding about this API. */}
+          <span className="text-muted-foreground"> · seen at this call: {usageLabel(usage).toLowerCase()}</span>
+        </p>
+      )}
       <p className="mt-1 text-sm">
         <span className="text-muted-foreground">Suggested action: </span>
-        {suggestedAction(change, usage)}
+        {candidate ? candidateAction(change, tier, usage) : suggestedAction(change, usage)}
       </p>
 
       <Disclosure label="View evidence" className="mt-2">
-        {impact?.explanation && !explained && <p className="text-sm text-muted-foreground">{impact.explanation}</p>}
-        {impact?.snippet && <code className="mt-2 block break-all rounded-md bg-secondary px-3 py-2 font-mono text-xs">{impact.snippet}</code>}
+        {located?.explanation && !explained && <p className="text-sm text-muted-foreground">{located.explanation}</p>}
+        {located?.snippet && <code className="mt-2 block break-all rounded-md bg-secondary px-3 py-2 font-mono text-xs">{located.snippet}</code>}
         <dl className="mt-3 grid gap-3 sm:grid-cols-2">
           <Value label="Change type" value={humanizeCode(change.change_type) || 'Contract change'} />
           {showLevel && <Value label="Evidence level" value={level} />}
           <Value label="Previous" value={change.previous_value} />
           <Value label="New" value={change.new_value} />
           {field && <Value label="Changed element" value={field} />}
-          {(impact || source) && <Value label="Consumer source" value={source || 'No location'} />}
+          {candidate
+            ? source && <Value label="Location in the code" value={source} />
+            : (impact || source) && <Value label="Consumer source" value={source || 'No location'} />}
           {finding && <Value label="Specification file" value={finding.spec_file} />}
           {finding && <Value label="Evidence location (JSON pointer)" value={finding.json_pointer} />}
           {finding?.severity && <Value label="Severity" value={humanizeCode(finding.severity)} />}
         </dl>
         {finding?.impact && <p className="mt-3 text-sm text-muted-foreground">Potential impact: {finding.impact}</p>}
+        {candidate && candidate.references.length > 0 && (
+          <div className="mt-3">
+            <p className="mb-2 text-xs text-muted-foreground">Calls matching this operation</p>
+            <ReferenceList references={candidate.references} label="Calls matching this operation" />
+          </div>
+        )}
       </Disclosure>
     </li>
   )
@@ -113,6 +151,10 @@ function Entry({ entry, repoLabel }: { entry: ContractAnalysisEntry; repoLabel: 
   const fromImpact = impact.length > 0
   // Findings that no row describes are still shown, so nothing the backend sent is dropped.
   const unmatched = fromImpact ? entry.findings.filter((finding) => !impact.some((row) => findingFor(row, [finding]))) : []
+  const candidates = entry.candidate_impact ?? []
+  const possible = entry.possible_references ?? []
+  const signals = entry.candidate_evidence ?? []
+  const dynamic = entry.dynamic_urls ?? []
 
   return (
     <li className="overflow-hidden rounded-lg border border-border bg-card">
@@ -143,7 +185,36 @@ function Entry({ entry, repoLabel }: { entry: ContractAnalysisEntry; repoLabel: 
           {entry.spec_file && (
             <p className="mt-2 break-all font-mono text-xs text-muted-foreground">Specification file: {entry.spec_file}</p>
           )}
+          {signals.length > 0 && (
+            <div className="mt-3">
+              <p className="text-xs text-muted-foreground">Candidate signals. They suggest this repository may use the provider and tie no particular call to it.</p>
+              <ul aria-label="Candidate signals" className="mt-1 space-y-1">
+                {signals.map((item, index) => (
+                  <li key={`${item.signal}:${index}`} className="break-all font-mono text-xs">
+                    {item.signal}
+                    {item.file && <span className="text-muted-foreground"> at {sourceLocation(item.file, item.line)}</span>}
+                  </li>
+                ))}
+              </ul>
+            </div>
+          )}
         </Disclosure>
+        {possible.length > 0 && (
+          <Disclosure label={`View possible references (${possible.length})`} className="mt-1">
+            <p className="mb-3 text-sm text-muted-foreground">
+              Strings in this repository that match a path of the API. Nothing ties them to it, so they are not counted as usage. At most ten are listed.
+            </p>
+            <ReferenceList references={possible} label="Possible references" />
+          </Disclosure>
+        )}
+        {dynamic.length > 0 && (
+          <Disclosure label={`View requests built at runtime (${dynamic.length})`} className="mt-1">
+            <p className="mb-3 text-sm text-muted-foreground">
+              These requests take their path from a value that is only known at runtime, so no operation could be matched or excluded.
+            </p>
+            <ReferenceList references={dynamic} label="Requests built at runtime" />
+          </Disclosure>
+        )}
       </div>
 
       {(fromImpact || entry.findings.length > 0) && (
@@ -178,6 +249,26 @@ function Entry({ entry, repoLabel }: { entry: ContractAnalysisEntry; repoLabel: 
             />
           ))}
         </ul>
+      )}
+      {candidates.length > 0 && (
+        <>
+          <ul aria-label="Possible references to contract changes">
+            {candidates.map((row, index) => (
+              <ChangeRow
+                key={`candidate:${row.method}:${row.path}:${row.field}:${row.change_type}:${index}`}
+                change={row}
+                tier={row.evidence_tier}
+                usage={row.usage}
+                candidate={row}
+              />
+            ))}
+          </ul>
+          <p className="border-t border-border px-5 py-3 text-xs text-muted-foreground">
+            Possible references per contract change, from this repository&apos;s source code. Nothing ties these calls to
+            this API, so they are candidates: none is counted as usage, and &quot;No usage found&quot; is not proof that
+            the repository is unaffected.
+          </p>
+        </>
       )}
       {fromImpact && (
         <p className="border-t border-border px-5 py-3 text-xs text-muted-foreground">

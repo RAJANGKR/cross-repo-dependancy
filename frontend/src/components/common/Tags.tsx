@@ -1,7 +1,7 @@
 import { Database, FlaskConical, Radio } from 'lucide-react'
 import type { ReactNode } from 'react'
 import { cx } from '../../lib/cx'
-import { SOURCE_LABELS, type DataSource } from '../../lib/exportMarkdown'
+import { SOURCE_LABELS, SOURCE_NOTES, type DataSource } from '../../lib/exportMarkdown'
 import { ecosystemLabel } from '../../lib/formatters'
 
 export function EcosystemTag({ ecosystem }: { ecosystem: string }) {
@@ -38,14 +38,16 @@ export function Tag({
   )
 }
 
-/** Where the data on screen came from. Demo data is always labeled as such. */
+/** Where the data on screen came from. Demo and sample data are always labeled as such. */
 export function SourceBadge({ source }: { source: DataSource }) {
-  const Icon = source === 'demo' ? FlaskConical : Radio
+  const live = source === 'live'
+  const Icon = live ? Radio : FlaskConical
   return (
     <span
+      title={SOURCE_NOTES[source]}
       className={cx(
         'inline-flex items-center gap-1.5 rounded-full px-3 py-1 font-mono text-xs',
-        source === 'demo' ? 'bg-warning-tint text-warning' : 'bg-secondary text-foreground',
+        live ? 'bg-secondary text-foreground' : 'bg-warning-tint text-warning',
       )}
     >
       <Icon aria-hidden="true" className="size-3.5" />

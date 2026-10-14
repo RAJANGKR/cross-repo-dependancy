@@ -12,6 +12,9 @@ logging.basicConfig(
     format="%(asctime)s - %(name)s - %(levelname)s - %(message)s",
 )
 logger = logging.getLogger("driftlock")
+# httpx logs every request URL at INFO. A private repository's archive is downloaded from a short-lived link
+# whose query string is a token, so request URLs are not logged.
+logging.getLogger("httpx").setLevel(logging.WARNING)
 
 app = FastAPI(
     title=settings.APP_NAME,

@@ -4,6 +4,7 @@ import type { UiError } from '../../api/errors'
 import { MAX_PASTED_FILE_BYTES, MAX_REPOS, MIN_REPOS, USE_MOCK } from '../../config'
 import { useAnnounce } from '../../hooks/useAnnouncer'
 import { cx } from '../../lib/cx'
+import { DEMO_HINT } from '../../lib/exportMarkdown'
 import { formatDateTime } from '../../lib/formatters'
 import { updateStore, useStore, type HistoryEntry } from '../../lib/localStore'
 import {
@@ -304,7 +305,7 @@ export function RepoForm({ form, onChange, onSubmit, onLoadDemo, busy, error, on
             {error.code && <span className="mt-1 block font-mono text-xs">{error.code}</span>}
           </Banner>
         )}
-        {USE_MOCK && <Banner tone="info">Mock mode is on. Analyze repositories plays the bundled demo scan, not a scan of these targets.</Banner>}
+        {USE_MOCK && <Banner tone="info">Mock mode is on. Analyze repositories plays the sample built into the app, not a scan of these targets.</Banner>}
         <div className="flex flex-wrap items-center gap-x-4 gap-y-3">
           <Button type="submit" variant="primary" size="lg" disabled={busy} aria-describedby={`${baseId}-blocked`}>
             Analyze repositories
@@ -313,7 +314,7 @@ export function RepoForm({ form, onChange, onSubmit, onLoadDemo, busy, error, on
           <Button size="lg" onClick={onLoadDemo} disabled={busy}>
             Load demo run
           </Button>
-          <span className="font-mono text-xs text-muted-foreground">Uses bundled demo data</span>
+          <span className="font-mono text-xs text-muted-foreground">{DEMO_HINT}</span>
         </div>
         <p id={`${baseId}-blocked`} className={cx('min-h-5 text-sm', submitted && check.blocked ? 'text-risk-critical' : 'text-muted-foreground')}>
           {check.blocked ?? 'No GitHub or Gemini key is needed here: keys are configured on the backend.'}

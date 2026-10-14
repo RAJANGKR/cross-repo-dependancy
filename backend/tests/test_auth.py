@@ -46,7 +46,7 @@ def sign_in(client):
 
 
 def test_me_reports_setup_and_no_user_before_sign_in(client, monkeypatch):
-    assert client.get("/api/v1/auth/me").json() == {"configured": True, "required": False, "user": None}
+    assert client.get("/api/v1/auth/me").json() == {"configured": True, "required": False, "user": None, "repository_access": {"configured": False}}
     monkeypatch.setattr(settings, "GITHUB_OAUTH_CLIENT_SECRET", "")
     assert client.get("/api/v1/auth/me").json()["configured"] is False
     assert client.get("/api/v1/auth/github/login").json()["error_code"] == "SIGN_IN_NOT_CONFIGURED"

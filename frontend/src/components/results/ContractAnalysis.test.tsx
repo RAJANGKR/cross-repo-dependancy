@@ -7,7 +7,7 @@ import { parseScanRecord } from '../../api/parseScan'
 import { CONTRACT_STATES, EVIDENCE_TIERS, type ContractAnalysisEntry } from '../../api/scanTypes'
 import { contractMeta, evidenceBadge, evidenceMeta, TONE_STYLES } from '../../lib/classify'
 import { buildMarkdown } from '../../lib/exportMarkdown'
-import { entryHeadline, entryRank, sectionSummary, suggestedAction, summarizeChange } from '../../lib/contractSummary'
+import { candidateAction, entryHeadline, entryRank, sectionSummary, suggestedAction, summarizeChange } from '../../lib/contractSummary'
 import { ContractAnalysis } from './ContractAnalysis'
 
 afterEach(cleanup)
@@ -106,6 +106,12 @@ describe('contract analysis from the real backend', () => {
     expect(markdown).toContain('## API contract analysis')
     expect(markdown).toContain('- orders-v2 to storefront: Analyzed')
     expect(markdown).toContain('- orders-v2 to inventory: Relationship unverified')
+    // An unverified consumer's possible references are exported as such, with their location.
+    const catalog = markdown.slice(markdown.indexOf('- orders-v2 to catalog: Relationship unverified'), markdown.indexOf('- orders-v2 to mobile-bff'))
+    expect(catalog.split('\n').filter((line) => line.startsWith('  - '))).toHaveLength(6)
+    expect(catalog).toContain('  - Possible reference: New required request field GET `/orders`, query parameter status, src/client.js:3')
+    expect(catalog).toContain('  - No usage found: New required request field POST `/orders`, request field currency')
+    expect(catalog).not.toMatch(/Required value not sent|Reads changed field/)
     expect(markdown).toContain('Removed path:  `/orders/{id}/refunds`')
   })
 
@@ -125,7 +131,11 @@ describe('contract analysis from the real backend', () => {
     expect(find(entries, 'orders-v2').consumer_impact).toBeUndefined()
     expect(find(entries, 'orders-v2', 'catalog').consumer_impact).toBeUndefined()
     // Every tier the backend sends is one this dashboard can describe.
-    const sent = new Set(entries.flatMap((entry) => [...entry.findings.map((finding) => finding.evidence_tier ?? ''), ...(entry.consumer_impact ?? []).map((item) => item.evidence_tier)]))
+    const sent = new Set(entries.flatMap((entry) => [
+      ...entry.findings.map((finding) => finding.evidence_tier ?? ''),
+      ...(entry.consumer_impact ?? []).map((item) => item.evidence_tier),
+      ...(entry.candidate_impact ?? []).map((item) => item.evidence_tier),
+    ]))
     expect(sent).toEqual(new Set(EVIDENCE_TIERS))
     expect([...sent].every((tier) => evidenceMeta(tier).known)).toBe(true)
   })
@@ -397,9 +407,14 @@ describe('contract changes at a glance', () => {
     const unverified = cardFor('orders-v2', 'catalog')
     const badge = within(unverified).getByText('Relationship unverified')
     expect(collapsed(badge)).toBe(false)
-    const why = within(unverified).getByText('Its relationship to the provider could not be verified, so nothing was concluded.')
+    // Its code has strings matching two changed elements: the card says so, and still concludes nothing.
+    const why = within(unverified).getByText('Its code has a possible reference to 2 of 6 changed elements, but nothing ties those calls to this API.')
     expect(collapsed(why)).toBe(false)
     expect(within(unverified).getByText('Confirm manually whether this repository calls the API.')).toBeTruthy()
+    // An unverified repository with nothing matching keeps the plain reason.
+    const nothing = cardFor('orders-v2', 'inventory')
+    expect(collapsed(within(nothing).getByText('Its relationship to the provider could not be verified, so nothing was concluded.'))).toBe(false)
+    expect(within(nothing).queryByRole('list', { name: 'Possible references to contract changes' })).toBeNull()
     // The backend's full explanation is still there, in the disclosure.
     expect(collapsed(within(unverified).getByText(/a shared path does not establish a provider-consumer relationship/))).toBe(true)
 
@@ -446,6 +461,85 @@ describe('contract changes at a glance', () => {
     const missing = { provider_repo: 'customers', consumer_repo: '', status: 'SPEC_UNAVAILABLE', spec_file: '', message: '', findings: [] }
     expect(sectionSummary([pair, missing])).toBe('Contract changes were analyzed for 1 provider and consumer pair; 1 needs review.')
     expect(sectionSummary([missing])).toBe('No two versions of the same API were found in this scan, so no contract was compared.')
+  })
+
+  it('shows the possible references of an unverified consumer per change, as candidates', () => {
+    const { entries } = parsed()
+    const catalog = find(entries, 'orders-v2', 'catalog')
+    // The parser keeps what the backend found: the rows, and the calls behind them.
+    expect(catalog.status).toBe('RELATIONSHIP_UNVERIFIED')
+    expect(catalog.findings).toEqual([])
+    expect(catalog.consumer_impact).toBeUndefined()
+    expect(catalog.candidate_impact).toHaveLength(6)
+    const required = catalog.candidate_impact?.find((row) => row.field === 'status')
+    expect(required).toMatchObject({ evidence_tier: 'POSSIBLE_REFERENCE', usage: 'OMITS_REQUIRED_FIELD', method: 'GET', path: '/orders', field_in: 'query', repository: 'catalog', file: 'src/client.js', line: 3 })
+    expect(required?.references).toEqual([expect.objectContaining({ repository: 'catalog', file: 'src/client.js', line: 3, usage: 'OMITS_REQUIRED_FIELD' })])
+    expect(catalog.possible_references?.map((ref) => `${ref.path} ${ref.file}:${ref.line}`)).toEqual(['/items src/client.js:2', '/orders src/client.js:3'])
+
+    render(<ContractAnalysis entries={[catalog]} repoLabel={(name) => name} />)
+    const card = within(cardFor('orders-v2', 'catalog'))
+    expect(card.getByText('Relationship unverified')).toBeTruthy()                    // the status does not change
+    expect(card.queryByRole('list', { name: 'Contract changes' })).toBeNull()         // candidates are not listed as changes that reach it
+    const rows = within(card.getByRole('list', { name: 'Possible references to contract changes' })).getAllByRole('listitem').filter((item) => item.querySelector(':scope > div > p'))
+    expect(rows).toHaveLength(6)
+
+    const item = rows.find((candidate) => candidate.textContent?.includes('changed from optional to required')) as HTMLElement
+    const row = within(item)
+    // Repository file and line, the operation, the changed field, and what the call was seen to do.
+    expect(item.querySelector('p')?.textContent?.replace(/\s+/g, ' ').trim()).toBe('GET /orders')
+    expect(row.getByText('status')).toBeTruthy()
+    const badge = row.getByText('Possible reference')
+    expect(badge.className).toContain(TONE_STYLES.neutral.text)                       // never styled as a finding
+    expect(row.queryByText('Required value not sent')).toBeNull()                     // the usage does not become the badge
+    expect(row.getAllByText('src/client.js:3').some((element) => !collapsed(element))).toBe(true)     // the location is on the row itself
+    expect(row.getByText(/seen at this call: required value not sent/)).toBeTruthy()
+    expect(row.getByText('Confirm whether this call reaches this API. If it does, send status in this request before the provider is upgraded.')).toBeTruthy()
+    // The backend's own words, including what ties nothing to the API, are one click away.
+    expect(collapsed(row.getByText(/it is a possible reference, and whether it reaches this API is unverified/))).toBe(true)
+    expect(collapsed(within(row.getByRole('list', { name: 'Calls matching this operation' })).getByText(/src\/client\.js:3/))).toBe(true)
+
+    // A change with no matching string says so, and suggests no all-clear.
+    const none = rows.filter((item) => within(item).queryByText('No usage found'))
+    expect(none).toHaveLength(4)
+    expect(within(none[0] as HTMLElement).getByText('Confirm manually. No matching call was found, which is not proof that this repository is unaffected.')).toBeTruthy()
+    expect(card.getByText(/they are candidates: none is counted as usage/)).toBeTruthy()
+
+    // Every string that matches a path of the API is listed, collapsed, with its location.
+    const possible = card.getByRole('list', { name: 'Possible references' })
+    expect(collapsed(possible)).toBe(true)
+    expect(card.getByText('View possible references (2)')).toBeTruthy()
+    expect(within(possible).getByText(/matches \/items/)).toBeTruthy()
+    expect(document.body.textContent).not.toMatch(/\bsafe\b|is compatible|no impact|confirmed/i)
+  })
+
+  it('words a candidate by its relationship first, whatever the call was seen to do', () => {
+    const change = { change_type: 'NEW_REQUIRED_REQUEST_FIELD', method: 'GET', path: '/orders', field: 'status', field_in: 'query', previous_value: 'query parameter status: optional', new_value: 'query parameter status: required' }
+    for (const usage of ['OMITS_REQUIRED_FIELD', 'READS_CHANGED_FIELD', 'CALLS_OPERATION', 'MAY_SEND_REQUIRED_FIELD', 'SENDS_REQUIRED_FIELD', 'FIELD_NOT_READ', 'NOT_DETERMINED', 'SOMETHING_NEW']) {
+      expect(candidateAction(change, 'POSSIBLE_REFERENCE', usage)).toMatch(/^Confirm whether this call reaches this API\. If it does, /)
+      expect(evidenceBadge('POSSIBLE_REFERENCE', usage)).toMatchObject({ label: 'Possible reference', tone: 'neutral' })
+    }
+    expect(candidateAction(change, 'POSSIBLE_REFERENCE', 'SENDS_REQUIRED_FIELD')).toContain('this request already sends the value')
+    expect(candidateAction(change, 'POSSIBLE_REFERENCE', 'NOT_DETERMINED')).toContain('the analysis could not settle what it does')
+    expect(candidateAction(change, 'NO_USAGE_FOUND', 'NO_USAGE_FOUND')).toContain('not proof that this repository is unaffected')
+    expect(evidenceMeta('POSSIBLE_REFERENCE').known).toBe(true)
+  })
+
+  it('shows candidate signals and runtime-built requests with their locations, without calling them a relationship', () => {
+    const dynamic = find(parsed(rawImpact).entries, 'billing-v2', 'dynamic_url_concat')
+    expect(dynamic.candidate_evidence).toEqual([{ signal: 'identifier naming the API (billing)', file: 'client.py', line: 9 }])
+    expect(dynamic.dynamic_urls).toHaveLength(1)
+    render(<ContractAnalysis entries={[dynamic]} repoLabel={(name) => name} />)
+    const card = within(cardFor('billing-v2', 'dynamic_url_concat'))
+    expect(card.getByText('Unresolved', { selector: 'h3 ~ span *, h3 ~ span' })).toBeTruthy()
+    const signals = card.getByRole('list', { name: 'Candidate signals' })
+    expect(collapsed(signals)).toBe(true)
+    expect(signals.textContent).toBe('identifier naming the API (billing) at client.py:9')
+    expect(card.getByText(/tie no particular call to it/)).toBeTruthy()
+    const runtime = card.getByRole('list', { name: 'Requests built at runtime' })
+    expect(collapsed(runtime)).toBe(true)
+    expect(within(runtime).getByText(new RegExp(`${dynamic.dynamic_urls?.[0]?.file}:${dynamic.dynamic_urls?.[0]?.line}`))).toBeTruthy()
+    expect(card.getByText('View requests built at runtime (1)')).toBeTruthy()
+    expect(card.getByText('View possible references (1)')).toBeTruthy()
   })
 
   it('derives summaries only from what the backend sent', () => {

@@ -3,9 +3,11 @@ import type { ScanClient } from './scanClient'
 import type { DependencyDrift, RepoDeclaration, ScanRecord, ScanResult } from './scanTypes'
 
 /**
- * Bundled demo scan. Hand-written, illustrative data in the contract's shape,
- * NOT the output of a real scan. It is only ever reached through "Load demo
- * run" or mock mode, and the UI labels it "Demo data" everywhere.
+ * The sample built into the app. Hand-written, illustrative data in the
+ * contract's shape, NOT the output of a real scan. "Load demo run" asks the
+ * backend for its saved run (`GET /api/v1/demo`); this sample is shown only in
+ * mock mode or when that request fails, and the UI then labels it "Sample
+ * data" everywhere and says why it is on screen.
  *
  * The contract-analysis and code-impact parts use the provisional field names
  * from scanTypes.ts; the real backend does not return those sections yet.

@@ -14,6 +14,8 @@ Built for Hacktopia 2026, problem statement PS 07 (cross-repo dependency drift d
 - **Scores** each drift 0 to 100 with a visible points breakdown and a confidence value that drops when evidence is missing.
 - **Compares API contracts**: OpenAPI / Swagger files that are verifiably two versions of the same API are diffed, and each consumer repository is checked for whether its code calls the changed operation or uses the changed field. Shown under Risk intelligence, with the evidence behind every row.
 - **Plans a rollout**: for one provider and one consumer, each at a current and a proposed ref, the Rollout planner says whether to deploy the provider first, the consumer first, either, or neither, and marks a state Unknown when the code could not be followed.
+- **Scans private repositories**: with a GitHub App configured, users sign in with GitHub, choose which repositories DriftLock may read, pick them from a searchable list and scan them alongside public ones. Access is read-only and checked on the backend for every repository. Setup: `docs/GITHUB_APP_SETUP.md`.
+- **Answers questions about a scan**: a small assistant in the bottom-right corner explains the results on screen in a few plain lines. It answers from the scan and rollout results only, says so when they do not hold the answer, and falls back to a rule-based summary when no Gemini key is set.
 - **Console UI**: command center, drift table, dependency graph, risk intelligence, review queue, fix plans, activity, repository comparison, settings.
 
 ## Run it (Windows)
@@ -45,14 +47,14 @@ Open `http://localhost:5173`. If port 8000 or 5173 is already in use, run the ba
 | Where | Variable | Purpose |
 | --- | --- | --- |
 | `backend/.env` | `GITHUB_TOKEN` | Optional. Raises the GitHub API limit from 60 to 5,000 requests per hour. A token with no scopes is enough. |
-| `backend/.env` | `GEMINI_API_KEY`, `GEMINI_MODEL` | Optional. Without a key, explanations are generated from rules. |
+| `backend/.env` | `GEMINI_API_KEY`, `GEMINI_MODEL` | Optional. Without a key, explanations are generated from rules and the assistant gives a rule-based summary. |
 | `backend/.env` | `CORS_ORIGINS` | Frontend origins allowed to call the API. |
 | `backend/.env` | `GITHUB_OAUTH_CLIENT_ID`, `GITHUB_OAUTH_CLIENT_SECRET` | Optional. Turns on Sign in with GitHub. |
 | `backend/.env` | `SESSION_SECRET` | Any long random string. Keeps people signed in across backend restarts. |
 | `backend/.env` | `AUTH_REQUIRED` | Default `false`. `true` makes sign-in mandatory: the app shows a sign-in screen and the API refuses scans without a session. |
 | `backend/.env` | `CACHE_ENABLED`, `CACHE_PATH` | SQLite cache for public upstream data. |
 | `frontend/.env.local` | `VITE_API_BASE_URL` | Backend base URL. |
-| `frontend/.env.local` | `VITE_USE_MOCK` | `true` plays the bundled demo scan instead of calling the backend. |
+| `frontend/.env.local` | `VITE_USE_MOCK` | `true` plays the sample built into the app instead of calling the backend. |
 
 No secret is ever needed in the frontend, and none is committed.
 
@@ -66,9 +68,11 @@ Sign-in is optional, and GitHub is the only method. Everything works signed out.
 
 The backend asks GitHub only for the public profile (`read:user`), keeps the session in a signed HTTP-only cookie, and discards the GitHub access token straight after reading the profile. Without these settings the app runs as before and the sign-in button is disabled.
 
+For private repositories, register a GitHub App instead and use its client ID and secret here: users then also connect repositories and scan them. The App's token stays on the backend in a server-side session. Step by step: `docs/GITHUB_APP_SETUP.md`.
+
 ## How risk is decided
 
-All classification and scoring is deterministic Python (`backend/app/services/classifier.py`, `scoring.py`). Gemini, when configured, only writes explanation text.
+All classification and scoring is deterministic Python (`backend/app/services/classifier.py`, `scoring.py`). Gemini, when configured, only writes explanation text and the assistant's answers; neither can change a score, a status or a recommendation.
 
 - `verified_breaking` is true only when the quoted line appears literally in release-note text the backend fetched for versions between the two being compared, and that line carries a breaking marker.
 - The code-usage scan has tiers. **Tier 1** is an import map: where a library is used, with no claim that anything breaks. **Tier 2** is a rule pack checked against the library's official migration guide; `backend/app/rules/pydantic.json` is the one shipped. Tier 3 (AI-suggested candidate names) is not built.
@@ -101,8 +105,8 @@ The same check runs locally with `python backend/scripts/driftlock_ci.py --head 
 ## Tests
 
 ```powershell
-cd backend;  .\.venv\Scripts\python -m pytest      # 588 tests, no network: upstreams are mocked
-cd frontend; npm test; npm run build               # 170 tests
+cd backend;  .\.venv\Scripts\python -m pytest      # 657 tests, no network: upstreams are mocked
+cd frontend; npm test; npm run build               # 217 tests
 ```
 
 `backend/scripts/live_smoke.py` is an optional script that runs one real scan against the live APIs. It is not part of the test suite.
@@ -115,9 +119,9 @@ cd frontend; npm test; npm run build               # 170 tests
 4. Open the top drift. Walk the tabs: Overview (score breakdown, confidence, missing signals), Evidence (quoted release note, code locations), Versions, Fix (copy the version line), Notes (accept, dismiss, snooze).
 5. Show a patch-level drift classified "No issue identified": it does not cry wolf.
 6. **Fix plans**: copy all fixes. **Export report** as Markdown.
-7. If the network fails: **Load demo run** plays bundled demo data, labeled as such everywhere.
+7. If GitHub or a registry is unreachable: **Load demo run** replays the scan saved on the backend, labeled "Demo data" everywhere. If the backend itself cannot be reached, it plays the sample built into the app instead, labeled "Sample data", with the reason shown.
 
-`GET /api/v1/demo` serves `backend/demo/demo_scan.json`, a saved real run of this backend against four services of `GoogleCloudPlatform/microservices-demo`.
+`GET /api/v1/demo` serves `backend/demo/demo_scan.json`, a saved real run of this backend against the three `driftlock-demo-service` repositories.
 
 ## Limitations
 

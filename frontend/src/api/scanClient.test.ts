@@ -2,8 +2,11 @@ import { describe, expect, it, vi } from 'vitest'
 import { demoRecord } from './demoScan'
 import { ApiFailure, extractServerError, isCancelled, toUiError } from './errors'
 import { parseScanAccepted, parseScanRecord, ScanShapeError } from './parseScan'
-import { createScanClient, pollPathFor } from './scanClient'
+import { runScan, type ScanUpdate } from './runScan'
+import { createSavedDemoClient, createScanClient, pollPathFor } from './scanClient'
 import type { ScanCreateRequest } from './scanTypes'
+// The scan the backend actually serves at GET /api/v1/demo, read from the backend's own file.
+import savedDemo from '../../../backend/demo/demo_scan.json'
 
 const request: ScanCreateRequest = {
   repository_targets: [{ type: 'github', url: 'https://github.com/example-org/core-service', ref: 'main' }],
@@ -183,5 +186,57 @@ describe('error mapping', () => {
     expect(extractServerError(null)).toEqual({ errorCode: '', serverMessage: '' })
     expect(isCancelled(new ApiFailure('aborted'))).toBe(true)
     expect(isCancelled(new ApiFailure('network'))).toBe(false)
+  })
+})
+
+describe('saved demo run', () => {
+  const config = (fetchImpl: typeof fetch) => ({ baseUrl: 'http://backend.test', timeoutMs: 1_000, fetchImpl })
+  const run = (fetchImpl: typeof fetch, updates: ScanUpdate[] = []) =>
+    runScan(createSavedDemoClient(config(fetchImpl)), { repository_targets: [] }, {
+      signal: new AbortController().signal,
+      onUpdate: (update) => updates.push(update),
+      pollIntervalMs: 1,
+      timeoutMs: 1_000,
+      maxPollFailures: 1,
+    })
+
+  it('requests GET /api/v1/demo and reads the saved record with the scan parser', async () => {
+    const fetchImpl = vi.fn<typeof fetch>(() => Promise.resolve(json(savedDemo)))
+    const record = await client(fetchImpl).getDemo()
+
+    const [url, init] = fetchImpl.mock.calls[0] ?? []
+    expect(url).toBe('http://backend.test/api/v1/demo')
+    expect(init?.method).toBe('GET')
+    expect(record).toEqual(parseScanRecord(savedDemo))
+    expect(record.status).toBe('COMPLETED')
+    expect(record.result?.scanned_repositories.map((repo) => repo.name)).toEqual(savedDemo.result.scanned_repositories.map((repo) => repo.name))
+    expect(record.result?.drift_matrix.map((row) => row.dependency_name)).toEqual(savedDemo.result.drift_matrix.map((row) => row.dependency_name))
+  })
+
+  it('goes through the run loop as a finished scan: one request, nothing submitted, no polling', async () => {
+    const fetchImpl = vi.fn<typeof fetch>(() => Promise.resolve(json(savedDemo)))
+    const updates: ScanUpdate[] = []
+    const record = await run(fetchImpl, updates)
+
+    expect(fetchImpl).toHaveBeenCalledTimes(1)
+    expect(fetchImpl.mock.calls[0]?.[1]?.method).toBe('GET')
+    expect(record.scan_id).toBe(savedDemo.scan_id)
+    expect(updates.map((update) => [update.scanId, update.status])).toEqual([[savedDemo.scan_id, 'COMPLETED']])
+  })
+
+  it('fails, instead of showing anything, when the backend has no saved run or cannot be reached', async () => {
+    const missing = await failureOf(run(() => Promise.resolve(json({ error_code: 'DEMO_NOT_AVAILABLE', message: 'No saved demo run is available on this backend.', details: {} }, 404))))
+    expect(missing).toMatchObject({ reason: 'http', status: 404, errorCode: 'DEMO_NOT_AVAILABLE', serverMessage: 'No saved demo run is available on this backend.' })
+    const offline = await failureOf(run(() => Promise.reject(new TypeError('offline'))))
+    expect(offline.reason).toBe('network')
+  })
+
+  it('refuses a saved record that is not a finished scan with a result', async () => {
+    const unfinished = vi.fn<typeof fetch>(() => Promise.resolve(json({ ...savedDemo, status: 'ANALYZING', result: null })))
+    expect((await failureOf(run(unfinished))).reason).toBe('shape')
+    expect(unfinished).toHaveBeenCalledTimes(1)                                          // it is not polled as if it were a running scan
+    expect((await failureOf(run(() => Promise.resolve(json({ ...savedDemo, result: null }))))).reason).toBe('shape')
+    expect((await failureOf(run(() => Promise.resolve(new Response('<html>not json</html>', { status: 200 }))))).reason).toBe('shape')
+    expect((await failureOf(run(() => Promise.resolve(json({ status: 'COMPLETED' }))))).reason).toBe('shape')
   })
 })

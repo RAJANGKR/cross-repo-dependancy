@@ -4,6 +4,7 @@ import type {
   ContractAnalysisEntry,
   ContractFinding,
   ContractImpactRow,
+  ContractReference,
   DataSource,
   DependencyDrift,
   Explanation,
@@ -241,10 +242,27 @@ function parseImpactRow(raw: Rec): ContractImpactRow {
   }
 }
 
+function parseReference(raw: Rec): ContractReference {
+  return {
+    repository: str(raw.repository),
+    file: str(raw.file),
+    line: num(raw.line),
+    snippet: str(raw.snippet),
+    path: str(raw.path),
+    usage: str(raw.usage),
+  }
+}
+
+/** A list the backend sends only when it has something to say; absent stays absent. */
+function optionalList<T>(raw: unknown, parse: (item: Rec) => T): T[] | undefined {
+  return Array.isArray(raw) ? records(raw).map(parse) : undefined
+}
+
 function parseContractAnalysis(raw: unknown): ContractAnalysisEntry[] | null {
   if (!Array.isArray(raw)) return null
   return records(raw).map((entry) => {
     const specFile = str(entry.spec_file)
+    const relationship = isRecord(entry.relationship) ? entry.relationship : {}
     return {
       provider_repo: str(entry.provider_repo) || str(entry.repository),
       consumer_repo: str(entry.consumer_repo),
@@ -253,6 +271,10 @@ function parseContractAnalysis(raw: unknown): ContractAnalysisEntry[] | null {
       message: str(entry.message),
       findings: records(entry.findings).map((finding) => parseFinding(finding, specFile)),
       consumer_impact: Array.isArray(entry.consumer_impact) ? records(entry.consumer_impact).map(parseImpactRow) : undefined,
+      candidate_impact: optionalList(entry.candidate_impact, (row) => ({ ...parseImpactRow(row), references: records(row.references).map(parseReference) })),
+      possible_references: optionalList(entry.possible_references, parseReference),
+      candidate_evidence: optionalList(relationship.candidate_evidence, (item) => ({ signal: str(item.signal), file: str(item.file), line: num(item.line) })),
+      dynamic_urls: optionalList(entry.dynamic_urls, parseReference),
     }
   })
 }

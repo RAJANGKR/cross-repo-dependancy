@@ -29,11 +29,13 @@ afterEach(() => {
 
 describe('parseAuth', () => {
   it('reads a signed-in user and accepts only GitHub avatar URLs', () => {
-    expect(parseAuth({ configured: true, required: true, user: OCTOCAT })).toEqual({
+    expect(parseAuth({ configured: true, required: true, user: OCTOCAT, repository_access: { configured: true } })).toEqual({
       configured: true,
       required: true,
       user: { login: 'octocat', name: 'The Octocat', avatarUrl: 'https://avatars.githubusercontent.com/u/42' },
+      repositoryAccess: true,
     })
+    expect(parseAuth({ configured: true, user: OCTOCAT }).repositoryAccess).toBe(false)              // an older backend has none
     expect(parseAuth({ configured: true, user: { login: 'x', avatar_url: 'https://evil.example/a.png' } }).user).toEqual({
       login: 'x',
       name: 'x',
@@ -42,7 +44,7 @@ describe('parseAuth', () => {
   })
 
   it('treats anything unexpected as signed out', () => {
-    const signedOut = { configured: false, required: false, user: null }
+    const signedOut = { configured: false, required: false, user: null, repositoryAccess: false }
     for (const body of [null, 'text', {}, { user: {} }, { user: { name: 'no login' } }, { configured: 'yes' }]) {
       expect(parseAuth(body)).toEqual(signedOut)
     }

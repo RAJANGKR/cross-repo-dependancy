@@ -22,6 +22,16 @@ class Settings(BaseSettings):
     SESSION_SECRET: str = ""
     # Sign-in is optional by default. Set to true to refuse scans from signed-out callers.
     AUTH_REQUIRED: bool = False
+    # GitHub App (optional): lets a signed-in user pick repositories and scan private ones.
+    # When it is used, GITHUB_OAUTH_CLIENT_ID / _SECRET above are the App's client ID and secret.
+    GITHUB_APP_ID: str = ""
+    # The App's URL name, as in https://github.com/apps/{slug}.
+    GITHUB_APP_SLUG: str = ""
+    # The App's private key: PEM text (line breaks may be written as \n), or a path to the .pem file.
+    GITHUB_APP_PRIVATE_KEY: str = ""
+    GITHUB_APP_PRIVATE_KEY_PATH: str = ""
+    # At most this many pages of 100 repositories are listed per installation.
+    GITHUB_REPOSITORY_PAGES: int = 20
 
     # SQLite cache for public upstream data only (never pasted content).
     CACHE_ENABLED: bool = True
@@ -41,6 +51,9 @@ class Settings(BaseSettings):
     MAX_SOURCE_FILE_BYTES: int = 400 * 1024
     MAX_CHANGELOG_BYTES: int = 600 * 1024
     SCAN_TTL_SECONDS: int = 7200
+    # Assistant (POST /api/v1/assistant/chat): how long Gemini may take, and how much one request may carry.
+    ASSISTANT_TIMEOUT_SECONDS: float = 25.0
+    ASSISTANT_MAX_REQUEST_BYTES: int = 3 * 1024 * 1024
     REPO_CONCURRENCY: int = 4
     LIBRARY_CONCURRENCY: int = 6
 

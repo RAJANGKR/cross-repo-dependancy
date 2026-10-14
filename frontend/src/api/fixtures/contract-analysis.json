@@ -513,7 +513,7 @@
     "consumer_repo": "catalog",
     "status": "RELATIONSHIP_UNVERIFIED",
     "spec_file": "docs/openapi.json",
-    "message": "catalog contains 2 string(s) matching path(s) that \"Orders API v2\" also defines (/items, /orders), but nothing ties them to this API: no server host from the specification and no identifier naming the API was found on those calls. Other services expose the same paths, so a shared path does not establish a provider-consumer relationship.",
+    "message": "catalog contains 2 string(s) matching path(s) that \"Orders API v2\" also defines (/items, /orders), but nothing ties them to this API: no server host from the specification and no identifier naming the API was found on those calls. Other services expose the same paths, so a shared path does not establish a provider-consumer relationship. 2 of the 6 change(s) between 1.0.0 and 2.0.0 have a possible reference in its code; they are listed as candidates only.",
     "findings": [],
     "relationship": {
       "same_api_basis": "matching normalized info.title"
@@ -546,6 +546,128 @@
         "line": 3,
         "snippet": "export const orders = () => fetch('https://shop.other.example/orders')",
         "match": "exact"
+      }
+    ],
+    "candidate_impact": [
+      {
+        "change_type": "CHANGED_RESPONSE_FIELD_TYPE",
+        "method": "GET",
+        "path": "/orders",
+        "field": "[].id",
+        "field_in": "response_body",
+        "previous_value": "200 response body[].id: integer",
+        "new_value": "200 response body[].id: string",
+        "evidence_tier": "POSSIBLE_REFERENCE",
+        "usage": "NOT_DETERMINED",
+        "repository": "catalog",
+        "file": "src/client.js",
+        "line": 3,
+        "snippet": "export const orders = () => fetch('https://shop.other.example/orders')",
+        "explanation": "Whether 'id' is read cannot be determined: the response could not be followed because it is returned by orders() and no caller was found in the inspected files. Nothing ties this call to \"Orders API v2\": it is a possible reference, and whether it reaches this API is unverified.",
+        "references": [
+          {
+            "repository": "catalog",
+            "file": "src/client.js",
+            "line": 3,
+            "snippet": "export const orders = () => fetch('https://shop.other.example/orders')",
+            "match": "exact",
+            "usage": "NOT_DETERMINED"
+          }
+        ]
+      },
+      {
+        "change_type": "NEW_REQUIRED_REQUEST_FIELD",
+        "method": "GET",
+        "path": "/orders",
+        "field": "status",
+        "field_in": "query",
+        "previous_value": "query parameter status: optional",
+        "new_value": "query parameter status: required",
+        "evidence_tier": "POSSIBLE_REFERENCE",
+        "usage": "OMITS_REQUIRED_FIELD",
+        "repository": "catalog",
+        "file": "src/client.js",
+        "line": 3,
+        "snippet": "export const orders = () => fetch('https://shop.other.example/orders')",
+        "explanation": "This call does not send query parameter 'status': it sends no query parameters. Nothing ties this call to \"Orders API v2\": it is a possible reference, and whether it reaches this API is unverified.",
+        "references": [
+          {
+            "repository": "catalog",
+            "file": "src/client.js",
+            "line": 3,
+            "snippet": "export const orders = () => fetch('https://shop.other.example/orders')",
+            "match": "exact",
+            "usage": "OMITS_REQUIRED_FIELD"
+          }
+        ]
+      },
+      {
+        "change_type": "NEW_REQUIRED_REQUEST_FIELD",
+        "method": "POST",
+        "path": "/orders",
+        "field": "currency",
+        "field_in": "request_body",
+        "previous_value": "request field currency: optional",
+        "new_value": "request field currency: required",
+        "evidence_tier": "NO_USAGE_FOUND",
+        "usage": "NO_USAGE_FOUND",
+        "repository": "catalog",
+        "file": "",
+        "line": null,
+        "snippet": "",
+        "explanation": "No string matching POST /orders was found in the 1 source file(s) read from catalog. This is not proof that it is unaffected.",
+        "references": []
+      },
+      {
+        "change_type": "REMOVED_OPERATION",
+        "method": "DELETE",
+        "path": "/orders/{id}",
+        "field": "",
+        "field_in": "",
+        "previous_value": "operation present",
+        "new_value": "operation not present",
+        "evidence_tier": "NO_USAGE_FOUND",
+        "usage": "NO_USAGE_FOUND",
+        "repository": "catalog",
+        "file": "",
+        "line": null,
+        "snippet": "",
+        "explanation": "No string matching DELETE /orders/{id} was found in the 1 source file(s) read from catalog. This is not proof that it is unaffected.",
+        "references": []
+      },
+      {
+        "change_type": "REMOVED_PATH",
+        "method": "",
+        "path": "/orders/{id}/refunds",
+        "field": "",
+        "field_in": "",
+        "previous_value": "operations: POST",
+        "new_value": "path not present",
+        "evidence_tier": "NO_USAGE_FOUND",
+        "usage": "NO_USAGE_FOUND",
+        "repository": "catalog",
+        "file": "",
+        "line": null,
+        "snippet": "",
+        "explanation": "No string matching /orders/{id}/refunds was found in the 1 source file(s) read from catalog. This is not proof that it is unaffected.",
+        "references": []
+      },
+      {
+        "change_type": "CHANGED_RESPONSE_FIELD_TYPE",
+        "method": "GET",
+        "path": "/orders/{orderId}",
+        "field": "id",
+        "field_in": "response_body",
+        "previous_value": "200 response field id: integer",
+        "new_value": "200 response field id: string",
+        "evidence_tier": "NO_USAGE_FOUND",
+        "usage": "NO_USAGE_FOUND",
+        "repository": "catalog",
+        "file": "",
+        "line": null,
+        "snippet": "",
+        "explanation": "No string matching GET /orders/{orderId} was found in the 1 source file(s) read from catalog. This is not proof that it is unaffected.",
+        "references": []
       }
     ]
   },

@@ -12,6 +12,7 @@ from urllib.parse import urlparse
 import httpx
 
 from app.services.cache import Cache
+from app.services.credentials import RepoCredentials
 
 logger = logging.getLogger("driftlock.http")
 
@@ -27,7 +28,7 @@ def _is_expected_probe_404(url: str) -> bool:
 
 
 class FetchError(Exception):
-    """kind: not_found | rate_limit | timeout | network | http | too_large | invalid"""
+    """kind: not_found | unauthorized | rate_limit | timeout | network | http | too_large | invalid"""
 
     def __init__(self, kind: str, status: Optional[int] = None, message: str = ""):
         super().__init__(message or kind)
@@ -43,6 +44,7 @@ class Http:
         timeout: float = 15.0,
         retries: int = 2,
         backoff: float = 0.4,
+        credentials: Optional[RepoCredentials] = None,
     ):
         self._client = httpx.AsyncClient(
             transport=transport,
@@ -51,6 +53,9 @@ class Http:
             headers={"User-Agent": "DriftLock/0.2 (dependency drift scanner)"},
         )
         self._cache, self._token = cache, github_token
+        #: Tokens for the private repositories of one scan. Requests to those repositories use them,
+        #: never the shared token, and their responses are never cached.
+        self.credentials = credentials or RepoCredentials()
         self._retries, self._backoff = retries, backoff
         self.rate_limit_remaining: Optional[int] = None
         # Set when a failed request was answered from an expired cache entry.
@@ -61,12 +66,27 @@ class Http:
     async def aclose(self) -> None:
         await self._client.aclose()
 
+    @property
+    def uses_shared_token(self) -> bool:
+        """True when requests to GitHub carry the backend's shared GITHUB_TOKEN."""
+        return bool(self._token)
+
+    def credentialed(self, owner: str, repo: str) -> bool:
+        """True when this client reads `owner/repo` with a repository credential (a private repository)."""
+        return self.credentials.get(owner, repo) is not None
+
     async def _send(
         self, method: str, url: str, headers: Dict[str, str], body: Any, max_bytes: int, ignore_404_failure: bool = False
     ) -> bytes:
         host = urlparse(url).netloc
         self.calls[host] = self.calls.get(host, 0) + 1
-        if self._token and host == "api.github.com":
+        credential = self.credentials.for_url(url)
+        if credential is not None:
+            # A private repository is read with its own token or not at all: never anonymously, never with the shared token.
+            if credential.expired():
+                raise FetchError("unauthorized", 401, "The access token for this repository has expired")
+            headers = {**headers, "Authorization": f"Bearer {credential.token}"}
+        elif self._token and host == "api.github.com":
             headers = {**headers, "Authorization": f"Bearer {self._token}"}
         last: FetchError = FetchError("network")
         for attempt in range(self._retries + 1):
@@ -81,6 +101,8 @@ class Http:
                         response.headers.get("x-ratelimit-remaining") == "0" or status == 429
                     ):
                         raise FetchError("rate_limit", status, "GitHub API rate limit reached")
+                    if status == 401:
+                        raise FetchError("unauthorized", status)
                     if status in (404, 410):
                         raise FetchError("not_found", status)
                     if status >= 500:
@@ -122,7 +144,8 @@ class Http:
         ignore_404_failure: bool = False,
     ) -> str:
         key = None
-        if self._cache and ttl:
+        # A response read with a repository credential is private: it is neither read from nor written to the shared cache.
+        if self._cache and ttl and self.credentials.for_url(url) is None:
             digest = hashlib.sha256(json.dumps(body, sort_keys=True).encode()).hexdigest()[:16] if body else ""
             key = f"{method} {url} {digest}"
             hit = self._cache.get(key)

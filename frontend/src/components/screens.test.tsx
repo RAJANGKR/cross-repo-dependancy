@@ -8,7 +8,7 @@ import { ApiFailure, toUiError } from '../api/errors'
 import type { ScanRecord } from '../api/scanTypes'
 import { AnnouncerProvider } from '../hooks/useAnnouncer'
 import { useRoute } from '../hooks/useRoute'
-import type { SubmittedRepo } from '../hooks/useScan'
+import { sampleNotice, type SubmittedRepo } from '../hooks/useScan'
 import { getStore, resetStoreForTests, updateStore } from '../lib/localStore'
 import { newRow, type ScanTarget } from '../lib/targets'
 import { AnalyzingState } from './analyzing/AnalyzingState'
@@ -16,6 +16,9 @@ import { ToastProvider } from './common/Controls'
 import { RepoForm, type FormState } from './input/RepoForm'
 import { ResultsScreen } from './results/ResultsScreen'
 import { ErrorState } from './states/ErrorState'
+// The scan the backend actually serves at GET /api/v1/demo, read from the backend's own file.
+import savedDemo from '../../../backend/demo/demo_scan.json'
+import rollouts from '../api/fixtures/rollout-results.json'
 
 // The graph and chart libraries need real layout, which jsdom does not have.
 vi.mock('./results/DependencyGraph', () => ({ default: () => <div data-testid="graph" /> }))
@@ -584,15 +587,16 @@ describe('a backend that requires sign-in', () => {
 })
 
 describe('app', () => {
-  it('plays the demo scan through polling to the console, records history and applies the theme', async () => {
+  it('plays the sample through polling to the console when there is no backend, says so, records history and applies the theme', async () => {
     vi.useFakeTimers()
-    render(<App />) // signed out, with no backend: the demo still works
+    render(<App />) // signed out, with no backend: "Load demo run" still opens something, and labels it for what it is
     expect(document.documentElement.dataset.theme).toBeDefined()
     click('Load demo run')
     await act(async () => {
       await vi.advanceTimersByTimeAsync(800)
     })
-    expect(screen.getByRole('heading', { name: 'Playing the demo scan' })).toBeTruthy()
+    expect(screen.getByRole('heading', { name: 'Playing the sample scan' })).toBeTruthy()
+    expect(screen.getByText(/The saved demo scan could not be loaded: the backend could not be reached\./)).toBeTruthy()
     // A second submission while a scan is running is not possible: the form is gone.
     expect(screen.queryByRole('button', { name: /Analyze repositories/ })).toBeNull()
 
@@ -601,11 +605,274 @@ describe('app', () => {
     })
     expect(screen.getByRole('heading', { name: 'Command center' })).toBeTruthy()
     expect(window.location.pathname).toBe('/results')
+    // Never passed off as the backend's saved scan: its own label, and the reason, on the results.
+    expect(screen.getAllByText('Sample data').length).toBeGreaterThan(0)
+    expect(screen.queryByText('Demo data')).toBeNull()
+    expect(screen.getByText('Showing sample data')).toBeTruthy()
+    expect(screen.getByText(sampleNotice(new ApiFailure('network')))).toBeTruthy()
     expect(getStore().history).toHaveLength(1)
     expect(getStore().history[0]).toMatchObject({ source: 'demo', drifted: 6 })
 
     click('New scan')
     expect(screen.getByRole('region', { name: 'Recent scans' })).toBeTruthy()
     expect((screen.getByRole('button', { name: 'Run again' }) as HTMLButtonElement).disabled).toBe(true) // demo data is not re-run as a real scan
+  })
+})
+
+/** Answers GET /api/v1/demo with `reply`; every other request fails, as with no network. Returns the requests made. */
+function stubDemo(reply: () => Response) {
+  const calls: string[] = []
+  vi.stubGlobal('fetch', (input: RequestInfo | URL, init?: RequestInit) => {
+    const url = String(input)
+    calls.push(`${init?.method ?? 'GET'} ${url.replace(/^https?:\/\/[^/]+/, '')}`)
+    return url.endsWith('/api/v1/demo') ? Promise.resolve(reply()) : Promise.reject(new TypeError('no network in tests'))
+  })
+  return calls
+}
+const savedReply = () => new Response(JSON.stringify(savedDemo), { status: 200 })
+
+describe('load demo run', () => {
+  it('requests the saved scan from the backend and shows that scan, labelled as demo data', async () => {
+    const calls = stubDemo(savedReply)
+    render(<App />)
+    click('Load demo run')
+    expect(await screen.findByRole('heading', { name: 'Command center' })).toBeTruthy()
+    expect(window.location.pathname).toBe('/results')
+
+    // One request for the saved run. Nothing is submitted as a scan, and nothing is polled.
+    expect(calls.filter((call) => call.includes('/api/v1/demo'))).toEqual(['GET /api/v1/demo'])
+    expect(calls.some((call) => call.includes('/scans'))).toBe(false)
+
+    // Labelled as demo data, and not as the sample or as a live scan.
+    expect(screen.getAllByText('Demo data').length).toBeGreaterThan(0)
+    expect(screen.queryByText('Sample data')).toBeNull()
+    expect(screen.queryByText('Live scan')).toBeNull()
+    expect(screen.queryByText('Showing sample data')).toBeNull()
+    expect(screen.getByText(`Scan ${savedDemo.scan_id}`)).toBeTruthy()
+
+    // What is on screen is the backend's record: its repositories and every one of its packages, none of the sample's.
+    openView('Active drifts')
+    const grid = within(table())
+    const columns = grid.getAllByRole('columnheader').map((cell) => cell.textContent ?? '')
+    for (const repo of savedDemo.result.scanned_repositories) expect(columns.some((text) => text.includes(repo.name))).toBe(true)
+    const packages = grid.getAllByRole('rowheader').map((cell) => cell.textContent ?? '')
+    expect(packages).toHaveLength(savedDemo.result.drift_matrix.length)
+    for (const row of savedDemo.result.drift_matrix) expect(packages.some((text) => text.startsWith(row.dependency_name))).toBe(true)
+    expect(document.body.textContent).not.toContain('payment-service')
+
+    // It is a real record, so the hand-written sections of the sample are not shown for it.
+    openView('Risk intelligence')
+    expect(screen.getByText(/The backend did not return API contract analysis for this scan/)).toBeTruthy()
+    expect(screen.queryByText('Preview format')).toBeNull()
+
+    // A replayed scan offers no pull request, and history records it as demo data under its own repositories.
+    openView('Fix plans')
+    const button = screen.getAllByRole('button', { name: /Open pull request on GitHub for/ })[0] as HTMLButtonElement
+    expect(button.disabled).toBe(true)
+    expect(button.title).toBe('Not available for demo data')
+    const drifted = savedDemo.result.drift_matrix.filter((row) => row.drift_disparity === 'MAJOR_DRIFT' || row.drift_disparity === 'MINOR_DRIFT').length
+    expect(getStore().history[0]).toMatchObject({ source: 'demo', drifted })
+    expect(getStore().history[0]?.targets.map((target) => target.label)).toEqual(savedDemo.result.scanned_repositories.map((repo) => repo.name))
+  })
+
+  it('shows the loading state while the saved scan is on its way', async () => {
+    let answer: (response: Response) => void = () => undefined
+    vi.stubGlobal('fetch', (input: RequestInfo | URL) =>
+      String(input).endsWith('/api/v1/demo') ? new Promise<Response>((resolve) => { answer = resolve }) : Promise.reject(new TypeError('no network in tests')))
+    render(<App />)
+    click('Load demo run')
+    expect(await screen.findByRole('heading', { name: 'Loading the saved demo scan' })).toBeTruthy()
+    expect(screen.getAllByText('Demo data').length).toBeGreaterThan(0)
+    expect(screen.queryByRole('button', { name: 'Load demo run' })).toBeNull()             // it cannot be requested twice
+    await act(async () => answer(savedReply()))
+    expect(await screen.findByRole('heading', { name: 'Command center' })).toBeTruthy()
+  })
+
+  it.each([
+    ['the backend has no saved run', () => new Response(JSON.stringify({ error_code: 'DEMO_NOT_AVAILABLE', message: 'No saved demo run is available on this backend.', details: {} }), { status: 404 }), 'No saved demo run is available on this backend'],
+    ['the saved record is not a finished scan', () => new Response(JSON.stringify({ ...savedDemo, result: null }), { status: 200 }), 'the backend sent a record that could not be read as a finished scan'],
+    ['the backend fails', () => new Response('Internal Server Error', { status: 500 }), 'the backend answered with status 500'],
+  ])('falls back to the sample when %s, and says exactly that', async (_name, reply, reason) => {
+    vi.useFakeTimers()
+    const calls = stubDemo(reply)
+    render(<App />)
+    click('Load demo run')
+    await act(async () => {
+      await vi.advanceTimersByTimeAsync(6_000)
+    })
+    expect(screen.getByRole('heading', { name: 'Command center' })).toBeTruthy()
+    expect(calls.filter((call) => call.includes('/api/v1/demo'))).toHaveLength(1)
+    expect(screen.getAllByText('Sample data').length).toBeGreaterThan(0)
+    expect(screen.queryByText('Demo data')).toBeNull()
+    const notice = screen.getByText(`The saved demo scan could not be loaded: ${reason}. Showing the sample built into the app instead: illustrative data, not the output of a real scan.`)
+    expect(within(notice.closest('[role="status"]') as HTMLElement).getByText('Showing sample data')).toBeTruthy()
+    // The notice stays with the results on every view.
+    openView('Fix plans')
+    expect(screen.getByText('Showing sample data')).toBeTruthy()
+    expect((screen.getAllByRole('button', { name: /Open pull request on GitHub for/ })[0] as HTMLButtonElement).title).toBe('Not available for sample data')
+    // The sample's hand-written sections keep their marker.
+    openView('Risk intelligence')
+    expect(screen.getAllByText('Preview format').length).toBeGreaterThan(0)
+  })
+
+  it('asks the backend again on "Scan again" after a fallback, instead of replaying the sample', async () => {
+    vi.useFakeTimers()
+    stubDemo(() => new Response('gone', { status: 503 }))
+    render(<App />)
+    click('Load demo run')
+    await act(async () => {
+      await vi.advanceTimersByTimeAsync(6_000)
+    })
+    expect(screen.getAllByText('Sample data').length).toBeGreaterThan(0)
+
+    const calls = stubDemo(savedReply)       // the backend is back
+    click('Scan again')
+    await act(async () => {
+      await vi.advanceTimersByTimeAsync(1_000)
+    })
+    expect(calls).toContain('GET /api/v1/demo')
+    expect(screen.getAllByText('Demo data').length).toBeGreaterThan(0)
+    expect(screen.queryByText('Sample data')).toBeNull()
+    expect(screen.queryByText('Showing sample data')).toBeNull()
+  })
+})
+
+describe('assistant in the app', () => {
+  /** A backend that serves the saved demo, a rollout analysis and the assistant; it keeps what the assistant was sent. */
+  function stubBackend() {
+    const asked: { message: string; history: unknown[]; context: { scan: { scanned_repositories: { name: string }[] } | null; scan_id: string; scan_source: string; rollout: { recommendation: string } | null; view: string } }[] = []
+    vi.stubGlobal('fetch', (input: RequestInfo | URL, init?: RequestInit) => {
+      const url = String(input)
+      if (url.endsWith('/api/v1/demo')) return Promise.resolve(new Response(JSON.stringify(savedDemo), { status: 200 }))
+      if (url.endsWith('/api/v1/rollout')) return Promise.resolve(new Response(JSON.stringify(rollouts.consumer_first), { status: 200 }))
+      if (url.endsWith('/api/v1/assistant/chat')) {
+        asked.push(JSON.parse(String(init?.body)))
+        return Promise.resolve(new Response(JSON.stringify({ answer: `Answer ${asked.length} from the results.`, source: 'gemini', notice: '', used: {} }), { status: 200 }))
+      }
+      return Promise.reject(new TypeError('no network in tests'))
+    })
+    return asked
+  }
+  const assistant = () => within(screen.getByRole('dialog', { name: 'DriftLock assistant' }))
+
+  it('is on the start page and asks for a scan before answering, without calling the backend', async () => {
+    const asked = stubBackend()
+    render(<App />)
+    click('Open assistant')
+    expect(assistant().getByText('No results yet')).toBeTruthy()
+    fireEvent.click(assistant().getByRole('button', { name: 'Explain this scan' }))
+    expect(assistant().getByText(/I can only answer questions about DriftLock results, and there are none yet\. Run a scan from the start page, or load the demo run/)).toBeTruthy()
+    expect(asked).toEqual([])
+  })
+
+  it('answers about the scan on screen: the completed result goes to the backend with the question', async () => {
+    const asked = stubBackend()
+    render(<App />)
+    click('Load demo run')
+    expect(await screen.findByRole('heading', { name: 'Command center' })).toBeTruthy()
+    click('Open assistant')
+    expect(assistant().getByText(`Answering from: Demo data ${savedDemo.scan_id}`)).toBeTruthy()
+    fireEvent.click(assistant().getByRole('button', { name: "What's the main problem?" }))
+    expect(await assistant().findByText('Answer 1 from the results.')).toBeTruthy()
+
+    expect(asked).toHaveLength(1)
+    expect(asked[0]).toMatchObject({ message: "What's the main problem?", history: [], context: { scan_id: savedDemo.scan_id, scan_source: 'demo', rollout: null, view: 'results' } })
+    expect(asked[0]?.context.scan?.scanned_repositories.map((repo) => repo.name)).toEqual(savedDemo.result.scanned_repositories.map((repo) => repo.name))
+
+    // It stays available on the other views of the results, with its conversation.
+    openView('Fix plans')
+    expect(assistant().getByText('Answer 1 from the results.')).toBeTruthy()
+    fireEvent.change(assistant().getByRole('textbox', { name: 'Ask about these results' }), { target: { value: 'Why?' } })
+    fireEvent.click(assistant().getByRole('button', { name: 'Send' }))
+    expect(await assistant().findByText('Answer 2 from the results.')).toBeTruthy()
+    expect(asked[1]?.history).toEqual([{ role: 'user', content: "What's the main problem?" }, { role: 'assistant', content: 'Answer 1 from the results.' }])
+  })
+
+  it('is on the rollout planner and sends its analysis once there is one', async () => {
+    const asked = stubBackend()
+    render(<App />)
+    click('Rollout planner')
+    expect(await screen.findByRole('heading', { name: 'Which side should be deployed first?' })).toBeTruthy()
+    click('Open assistant')
+    expect(assistant().getByText('No results yet')).toBeTruthy()
+
+    click('Fill in a public example')
+    click('Analyze Rollout')
+    expect(await screen.findByRole('region', { name: 'Recommendation' })).toBeTruthy()
+    expect(assistant().getByText('Answering from: rollout analysis')).toBeTruthy()
+    fireEvent.click(assistant().getByRole('button', { name: 'What should I do next?' }))
+    expect(await assistant().findByText('Answer 1 from the results.')).toBeTruthy()
+    expect(asked[0]?.context).toMatchObject({ scan: null, scan_id: '', rollout: { recommendation: 'CONSUMER_FIRST' }, view: 'rollout' })
+  })
+})
+
+describe('your repositories in the app', () => {
+  const LISTED = {
+    installations: [{ id: 101, account: { login: 'alice', type: 'User', avatar_url: '' }, repository_selection: 'selected', suspended: false, missing_permissions: [], manage_url: 'https://github.com/settings/installations/101', repository_count: 2 }],
+    repositories: [
+      { id: 1, name: 'ledger', owner: 'alice', full_name: 'alice/ledger', private: true, language: 'Python', default_branch: 'main', updated_at: '2026-10-01T10:00:00Z', html_url: 'https://github.com/alice/ledger', archived: false, installation_id: 101 },
+      { id: 2, name: 'site', owner: 'alice', full_name: 'alice/site', private: false, language: 'TypeScript', default_branch: 'main', updated_at: '2026-10-02T10:00:00Z', html_url: 'https://github.com/alice/site', archived: false, installation_id: 101 },
+    ],
+    complete: true, fetched_at: '2026-10-14T09:00:00Z', install_url: '/api/v1/auth/github/install', cached: false,
+  }
+
+  /** A backend with a signed-in user, a GitHub App, two granted repositories, and a scan endpoint that answers at once. */
+  function stubSignedIn() {
+    const posted: { repository_targets: { type: string; url: string; ref?: string | null }[] }[] = []
+    vi.stubGlobal('fetch', (input: RequestInfo | URL, init?: RequestInit) => {
+      const url = String(input)
+      if (url.endsWith('/auth/me')) {
+        return Promise.resolve(new Response(JSON.stringify({ configured: true, required: false, user: { login: 'alice', name: 'Alice', avatar_url: '' }, repository_access: { configured: true } }), { status: 200 }))
+      }
+      if (url.includes('/api/v1/github/repositories')) return Promise.resolve(new Response(JSON.stringify(LISTED), { status: 200 }))
+      if (url.endsWith('/api/v1/scans') && init?.method === 'POST') {
+        posted.push(JSON.parse(String(init.body)))
+        return Promise.resolve(new Response(JSON.stringify(savedDemo), { status: 200 }))
+      }
+      return Promise.reject(new TypeError('no network in tests'))
+    })
+    return posted
+  }
+
+  it('goes from the start page to the picker, into the scan form with a ref, and into a scan', async () => {
+    const posted = stubSignedIn()
+    render(<App />)
+    const card = await screen.findByRole('region', { name: 'Private repositories' })
+    expect(within(card).getByText(/Scan your own repositories, private ones included/)).toBeTruthy()
+    fireEvent.click(within(card).getByRole('button', { name: /Choose from your repositories/ }))
+    expect(window.location.pathname).toBe('/repositories')
+    expect(await screen.findByRole('list', { name: 'Repositories' })).toBeTruthy()
+
+    fireEvent.click(screen.getByRole('checkbox', { name: 'Select alice/ledger' }))
+    fireEvent.click(screen.getByRole('checkbox', { name: 'Select alice/site' }))
+    fireEvent.click(screen.getByRole('button', { name: /Add to scan form/ }))
+    expect(window.location.pathname).toBe('/')
+    const urls = screen.getAllByRole('textbox').filter((input) => input.id.endsWith('-url')) as HTMLInputElement[]
+    expect(urls.map((input) => input.value)).toEqual(['https://github.com/alice/ledger', 'https://github.com/alice/site'])
+    // A branch, tag or commit can still be set before scanning.
+    const ref = screen.getAllByRole('textbox').find((input) => input.id.endsWith('-ref')) as HTMLInputElement
+    fireEvent.change(ref, { target: { value: 'release/2.0' } })
+    await act(async () => {
+      click(/Analyze repositories/)
+    })
+    expect(await screen.findByRole('heading', { name: 'Command center' })).toBeTruthy()
+    expect(posted[0]?.repository_targets).toEqual([
+      { type: 'github', url: 'https://github.com/alice/ledger', ref: 'release/2.0' },
+      { type: 'github', url: 'https://github.com/alice/site' },
+    ])
+  })
+
+  it('scans the picked repositories directly from the picker', async () => {
+    const posted = stubSignedIn()
+    window.history.replaceState(null, '', '/repositories')
+    render(<App />)
+    expect(await screen.findByRole('list', { name: 'Repositories' })).toBeTruthy()
+    fireEvent.click(screen.getByRole('checkbox', { name: 'Select alice/ledger' }))
+    fireEvent.click(screen.getByRole('checkbox', { name: 'Select alice/site' }))
+    await act(async () => {
+      click('Scan 2 repositories')
+    })
+    expect(await screen.findByRole('heading', { name: 'Command center' })).toBeTruthy()
+    expect(posted[0]?.repository_targets.map((target) => target.url)).toEqual(['https://github.com/alice/ledger', 'https://github.com/alice/site'])
   })
 })

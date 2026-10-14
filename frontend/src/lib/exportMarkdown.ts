@@ -1,11 +1,27 @@
 import type { DependencyDrift, ScanRecord } from '../api/scanTypes'
+import { USE_MOCK } from '../config'
 import { changedFieldLabel, contractMeta, driftMeta, evidenceBadge, riskMeta } from './classify'
 import { ecosystemLabel, formatDateTime, formatDuration, humanizeCode } from './formatters'
 import { computeOverview } from './overview'
 
-export type DataSource = 'live' | 'demo'
+/**
+ * Where the data on screen came from. `demo` is the backend's saved run of a
+ * real scan, replayed. `sample` is the illustrative data built into the app,
+ * shown in mock mode or when the saved run cannot be loaded.
+ */
+export type DataSource = 'live' | 'demo' | 'sample'
 
-export const SOURCE_LABELS: Record<DataSource, string> = { live: 'Live scan', demo: 'Demo data' }
+export const SOURCE_LABELS: Record<DataSource, string> = { live: 'Live scan', demo: 'Demo data', sample: 'Sample data' }
+
+/** One sentence on what each kind of data is, for wherever the label alone is not enough. */
+export const SOURCE_NOTES: Record<DataSource, string> = {
+  live: 'Results of a scan the backend just ran.',
+  demo: 'A saved scan of real repositories, replayed by the backend. It was not run now.',
+  sample: 'Illustrative data built into the app. It is not the output of a real scan.',
+}
+
+/** Said next to every "Load demo run" button: what pressing it shows. */
+export const DEMO_HINT = USE_MOCK ? 'Plays the sample built into the app' : 'Replays a scan saved on the backend'
 
 export const LIMITATIONS: readonly string[] = [
   'Direct dependencies from manifests and lockfiles only. Transitive dependencies are not compared.',
@@ -70,6 +86,7 @@ export function buildMarkdown(record: ScanRecord, rows: readonly DependencyDrift
   const result = record.result
   const lines: string[] = []
   if (source === 'demo') lines.push('> Demo data, not a live scan', '')
+  if (source === 'sample') lines.push('> Sample data, not the output of a real scan', '')
 
   lines.push(
     '# DriftLock scan report',
@@ -124,6 +141,14 @@ export function buildMarkdown(record: ScanRecord, rows: readonly DependencyDrift
           )
         }
         continue
+      }
+      // Candidates of an unverified consumer: listed, and named as possible references, never as usage.
+      for (const row of entry.candidate_impact ?? []) {
+        const field = changedFieldLabel(row.field, row.field_in)
+        const where = row.file ? `, ${inline(row.file)}${row.line === null ? '' : `:${row.line}`}` : ''
+        lines.push(
+          `  - ${evidenceBadge(row.evidence_tier, row.usage).label}: ${humanizeCode(row.change_type) || 'Change'} ${inline(row.method)} ${code(row.path || 'unknown path')}${field ? `, ${inline(field)}` : ''}${where}`,
+        )
       }
       for (const finding of entry.findings) {
         lines.push(

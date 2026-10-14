@@ -11,6 +11,7 @@ import {
 } from 'lucide-react'
 import type { ReactNode } from 'react'
 import type { UiError, UiErrorAction, UiErrorKind } from '../../api/errors'
+import { DEMO_HINT } from '../../lib/exportMarkdown'
 import { Button } from '../common/Button'
 import { useCopy } from '../common/Controls'
 import { Wordmark } from '../common/Tags'
@@ -77,7 +78,7 @@ export function ErrorState({ error, demo, onAction }: ErrorStateProps) {
         </Button>
       </div>
       {error.actions.includes('load-demo') && (
-        <p className="mt-4 font-mono text-xs text-muted-foreground">The demo run uses bundled demo data</p>
+        <p className="mt-4 font-mono text-xs text-muted-foreground">{DEMO_HINT}</p>
       )}
     </Shell>
   )
@@ -100,7 +101,7 @@ export function NoResults({ onStart, onLoadDemo }: { onStart: () => void; onLoad
         <Button size="lg" onClick={onLoadDemo}>
           Load demo run
         </Button>
-        <span className="font-mono text-xs text-muted-foreground">Uses bundled demo data</span>
+        <span className="font-mono text-xs text-muted-foreground">{DEMO_HINT}</span>
       </div>
     </Shell>
   )

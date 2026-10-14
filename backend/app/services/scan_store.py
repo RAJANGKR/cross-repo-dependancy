@@ -18,9 +18,11 @@ class ScanStore:
         self._lock = threading.Lock()
         self._records: Dict[str, ScanRecord] = {}
         self._started: Dict[str, float] = {}
+        #: The signed-in user a scan of private repositories belongs to. Its results are readable by that user only.
+        self._owners: Dict[str, str] = {}
         self._ttl = ttl_seconds if ttl_seconds is not None else settings.SCAN_TTL_SECONDS
 
-    def create(self) -> ScanRecord:
+    def create(self, owner: Optional[str] = None) -> ScanRecord:
         stamp = now_iso()
         record = ScanRecord(
             scan_id=f"scn_{uuid.uuid4().hex[:12]}",
@@ -33,7 +35,13 @@ class ScanStore:
             self._evict()
             self._records[record.scan_id] = record
             self._started[record.scan_id] = time.monotonic()
+            if owner:
+                self._owners[record.scan_id] = owner
         return record
+
+    def owner(self, scan_id: str) -> Optional[str]:
+        with self._lock:
+            return self._owners.get(scan_id)
 
     def get(self, scan_id: str) -> Optional[ScanRecord]:
         with self._lock:
@@ -67,6 +75,7 @@ class ScanStore:
         for scan_id in [key for key, started in self._started.items() if started < cutoff]:
             self._records.pop(scan_id, None)
             self._started.pop(scan_id, None)
+            self._owners.pop(scan_id, None)
 
 
 scan_store = ScanStore()

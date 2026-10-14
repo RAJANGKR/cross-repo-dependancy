@@ -20,7 +20,7 @@ The dev server runs at `http://localhost:5173`. The port is fixed because the ba
 | Variable | Default | Meaning |
 | --- | --- | --- |
 | `VITE_API_BASE_URL` | `http://localhost:8000` | Base URL of the FastAPI backend. |
-| `VITE_USE_MOCK` | `false` | `true` makes "Analyze repositories" play the bundled demo scan instead of calling the backend. |
+| `VITE_USE_MOCK` | `false` | `true` makes "Analyze repositories" and "Load demo run" play the sample built into the app instead of calling the backend. |
 
 There are no secrets in the frontend. GitHub and Gemini keys are configured on the backend only.
 
@@ -38,7 +38,9 @@ The backend in `backend/` implements this contract. See the root README for how 
 
 ## Demo data
 
-**Load demo run** plays a bundled, hand-written scan through the same submit-and-poll code as a real one. It is labeled "Demo data" on every screen and in the exported report. It is never mixed into real results.
+**Load demo run** requests the scan saved on the backend (`GET /api/v1/demo`), a real run that is replayed, and shows it through the same parser, state and screens as a live scan. It is labeled "Demo data" on every screen and in the exported report.
+
+When that request fails (no backend, no saved run, or a record that is not a finished scan), the sample built into the app plays instead: hand-written, illustrative data. It is labeled "Sample data", and a notice on the results says why it is shown. Neither is ever mixed into real results.
 
 With `VITE_USE_MOCK=true`, a `?mock=` query parameter plays a specific scenario when you click "Analyze repositories":
 
