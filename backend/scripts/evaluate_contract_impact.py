@@ -51,7 +51,9 @@ def load_expected() -> dict:
 
 def consumer_files(name: str) -> Dict[str, str]:
     root = FIXTURES / "consumers" / name
-    return {str(path.relative_to(root)): path.read_text(encoding="utf-8") for path in sorted(root.rglob("*")) if path.is_file()}
+    # as_posix(): repository paths use "/" on every platform. str() would give
+    # "src\\file.js" on Windows and no longer match the reviewed expected results.
+    return {path.relative_to(root).as_posix(): path.read_text(encoding="utf-8") for path in sorted(root.rglob("*")) if path.is_file()}
 
 
 def run_tool(expected: dict) -> Dict[str, dict]:
