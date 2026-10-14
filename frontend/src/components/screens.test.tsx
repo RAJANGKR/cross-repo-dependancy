@@ -391,16 +391,6 @@ describe('console', () => {
     open.mockRestore()
   })
 
-  it('hides source code in Executive view', () => {
-    render(<Results record={demoRecord()} />)
-    openView('Risk intelligence')
-    expect(screen.getByText(/Matched on the literal URL string/)).toBeTruthy()
-    click('executive')
-    expect(screen.queryByText(/Matched on the literal URL string/)).toBeNull()
-    expect(screen.getByText(/Source-code evidence is hidden in Executive view/)).toBeTruthy()
-    expect(screen.getByText('No specification found')).toBeTruthy()
-  })
-
   it('works through the review queue and fix plans', async () => {
     render(<Results record={demoRecord()} />)
     openView('Review queue')
@@ -449,22 +439,6 @@ describe('console', () => {
     expect(getStore().settings.theme).toBe('dark')
   })
 
-  it('opens the command palette and shortcuts from the keyboard', () => {
-    render(<Results record={demoRecord()} />)
-    fireEvent.keyDown(document, { key: 'k', ctrlKey: true })
-    const palette = screen.getByRole('dialog')
-    fireEvent.change(within(palette).getByRole('combobox'), { target: { value: 'fix plans' } })
-    expect(within(palette).getAllByRole('option')).toHaveLength(1)
-    fireEvent.keyDown(within(palette).getByRole('combobox'), { key: 'Enter' })
-    expect(screen.getByRole('heading', { name: 'Fix plans' })).toBeTruthy()
-
-    fireEvent.keyDown(document, { key: '?' })
-    expect(within(screen.getByRole('dialog')).getByText('Open the command palette')).toBeTruthy()
-    fireEvent.keyDown(screen.getByRole('dialog'), { key: 'Escape' })
-    fireEvent.keyDown(document, { key: '2' })
-    expect(window.location.search).toContain('view=drifts')
-  })
-
   it('shows data sources, notifications and a team message that is copied, not sent', async () => {
     render(<Results record={demoRecord()} />)
     click(/Data sources \(5 connected\)/)
@@ -479,6 +453,16 @@ describe('console', () => {
       fireEvent.click(within(dialog).getByRole('button', { name: 'Copy message' }))
     })
     expect(clipboard.writeText).toHaveBeenCalled()
+  })
+
+  it('hides source code in Executive view', () => {
+    render(<Results record={demoRecord()} />)
+    openView('Risk intelligence')
+    expect(screen.getByText(/Matched on the literal URL string/)).toBeTruthy()
+    click('executive')
+    expect(screen.queryByText(/Matched on the literal URL string/)).toBeNull()
+    expect(screen.getByText(/Source-code evidence is hidden in Executive view/)).toBeTruthy()
+    expect(screen.getByText('No specification found')).toBeTruthy()
   })
 
   it('runs the first-run tour once', () => {

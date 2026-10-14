@@ -1,4 +1,3 @@
-import { useState } from 'react'
 import type { UiError } from '../../api/errors'
 import { API_BASE_URL } from '../../config'
 import { useBackendHealth, type BackendHealth } from '../../hooks/useBackendHealth'
@@ -7,7 +6,6 @@ import type { ScanTarget } from '../../lib/targets'
 import { AuthButton } from '../common/AuthButton'
 import { GlyphField } from '../common/GlyphField'
 import { Wordmark } from '../common/Tags'
-import { LimitationsDialog } from '../states/LimitationsDialog'
 import { RepoForm, type FormState } from './RepoForm'
 
 const HEADLINE_WORD = 'break'
@@ -50,7 +48,6 @@ interface InputScreenProps {
 }
 
 export function InputScreen({ form, onFormChange, busy, error, onDismissError, onSubmit, onLoadDemo, onOpenRollout }: InputScreenProps) {
-  const [limitationsOpen, setLimitationsOpen] = useState(false)
   const health = useBackendHealth()
 
   return (
@@ -72,13 +69,6 @@ export function InputScreen({ form, onFormChange, busy, error, onDismissError, o
                 Rollout planner
               </button>
             )}
-            <button
-              type="button"
-              onClick={() => setLimitationsOpen(true)}
-              className="text-foreground/70 transition-colors hover:text-foreground"
-            >
-              Limitations
-            </button>
             <span
               role="status"
               title={health === 'mock' ? undefined : API_BASE_URL}
@@ -161,20 +151,8 @@ export function InputScreen({ form, onFormChange, busy, error, onDismissError, o
       <footer className="relative border-t border-border">
         <div className="mx-auto flex max-w-[1400px] flex-wrap items-center justify-between gap-4 px-4 py-8 text-sm text-muted-foreground sm:px-6 lg:px-8">
           <p>DriftLock. Missing evidence is never shown as proof of safety.</p>
-          <a href="https://github.com/RAJANGKR/cross-repo-dependancy" target="_blank" rel="noreferrer" className="underline decoration-foreground/30 underline-offset-4 transition-colors hover:text-foreground">
-            GitHub repo
-          </a>
-          <button
-            type="button"
-            onClick={() => setLimitationsOpen(true)}
-            className="underline decoration-foreground/30 underline-offset-4 transition-colors hover:text-foreground"
-          >
-            Limitations
-          </button>
         </div>
       </footer>
-
-      {limitationsOpen && <LimitationsDialog onClose={() => setLimitationsOpen(false)} />}
     </div>
   )
 }

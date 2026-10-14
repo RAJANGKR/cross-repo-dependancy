@@ -67,12 +67,7 @@ export function PreviewTag() {
 /** Wordmark used in every top bar. */
 export function Wordmark() {
   return (
-    <span className="flex items-center gap-2">
-      <span className="font-display text-2xl tracking-tight">DriftLock</span>
-      <span aria-hidden="true" className="mt-1 font-mono text-xs text-muted-foreground">
-        PS 07
-      </span>
-    </span>
+    <span className="font-display text-2xl tracking-tight">DriftLock</span>
   )
 }
 

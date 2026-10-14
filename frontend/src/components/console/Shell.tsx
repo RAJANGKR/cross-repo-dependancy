@@ -1,8 +1,6 @@
 import {
   Activity,
   Bell,
-  CircleHelp,
-  Command,
   Database,
   FolderGit2,
   LayoutDashboard,
@@ -20,7 +18,7 @@ import {
   Wrench,
   type LucideIcon,
 } from 'lucide-react'
-import { useEffect, useId, useMemo, useRef, useState, type KeyboardEvent, type ReactNode } from 'react'
+import { useEffect, useId, useMemo, useState, type ReactNode } from 'react'
 import type { ScanResult } from '../../api/scanTypes'
 import { isDrifted } from '../../lib/classify'
 import { cx } from '../../lib/cx'
@@ -47,16 +45,6 @@ export const VIEW_META: Record<View, { label: string; icon: LucideIcon }> = {
   repos: { label: 'Repositories', icon: FolderGit2 },
   settings: { label: 'Settings', icon: SettingsIcon },
 }
-
-export const SHORTCUTS: Array<[string, string]> = [
-  ['Ctrl or Cmd + K', 'Open the command palette'],
-  ['?', 'Show keyboard shortcuts'],
-  ['1 to 8', 'Switch view'],
-  ['/', 'Go to Active drifts and search'],
-  ['J / K', 'Next or previous package in the detail panel'],
-  ['T', 'Switch theme'],
-  ['Esc', 'Close a panel, dialog or menu'],
-]
 
 const SOURCE_TEXT: Record<string, string> = {
   ok: 'Connected',
@@ -119,12 +107,10 @@ interface ShellProps {
   scanning: boolean
   onScanAgain: () => void
   onNewScan: () => void
-  onOpenPalette: () => void
-  onOpenShortcuts: () => void
   children: ReactNode
 }
 
-export function Shell({ view, onView, source, result, badges, scanning, onScanAgain, onNewScan, onOpenPalette, onOpenShortcuts, children }: ShellProps) {
+export function Shell({ view, onView, source, result, badges, scanning, onScanAgain, onNewScan, children }: ShellProps) {
   const { settings, readNotices } = useStore()
   const [drawer, setDrawer] = useState(false)
   const [notify, setNotify] = useState(false)
@@ -138,7 +124,7 @@ export function Shell({ view, onView, source, result, badges, scanning, onScanAg
 
   const nav = (
     <nav aria-label="Views" className="flex flex-col gap-1.5">
-      {VIEWS.map((name, index) => {
+      {VIEWS.map((name) => {
         const { label, icon: Icon } = VIEW_META[name]
         const badge = badges[name]
         return (
@@ -146,7 +132,7 @@ export function Shell({ view, onView, source, result, badges, scanning, onScanAg
             key={name}
             type="button"
             aria-current={view === name ? 'page' : undefined}
-            title={collapsed ? `${label} (${index + 1})` : `Shortcut: ${index + 1}`}
+            title={collapsed ? label : undefined}
             onClick={() => {
               onView(name)
               setDrawer(false)
@@ -178,7 +164,7 @@ export function Shell({ view, onView, source, result, badges, scanning, onScanAg
             <MenuIcon aria-hidden="true" />
           </IconButton>
           <Wordmark />
-          <SourceBadge source={source} />
+          {source === 'demo' && <SourceBadge source={source} />}
           {editingName ? (
             <input
               autoFocus
@@ -255,14 +241,8 @@ export function Shell({ view, onView, source, result, badges, scanning, onScanAg
                 </>
               )}
             </Menu>
-            <IconButton label={`Theme: ${settings.theme}. Switch theme`} shortcut="T" onClick={cycleTheme}>
+            <IconButton label={`Theme: ${settings.theme}. Switch theme`} onClick={cycleTheme}>
               <ThemeIcon aria-hidden="true" />
-            </IconButton>
-            <IconButton label="Command palette" shortcut="Ctrl+K" onClick={onOpenPalette}>
-              <Command aria-hidden="true" />
-            </IconButton>
-            <IconButton label="Keyboard shortcuts" shortcut="?" onClick={onOpenShortcuts}>
-              <CircleHelp aria-hidden="true" />
             </IconButton>
             <IconButton label="Scan again" disabled={scanning} disabledReason="A scan is already running" onClick={onScanAgain}>
               <RefreshCw aria-hidden="true" />
@@ -325,103 +305,11 @@ function NotifyDialog({ result, onClose }: { result: ScanResult; onClose: () => 
   )
 }
 
-export function ShortcutsDialog({ onClose }: { onClose: () => void }) {
-  const titleId = useId()
-  return (
-    <Dialog labelledBy={titleId} onClose={onClose} header={<h2 id={titleId} className="font-display text-2xl tracking-tight">Keyboard shortcuts</h2>}>
-      <dl className="space-y-2 text-sm">
-        {SHORTCUTS.map(([keys, action]) => (
-          <div key={keys} className="flex items-center justify-between gap-4">
-            <dt>{action}</dt>
-            <dd className="rounded-sm bg-secondary px-2 py-0.5 font-mono text-xs">{keys}</dd>
-          </div>
-        ))}
-      </dl>
-    </Dialog>
-  )
-}
-
-export interface PaletteCommand {
-  id: string
-  group: 'View' | 'Action' | 'Package'
-  label: string
-  run: () => void
-}
-
-/** Search over views, actions and packages. Up and Down move, Enter runs. */
-export function CommandPalette({ commands, onClose }: { commands: PaletteCommand[]; onClose: () => void }) {
-  const titleId = useId()
-  const [query, setQuery] = useState('')
-  const [active, setActive] = useState(0)
-  const listRef = useRef<HTMLUListElement>(null)
-  const matches = useMemo(() => {
-    const text = query.trim().toLowerCase()
-    return commands.filter((command) => !text || command.label.toLowerCase().includes(text)).slice(0, 40)
-  }, [commands, query])
-  const index = Math.min(active, Math.max(0, matches.length - 1))
-
-  const onKeyDown = (event: KeyboardEvent) => {
-    if (event.key === 'ArrowDown' || event.key === 'ArrowUp') {
-      event.preventDefault()
-      setActive(Math.min(matches.length - 1, Math.max(0, index + (event.key === 'ArrowDown' ? 1 : -1))))
-    } else if (event.key === 'Enter' && matches[index]) {
-      event.preventDefault()
-      onClose()
-      matches[index].run()
-    }
-  }
-
-  return (
-    <Dialog labelledBy={titleId} onClose={onClose} header={<h2 id={titleId} className="font-display text-2xl tracking-tight">Command palette</h2>}>
-      <label htmlFor={`${titleId}-input`} className="sr-only">
-        Search views, actions and packages
-      </label>
-      <input
-        id={`${titleId}-input`}
-        data-autofocus
-        role="combobox"
-        aria-expanded
-        aria-controls={`${titleId}-list`}
-        aria-activedescendant={matches[index] ? `${titleId}-${index}` : undefined}
-        value={query}
-        onChange={(event) => {
-          setQuery(event.target.value)
-          setActive(0)
-        }}
-        onKeyDown={onKeyDown}
-        placeholder="Search views, actions and packages"
-        autoComplete="off"
-        className="h-11 w-full rounded-md border border-input bg-card px-3 text-sm"
-      />
-      <ul ref={listRef} id={`${titleId}-list`} role="listbox" aria-label="Results" className="mt-3 max-h-80 overflow-y-auto">
-        {matches.length === 0 && <li className="px-2 py-3 text-sm text-muted-foreground">Nothing matches.</li>}
-        {matches.map((command, position) => (
-          <li
-            key={command.id}
-            id={`${titleId}-${position}`}
-            role="option"
-            aria-selected={position === index}
-            onMouseEnter={() => setActive(position)}
-            onClick={() => {
-              onClose()
-              command.run()
-            }}
-            className={cx('flex cursor-pointer items-center gap-3 rounded-sm px-2 py-2 text-sm', position === index && 'bg-secondary')}
-          >
-            <span className="w-16 shrink-0 font-mono text-[0.625rem] uppercase text-muted-foreground">{command.group}</span>
-            <span className="truncate">{command.label}</span>
-          </li>
-        ))}
-      </ul>
-    </Dialog>
-  )
-}
-
 const TOUR = [
   ['Command center', 'Start here: the four headline numbers, the dependency graph and the drifts that most need attention.'],
   ['Open a drift', 'Select any package to see versions per repository, release evidence, affected code and a fix line you can copy.'],
   ['Review and fix', 'Accept, dismiss or snooze each drift in the Review queue, then work through Fix plans. Decisions are saved in this browser only.'],
-  ['Everything is labeled', 'Demo data says so. Missing evidence is shown as missing, never as safe. Press ? for shortcuts, Ctrl+K for the palette.'],
+  ['Everything is labeled', 'Demo data says so. Missing evidence is shown as missing, never as safe.'],
 ] as const
 
 /** First-run guide. Shown once; it can be restarted from Settings. */

@@ -13,10 +13,9 @@ import { Button } from '../common/Button'
 import { ConfirmButton, Menu, MenuItem, Switch, useCopy, useToast } from '../common/Controls'
 import { PreviewTag, SectionHeading } from '../common/Tags'
 import { CommandCenter } from '../console/CommandCenter'
-import { CommandPalette, cycleTheme, setSetting, Shell, ShortcutsDialog, Tour, VIEW_META, VIEWS, type PaletteCommand, type View } from '../console/Shell'
+import { setSetting, Shell, Tour, VIEWS, type View } from '../console/Shell'
 import { ActivityView, FixPlans, RepoCompare, ReviewQueue, SettingsView } from '../console/Workflows'
 import { DetailPanel } from '../detail/DetailPanel'
-import { LimitationsDialog } from '../states/LimitationsDialog'
 import { CodeImpact } from './CodeImpact'
 import { ContractAnalysis } from './ContractAnalysis'
 import { DriftTable } from './DriftTable'
@@ -60,7 +59,7 @@ export function ResultsScreen({ record, result, source, submitted, search, onNew
   const [picked, setPicked] = useState<string[]>([])
   const [pages, setPages] = useState(1)
   const [compareRepo, setCompareRepo] = useState<string | null>(null)
-  const [dialog, setDialog] = useState<'palette' | 'shortcuts' | 'limitations' | 'tour' | null>(settings.tourDone ? null : 'tour')
+  const [dialog, setDialog] = useState<'tour' | null>(settings.tourDone ? null : 'tour')
   const [viewName, setViewName] = useState('')
 
   const rows = result.drift_matrix
@@ -150,53 +149,6 @@ export function ResultsScreen({ record, result, source, submitted, search, onNew
     setPicked([])
   }
 
-  const commands = useMemo<PaletteCommand[]>(
-    () => [
-      ...VIEWS.map((name) => ({ id: `view:${name}`, group: 'View' as const, label: VIEW_META[name].label, run: () => setView(name) })),
-      { id: 'a:scan', group: 'Action', label: 'Scan again', run: onScanAgain },
-      { id: 'a:new', group: 'Action', label: 'Start a new scan', run: onNewScan },
-      { id: 'a:md', group: 'Action', label: 'Export report as Markdown', run: exportMarkdown },
-      { id: 'a:json', group: 'Action', label: 'Export report as JSON', run: () => exportJson() },
-      { id: 'a:print', group: 'Action', label: 'Print report', run: () => window.print() },
-      { id: 'a:theme', group: 'Action', label: 'Switch theme', run: cycleTheme },
-      { id: 'a:link', group: 'Action', label: 'Copy link to this view', run: () => void copy(window.location.href, 'Link') },
-      { id: 'a:keys', group: 'Action', label: 'Show keyboard shortcuts', run: () => setDialog('shortcuts') },
-      ...rows.map((row) => ({ id: `p:${row.id}`, group: 'Package' as const, label: row.dependency_name, run: () => select(row.id) })),
-    ],
-    // The export helpers close over the same values listed here.
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-    [rows, setView, select, onScanAgain, onNewScan, copy, record, source, filters.sort, filters.reversed],
-  )
-
-  useEffect(() => {
-    const onKey = (event: KeyboardEvent) => {
-      const target = event.target
-      const typing = target instanceof HTMLElement && (target.isContentEditable || ['INPUT', 'TEXTAREA', 'SELECT'].includes(target.tagName))
-      if ((event.ctrlKey || event.metaKey) && event.key.toLowerCase() === 'k') {
-        event.preventDefault()
-        setDialog('palette')
-        return
-      }
-      if (typing || event.ctrlKey || event.metaKey || event.altKey) return
-      if (event.key === '?') setDialog('shortcuts')
-      else if (event.key === 't' && dialog === null && !selected) cycleTheme()
-      else if (event.key === 'j' && selected) step(1)
-      else if (event.key === 'k' && selected) step(-1)
-      else if (dialog === null && !selected) {
-        if (event.key === '/') {
-          event.preventDefault()
-          setView('drifts')
-          setTimeout(() => document.querySelector<HTMLInputElement>('input[type="search"]')?.focus(), 50)
-        } else if (/^[1-8]$/.test(event.key)) {
-          const next = VIEWS[Number(event.key) - 1]
-          if (next) setView(next)
-        }
-      }
-    }
-    document.addEventListener('keydown', onKey)
-    return () => document.removeEventListener('keydown', onKey)
-  }, [dialog, selected, step, setView])
-
   const graph = (tall: boolean) => (
     <Suspense fallback={<div aria-hidden="true" className="h-[420px] animate-pulse rounded-lg bg-muted" />}>
       <DependencyGraph rows={rows} repos={repos} repoLabel={repoLabel} selectedId={selected} repo={repoFilter} tall={tall} onSelectPackage={select} onToggleRepo={(name) => setRepoFilter((current) => (current === name ? null : name))} />
@@ -229,8 +181,6 @@ export function ResultsScreen({ record, result, source, submitted, search, onNew
       scanning={false}
       onScanAgain={onScanAgain}
       onNewScan={onNewScan}
-      onOpenPalette={() => setDialog('palette')}
-      onOpenShortcuts={() => setDialog('shortcuts')}
       badges={{
         drifts: rows.filter((row) => isDrifted(row.drift_disparity)).length,
         review: rows.filter((row) => needsReview(row, reviews)).length,
@@ -251,9 +201,6 @@ export function ResultsScreen({ record, result, source, submitted, search, onNew
               <p className="mt-1 text-sm text-muted-foreground">Scan {record.scan_id}</p>
             </div>
             <div className="flex flex-wrap items-center gap-2 print:hidden">
-              <Button size="sm" variant="ghost" onClick={() => setDialog('limitations')}>
-                Limitations
-              </Button>
               {exportMenu}
             </div>
           </div>
@@ -454,9 +401,6 @@ export function ResultsScreen({ record, result, source, submitted, search, onNew
           onClose={() => select(null)}
         />
       )}
-      {dialog === 'limitations' && <LimitationsDialog onClose={() => setDialog(null)} />}
-      {dialog === 'shortcuts' && <ShortcutsDialog onClose={() => setDialog(null)} />}
-      {dialog === 'palette' && <CommandPalette commands={commands} onClose={() => setDialog(null)} />}
       {dialog === 'tour' && !selectedRow && (
         <Tour
           onClose={(dontShowAgain) => {

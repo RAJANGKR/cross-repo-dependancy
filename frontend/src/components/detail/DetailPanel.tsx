@@ -65,9 +65,9 @@ interface DetailPanelProps {
   repoLabel: (name: string) => string
   codeImpact: CodeImpactItem[] | null
   position: { index: number; total: number } | null
+  /** GitHub edit page for a repository's manifest, or null when there is none. */
   /** Executive view hides source-code evidence. */
   executive: boolean
-  /** GitHub edit page for a repository's manifest, or null when there is none. */
   editUrlFor: (repo: string, sourceFile: string) => string | null
   /** Shown on the disabled button when no edit page exists. */
   editUnavailableReason?: string
@@ -158,10 +158,10 @@ export function DetailPanel({ row, repos, repoLabel, codeImpact, position, execu
       }
       toolbar={
         <>
-          <button type="button" onClick={onPrevious} disabled={!position || position.index === 0} aria-label="Previous package" title="Previous package (K)" className={NAV_BUTTON}>
+          <button type="button" onClick={onPrevious} disabled={!position || position.index === 0} aria-label="Previous package" title="Previous package" className={NAV_BUTTON}>
             <ChevronLeft aria-hidden="true" className="size-5" />
           </button>
-          <button type="button" onClick={onNext} disabled={!position || position.index >= position.total - 1} aria-label="Next package" title="Next package (J)" className={NAV_BUTTON}>
+          <button type="button" onClick={onNext} disabled={!position || position.index >= position.total - 1} aria-label="Next package" title="Next package" className={NAV_BUTTON}>
             <ChevronRight aria-hidden="true" className="size-5" />
           </button>
         </>
